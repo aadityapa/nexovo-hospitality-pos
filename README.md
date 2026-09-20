@@ -5,10 +5,30 @@ Restaurant / bar / club / café / lounge / hotel-F&B point of sale with QR digit
 ```
 frontend/   React 18 · TypeScript · Vite · Tailwind · React Router · TanStack Query · Zustand · RHF + Zod
 database/   Oracle schema · PL/SQL packages · ORDS REST module · seed data
-docs/       Architecture, API spec, RBAC, workflows, assumptions, Phase 2 plan
+docs/       Architecture, API spec, RBAC, workflows, design system, redesign coverage, Phase 2 plan
 ```
 
 ## 1. Quick start (no database needed)
+
+### Windows — the short version
+
+1. Install **Node.js LTS** from <https://nodejs.org> (accept the defaults) and reboot if it asks.
+2. Unzip the project somewhere with a normal path, e.g. `C:\Users\<you>\Desktop\Bill system`.
+3. Double-click **`start.bat`** in that folder.
+
+`start.bat` checks Node, creates `frontend\.env` from `.env.example` on first run, installs
+dependencies if `node_modules` is missing (a few minutes, once), prints both the local and the LAN
+address, opens your browser and starts the dev server. Leave the black window open — closing it or
+pressing `Ctrl+C` stops the server.
+
+Then sign in with any account from the demo-credentials table below.
+
+**If the browser says it cannot connect:** delete the folder `frontend\node_modules\.vite` and run
+`start.bat` again. Vite keeps a pre-bundling cache there and a half-written cache (from an
+interrupted start, an antivirus lock, or the folder being opened from another OS) stops the server
+from binding to port 5173. Deleting it is safe — it is rebuilt on the next start.
+
+### Any platform
 
 ```bash
 cd frontend
@@ -102,6 +122,10 @@ Authentication & sessions · RBAC (7 roles, 38 permissions, enforced server-side
 
 ## 4b. What's in Phase 2
 **Inventory** — items with units & pack sizes, categories, moving-average costing, stock movements as the only way stock changes (idempotency keys), manual adjustments/wastage, low-stock and out-of-stock alerts, dashboard. **Recipes** — per menu item with yield and wastage %, live food-cost % and margin; confirming an order deducts ingredients (converted to the stock unit), cancelling reverses them. The moment of deduction is a branch setting: `ON_CONFIRM` / `ON_BILL_CLOSE` / `MANUAL`. **Suppliers & purchasing** — supplier ledger with payments and outstanding balance, purchase orders (DRAFT → SENT → APPROVED → ORDERED → PARTIALLY_RECEIVED → RECEIVED / CANCELLED), goods receipts that post `PURCHASE` movements at the receipt cost. **CRM & loyalty** — guest profiles with explicit marketing consent and privacy-safe deletion, visit history and favourites, a points program (earn on tender, redeem as a payment method within caps, expiry, tiers, full ledger). **Reservations** — day / week views, table availability, overlap protection, seat-into-order. **Club** — cover charge types with redeemable credit, door check-in/out, business day from 06:00, dashboard; the redeemable part is applied on the bill as a `COVER_CREDIT` payment. **VIP tables** — bookings with minimum spend and deposit, live spend tracking, shortfall charged / waived / flat-fee per branch rule. **Bottle service** — whole-bottle menu items linked to stock. **Hotel room billing** — PMS adapter seam (`SIMULATED` demo provider), verify-then-post with failures recorded. **Multi-branch** — organization → branch → outlet → floor → table, per-user branch access, header switcher, every query scoped server-side. **Advanced reports** — sales by period, branch comparison, category performance, profitability (COGS from recipes), inventory valuation, wastage, consumption, staff performance, all exportable as CSV. **Notifications** — de-duplicated alerts with per-branch thresholds and an in-app centre.
+
+## 4c. Design system & redesign coverage
+* `docs/DESIGN_SYSTEM.md` — palette with verified contrast ratios, type scale, shape, elevation, motion, control heights.
+* `docs/REDESIGN_COVERAGE.md` — route-by-route checklist: which screens got shared styling only, which got screen-specific work, what is left, and the exact state of browser verification.
 
 ## 5. Docs
 * `docs/ARCHITECTURE.md` — layers, data flow, state machines, billing formula

@@ -35,12 +35,14 @@ export default function DisplayLayout({ variant }: { variant: 'kitchen' | 'bar' 
 
   return (
     <div className="chrome-dark min-h-dvh flex flex-col bg-neutral-900">
-      <header className="h-16 bg-neutral-900 text-white flex items-center gap-3 sm:gap-4 px-4 sm:px-6 border-b border-white/10 shrink-0">
+      {/* The header is the only chrome the display has, so on a phone it gives up padding and
+          the branch line before it gives up the station name or the connection indicator. */}
+      <header className="h-16 bg-neutral-900 text-white flex items-center gap-2 sm:gap-4 px-3 sm:px-6 border-b border-white/10 shrink-0">
         <span className="h-10 w-10 rounded-md bg-primary-600 flex items-center justify-center shrink-0" aria-hidden>
           <Icon className="h-5 w-5" />
         </span>
         <div className="min-w-0">
-          <h1 className="font-semibold leading-tight tracking-tight">{variant === 'kitchen' ? 'Kitchen Display' : 'Bar Display'}</h1>
+          <h1 className="font-semibold leading-tight tracking-tight truncate">{variant === 'kitchen' ? 'Kitchen' : 'Bar'}<span className="hidden xs:inline"> Display</span></h1>
           <p className="text-[11px] text-neutral-400 truncate">{branch?.businessName} · {user?.fullName}</p>
         </div>
         <div className="flex-1" />
