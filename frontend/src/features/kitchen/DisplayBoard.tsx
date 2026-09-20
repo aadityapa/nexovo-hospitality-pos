@@ -60,13 +60,13 @@ function TicketCard({ t, now, onItem, onBulk, busy }: {
 
       <header className={cn('px-3 py-2.5 sm:px-4 sm:py-3 flex items-start justify-between gap-2 sm:gap-3', age.head)}>
         <div className="min-w-0">
-          <p className="text-lg sm:text-kds-lg font-bold leading-none tracking-tight text-neutral-900 truncate">{t.tableName.toUpperCase()}</p>
+          <p className="text-lg sm:text-kds-lg font-bold leading-none sm:leading-none tracking-tight sm:tracking-tight text-neutral-900 truncate">{t.tableName.toUpperCase()}</p>
           <p className="text-caption text-neutral-600 mt-1.5 truncate">
             {t.orderNumber} · {t.ticketNumber}{t.batchNo > 1 ? ` · batch ${t.batchNo}` : ''} · {t.waiterName}
           </p>
         </div>
         <div className="text-right shrink-0">
-          <p className={cn('text-lg sm:text-xl font-bold tabular-nums leading-none inline-flex items-center gap-1.5', age.text)}>
+          <p className={cn('text-lg sm:text-xl font-bold tabular-nums leading-none sm:leading-none inline-flex items-center gap-1.5', age.text)}>
             <AgeIcon className="h-4 w-4 shrink-0" aria-hidden />
             {elapsedClock(t.createdAt, now)}
           </p>
@@ -84,12 +84,12 @@ function TicketCard({ t, now, onItem, onBulk, busy }: {
           return (
             <li key={it.id} className={cn('px-3 py-2.5 sm:px-4 sm:py-3', cancelled && 'bg-neutral-50')}>
               <div className="flex items-start gap-2.5 sm:gap-3">
-                <span className={cn('text-base font-semibold sm:text-kds sm:font-normal tabular-nums w-8 sm:w-11 shrink-0 text-neutral-900', cancelled && 'line-through text-neutral-400')}>
+                <span className={cn('text-base font-semibold sm:text-kds tabular-nums w-8 sm:w-11 shrink-0 text-neutral-900', cancelled && 'line-through text-neutral-400')}>
                   ×{it.quantity}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className={cn('text-[0.9375rem] leading-snug sm:text-kds sm:leading-tight text-neutral-900', cancelled && 'line-through text-neutral-400')}>{it.itemName}</p>
-                  {it.notes && <p className="mt-1 text-sm sm:text-base font-bold text-warning-700 uppercase tracking-wide leading-snug">{it.notes}</p>}
+                  <p className={cn('text-base leading-snug sm:text-kds sm:leading-tight text-neutral-900', cancelled && 'line-through text-neutral-400')}>{it.itemName}</p>
+                  {it.notes && <p className="mt-1 text-sm sm:text-base font-bold text-warning-700 uppercase tracking-wide leading-snug sm:leading-snug">{it.notes}</p>}
                   {cancelled && (
                     <p className="text-caption text-danger-600 flex items-center gap-1 mt-1">
                       <XCircle className="h-3 w-3" aria-hidden />Cancelled{it.cancelReason ? ` — ${it.cancelReason}` : ''}
