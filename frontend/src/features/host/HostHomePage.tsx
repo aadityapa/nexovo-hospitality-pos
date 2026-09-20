@@ -6,7 +6,7 @@ import { CheckInModal } from '@/features/club/ClubDashboardPage';
 import { ReservationForm } from '@/features/reservations/ReservationsPage';
 import { useAuth, usePermission } from '@/hooks/useAuth';
 import { useRealtimeInvalidate } from '@/hooks/useRealtime';
-import { PageHeader, Button, Card, CardHeader, StatCard, StatusBadge, Badge, LoadingState, EmptyState } from '@/components/ui';
+import { PageHeader, Button, Card, CardHeader, StatCard, StatusBadge, StatusDot, statusMeta, Badge, LoadingState, EmptyState } from '@/components/ui';
 import { money } from '@/utils/money';
 import { todayInput } from '@/utils/date';
 import { cn } from '@/utils/cn';
@@ -34,7 +34,15 @@ export default function HostHomePage() {
   const late = upcoming.filter((r) => nowMs - dueAt(r.date, r.time) > 5 * 60_000);
   /** The one booking the host should be watching the door for. */
   const next = upcoming.find((r) => dueAt(r.date, r.time) >= nowMs) ?? upcoming[0];
-  const vipFree = (vip.data ?? []).filter((t) => !t.booking).length;
+  /**
+   * VIP tables carry two independent facts and the host desk must never merge them:
+   * `booking` is tonight's VIP reservation record, `status` is what the table is doing now
+   * (the engine derives it from the active order). A table with no booking may still be
+   * occupied by a walk-in, so nothing here is counted as "free" just because it is unbooked.
+   */
+  const vipTables = vip.data ?? [];
+  const vipBooked = vipTables.filter((t) => !!t.booking).length;
+  const vipInService = vipTables.filter((t) => t.status !== 'AVAILABLE' && t.status !== 'CLOSED').length;
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
@@ -79,10 +87,11 @@ export default function HostHomePage() {
         </Card>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
+      {/* One column below 420 px so StatCard's row variant keeps every label whole. */}
+      <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 gap-3 xs:gap-4 mb-5">
         <StatCard label="Still to arrive" value={res.data ? upcoming.length : '…'} icon={<CalendarDays className="h-5 w-5" />} tone="primary" hint={res.data ? `${covers} covers · ${seated} seated · ${res.data.length} booked today` : undefined} onClick={() => navigate('/admin/reservations')} />
         <StatCard label="Guests inside" value={club.data?.guestsInside ?? '…'} icon={<Users className="h-5 w-5" />} tone="info" hint={club.data ? `${club.data.entries} entries · ${money(club.data.coverRevenue)} cover` : undefined} onClick={() => navigate('/admin/club')} />
-        <StatCard label="VIP tables free" value={vip.data ? `${vipFree} / ${vip.data.length}` : '…'} icon={<Crown className="h-5 w-5" />} tone="warning" hint="free / total" onClick={() => navigate('/admin/vip')} />
+        <StatCard label="VIP tables booked" value={vip.data ? `${vipBooked} / ${vipTables.length}` : '…'} icon={<Crown className="h-5 w-5" />} tone="warning" hint={vip.data ? `booked tonight · ${vipInService} in service now` : undefined} onClick={() => navigate('/admin/vip')} />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
@@ -113,15 +122,17 @@ export default function HostHomePage() {
         </Card>
 
         <Card padded={false}>
-          <CardHeader className="p-4 pb-0" title={<span className="flex items-center gap-2"><Crown className="h-4 w-4" />VIP tables</span>} subtitle={vip.data ? `${vipFree} free of ${vip.data.length}` : undefined} action={canVip && <Button size="sm" variant="ghost" onClick={() => navigate('/admin/vip')}>Manage</Button>} />
-          {vip.isLoading ? <div className="p-4"><LoadingState rows={2} /></div> : (vip.data ?? []).length === 0 ? <EmptyState compact title="No VIP tables configured" /> : (
-            <ul className="divide-y divide-neutral-100 mt-2">{(vip.data ?? []).map((t) => {
+          <CardHeader className="p-4 pb-0" title={<span className="flex items-center gap-2"><Crown className="h-4 w-4" />VIP tables</span>} subtitle={vip.data ? `${vipBooked} of ${vipTables.length} booked tonight · ${vipInService} in service now` : undefined} action={canVip && <Button size="sm" variant="ghost" onClick={() => navigate('/admin/vip')}>Manage</Button>} />
+          {vip.isLoading ? <div className="p-4"><LoadingState rows={2} /></div> : vipTables.length === 0 ? <EmptyState compact title="No VIP tables configured" /> : (
+            <ul className="divide-y divide-neutral-100 mt-2">{vipTables.map((t) => {
               const b = t.booking;
               const pct = b && b.minSpend ? Math.min(100, (b.currentSpend / b.minSpend) * 100) : 0;
+              const svc = statusMeta('table', t.status);
               return (
-                <li key={t.tableId} className="px-4 py-3 flex items-center gap-3">
+                <li key={t.tableId} className="px-4 py-3 flex items-start gap-3">
                   <span className="w-16 shrink-0 font-bold">{t.tableName}</span>
                   <span className="flex-1 min-w-0">
+                    {/* Reservation for tonight — says nothing about who is sitting there. */}
                     {b ? (
                       <>
                         <span className="flex items-center gap-2"><span className="font-medium truncate">{b.guestName}</span><StatusBadge kind="vip" status={b.status} size="sm" hideIcon /></span>
@@ -139,9 +150,14 @@ export default function HostHomePage() {
                             </span>
                             <span className="block text-caption text-neutral-500 mt-0.5 tabular-nums">{b.remainingSpend > 0 ? `${money(b.remainingSpend)} to minimum` : 'minimum met'}</span>
                           </>
-                        ) : <span className="block text-caption text-neutral-500">{b.guests} guests · min {money(b.minSpend)}</span>}
+                        ) : <span className="block text-caption text-neutral-500 tabular-nums">{b.guests} guests · min {money(b.minSpend)}</span>}
                       </>
-                    ) : <span className="text-sm text-neutral-500">Free · min {money(t.minSpendDefault)}</span>}
+                    ) : <span className="block text-sm text-neutral-700">No booking tonight <span className="text-caption text-neutral-500 tabular-nums">· min {money(t.minSpendDefault)}</span></span>}
+                    {/* Current service — the table's own status, booked or not. */}
+                    <span className="mt-1 flex items-center gap-1.5 text-caption text-neutral-500">
+                      <StatusDot tone={svc.tone} />
+                      Now: {svc.label}{b?.status === 'SEATED' && b.orderNumber ? ` · ${b.orderNumber}` : ''}
+                    </span>
                   </span>
                   {b?.status === 'SEATED' && <span className="text-caption tabular-nums text-right shrink-0">{money(b.currentSpend)}<span className="block text-neutral-500">of {money(b.minSpend)}</span></span>}
                 </li>

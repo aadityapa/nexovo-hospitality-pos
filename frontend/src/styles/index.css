@@ -63,8 +63,15 @@
    ========================================================================== */
 @layer components {
   /* Surfaces ---------------------------------------------------------------- */
-  .card  { @apply bg-white border border-neutral-200 rounded-md shadow-card; }
-  .panel { @apply bg-white border border-neutral-200 rounded-lg shadow-panel; }
+  /*
+   * `min-w-0` is load-bearing, not cosmetic. Cards are almost always flex or grid items, and
+   * such an item's automatic minimum size is its content's min-content width. A single
+   * `truncate` (white-space: nowrap) heading inside therefore pushed the whole card wider than
+   * the viewport at 390 px — the card overflowed its own track and the page scrolled sideways.
+   * Verified at 390 px on /admin, /admin/roles, /admin/branches and /cashier.
+   */
+  .card  { @apply bg-white border border-neutral-200 rounded-md shadow-card min-w-0; }
+  .panel { @apply bg-white border border-neutral-200 rounded-lg shadow-panel min-w-0; }
   .popover { @apply bg-white border border-neutral-200 rounded-md shadow-pop; }
   /* A quiet, borderless grouping used inside cards */
   .well  { @apply bg-neutral-50 border border-neutral-200 rounded-sm; }
@@ -102,7 +109,13 @@
   }
 
   /* Table shells ------------------------------------------------------------ */
-  .table-scroll { @apply overflow-x-auto overscroll-x-contain; }
+  /*
+   * `min-w-0` again matters: a scroll container whose table carries `min-w-[520px]` still
+   * reports that as its content-based minimum, so as a flex/grid item it would widen its whole
+   * column instead of scrolling. With min-width: 0 the table scrolls inside the box, which is
+   * the entire point. Verified at 390 px on /admin/roles.
+   */
+  .table-scroll { @apply overflow-x-auto overscroll-x-contain min-w-0; }
   .table-base   { @apply w-full border-collapse text-sm; }
   .table-base th {
     @apply text-left text-label uppercase text-neutral-500 font-semibold px-3 py-2.5 bg-neutral-50 border-b border-neutral-200 whitespace-nowrap;
@@ -121,6 +134,43 @@
   /* Respect the iOS home indicator on sticky bottom bars */
   .safe-bottom { padding-bottom: max(env(safe-area-inset-bottom), 0px); }
   .safe-top    { padding-top: max(env(safe-area-inset-top), 0px); }
+
+  /* ---------------------------------------------------------------------------
+   * ONE system for bottom navigation, sticky page actions and safe-area insets.
+   *
+   * `--app-bottom-nav` is the space the fixed bottom navigation occupies, and it
+   * is the ONLY number any sticky action bar or scroll container may use. A layout
+   * that renders <BottomNav> puts `.has-bottom-nav` on its root; the nav itself is
+   * `lg:hidden`, so the variable collapses to 0 at lg and above.
+   *
+   * Nothing may hard-code a matching padding (`pb-24` next to `bottom-24`): that is
+   * a coincidence, not a system, and it breaks the moment the nav height changes.
+   * ------------------------------------------------------------------------- */
+  .has-bottom-nav { --app-bottom-nav: calc(3.75rem + env(safe-area-inset-bottom, 0px)); }
+  @media (min-width: 1024px) { .has-bottom-nav { --app-bottom-nav: 0px; } }
+
+  /* Room for the bottom nav plus breathing space, so the last row is reachable. */
+  .pb-nav { padding-bottom: calc(var(--app-bottom-nav, 0px) + 1.5rem); }
+
+  /*
+   * Sticky save / action bar. Because it is sticky (in flow) rather than fixed, the
+   * last field always scrolls clear of it at the end of the document — it only floats
+   * while there is more content below. It parks above the bottom navigation, never on it.
+   */
+  .save-bar {
+    position: sticky;
+    bottom: calc(var(--app-bottom-nav, 0px) + 0.75rem);
+    z-index: theme('zIndex.sticky');
+  }
+
+  /*
+   * Touch-target floor. Desktop keeps its density (a 32 px segmented control is right for a
+   * mouse); on a coarse pointer the same control grows to the 44 px minimum. This is a
+   * pointer-capability rule, not a width breakpoint, so a 1280 px tablet gets it too.
+   */
+  @media (pointer: coarse) {
+    .touch-target { min-height: 2.75rem; min-width: 2.75rem; }
+  }
 
   /* Money / quantity alignment */
   .tnum { font-variant-numeric: tabular-nums; }

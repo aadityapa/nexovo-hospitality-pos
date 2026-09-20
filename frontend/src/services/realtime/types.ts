@@ -21,8 +21,12 @@ export interface RealtimeStatusSnapshot {
   status: RealtimeStatus;
   /**
    * ISO timestamp of the last successful exchange with the transport — a poll that returned
-   * 200 (even with zero events), or the moment a channel was opened. This is what proves the
-   * connection is alive, so it is the value the indicator must judge health by.
+   * 200 (even with zero events), or the moment a channel was opened.
+   *
+   * Reported for display only. `status` is decided by transport outcomes (a poll resolving, a
+   * poll failing twice, connect/disconnect, the browser's online/offline events), NOT by how old
+   * this timestamp is. Nothing anywhere compares it against `now`, which is what keeps an idle
+   * but healthy connection from ageing into "stale" or "offline".
    */
   lastSyncAt: string | null;
   /**

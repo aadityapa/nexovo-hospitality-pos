@@ -79,7 +79,7 @@ export default function RoomChargesPage() {
         </Alert>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+      <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
         <StatCard label="Posted to folios" value={money(posted.reduce((a, r) => a + r.amount, 0))} icon={<BedDouble className="h-5 w-5" />} tone="success" hint={`${posted.length} charge${posted.length === 1 ? '' : 's'} confirmed`} onClick={() => setFilter('POSTED')} />
         <StatCard label="Rejected" value={failed.length} icon={<XCircle className="h-5 w-5" />} tone="danger" hint={failed.length ? `${money(failed.reduce((a, r) => a + r.amount, 0))} unsettled` : 'PMS rejected or offline'} onClick={() => setFilter('FAILED')} />
         <StatCard label="Reversed" value={reversed.length} icon={<Undo2 className="h-5 w-5" />} tone="neutral" hint="payment voided after posting" onClick={() => setFilter('REVERSED')} />

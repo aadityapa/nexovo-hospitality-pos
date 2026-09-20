@@ -82,9 +82,9 @@ export default function BillingScreenPage() {
   return (
     <div>
       <PageHeader back={() => navigate('/cashier')} title={<span className="flex items-center gap-3 flex-wrap">{b.tableName}<StatusBadge kind="bill" status={b.status} size="lg" /><StatusBadge kind="payment" status={b.paymentStatus} /></span>} subtitle={`${b.billNumber} · ${b.orderNumber} · Waiter ${b.waiterName} · Cashier ${b.cashierName} · ${fmtDateTime(b.createdAt)}`}
-        actions={<><Button variant="outline" className="w-full sm:w-auto min-h-touch" leftIcon={<Printer className="h-4 w-4" />} onClick={() => navigate(`/cashier/bills/${b.id}/receipt`)}>Print bill</Button></>} />
+        actions={<><Button variant="outline" className="w-full sm:w-auto min-h-touch sm:min-h-0" leftIcon={<Printer className="h-4 w-4" />} onClick={() => navigate(`/cashier/bills/${b.id}/receipt`)}>Print bill</Button></>} />
       {/* The trailing padding is what keeps the last card reachable above the phone dock. */}
-      <div className="grid gap-4 pb-16 lg:pb-0 lg:grid-cols-[minmax(0,1fr)_400px]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_400px]">
         {/* LEFT */}
         <div className="space-y-4">
           <Card padded={false}>
@@ -111,7 +111,7 @@ export default function BillingScreenPage() {
                 <li key={d.id} className="px-4 py-3 flex items-center gap-3 text-sm">
                   <div className="min-w-0 flex-1"><p className="font-medium">{d.discountType === 'PERCENTAGE' ? `${d.value}%` : money(d.value)} — {d.reason}</p><p className="text-caption text-neutral-500">by {d.appliedByName}{d.approvedByName ? ` · approved by ${d.approvedByName}` : ''} · {fmtTime(d.createdAt)}</p></div>
                   <span className="font-semibold tabular-nums text-success-700">−{money(d.amount)}</span>
-                  {canDiscount && editable && <Button size="sm" variant="ghost" className="min-h-touch min-w-touch shrink-0" aria-label="Remove discount" onClick={() => m.removeDiscount.mutate({ id: b.id, discountId: d.id })}><X className="h-4 w-4" /></Button>}
+                  {canDiscount && editable && <Button size="sm" variant="ghost" className="min-h-touch min-w-touch sm:min-h-0 sm:min-w-0 shrink-0" aria-label="Remove discount" onClick={() => m.removeDiscount.mutate({ id: b.id, discountId: d.id })}><X className="h-4 w-4" /></Button>}
                 </li>))}</ul>
             )}
           </Card>
@@ -149,15 +149,12 @@ export default function BillingScreenPage() {
       </div>
 
       {/*
-        PHONE DOCK — collapsed summary + the action the bill is waiting on.
-        `bottom-24` is the same clearance PosLayout already reserves for the POS bottom
-        navigation (`main … pb-24`), so the dock parks above the tab bar instead of covering
-        it, and because the dock is also the last block in the flow it comes to rest exactly
-        there when the page is scrolled to the end — with the grid's `pb-16` keeping the last
-        card clear of it. The nav's own `.safe-bottom` already holds the home-indicator inset,
-        so the dock must not add it a second time.
+        PHONE DOCK — stays on screen while the page scrolls, parks above the bottom navigation.
+        Offset comes from the shared `.save-bar` rule (`--app-bottom-nav`), never from a
+        hand-matched padding value; because the dock is sticky and last in the flow it settles
+        into its natural place at the end of the scroll, so the final card is always reachable.
       */}
-      <div className="lg:hidden sticky bottom-24 z-sticky mt-4">
+      <div className="lg:hidden save-bar mt-4">
         <div className="card shadow-panel overflow-hidden">
           <div id="bill-summary-sheet" hidden={!dockOpen} className="max-h-64 overflow-y-auto overscroll-contain px-4 py-3 border-b border-neutral-100">
             <BillSummary bill={b} compact />

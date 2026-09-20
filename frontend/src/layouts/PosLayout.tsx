@@ -15,7 +15,7 @@ export default function PosLayout({ variant }: { variant: 'waiter' | 'cashier' }
   useRealtimeInvalidate(variant === 'waiter' ? ['orders', 'tables', 'kitchen', 'bar', 'menu'] : ['orders', 'tables', 'bills', 'menu']);
 
   return (
-    <div className="min-h-dvh flex flex-col bg-surface">
+    <div className="min-h-dvh flex flex-col bg-surface has-bottom-nav">
       <a href="#main" className="sr-only-focusable absolute z-toast m-3 rounded-sm bg-primary-600 px-4 py-2 text-sm font-medium text-white">
         Skip to content
       </a>
@@ -39,7 +39,7 @@ export default function PosLayout({ variant }: { variant: 'waiter' | 'cashier' }
           </nav>
         }
       />
-      <main id="main" tabIndex={-1} className="flex-1 p-3 sm:p-5 pb-24 lg:pb-6 max-w-[1600px] w-full mx-auto outline-none">
+      <main id="main" tabIndex={-1} className="flex-1 p-3 sm:p-5 pb-nav max-w-[1600px] w-full mx-auto outline-none">
         <Outlet />
       </main>
       <BottomNav items={items} />

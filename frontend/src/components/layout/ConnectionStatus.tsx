@@ -17,11 +17,14 @@ const AGO = (from: string, now: Date): string => {
  * badge. On a kitchen display a stale board is a safety problem, so "offline" is stated
  * plainly together with the age of the last successful sync.
  *
- * Two clocks, never conflated:
- *   `lastSyncAt`  — the last successful exchange with the transport. This is the ONLY input
- *                   to the connected/offline decision, so a quiet hour never reads as a fault.
- *   `lastEventAt` — the last business event received. Shown as information ("last activity"),
- *                   because on a slow night there legitimately is none.
+ * The label comes from `status`, which the provider sets from transport outcomes alone (a poll
+ * resolving, a poll failing twice, connect/disconnect, the browser's online/offline events).
+ * The two timestamps are displayed, never used to derive the label:
+ *   `lastSyncAt`  — the last successful exchange with the transport ("checked 12s ago").
+ *   `lastEventAt` — the last business event received ("last activity 40m ago"), which on a slow
+ *                   night is legitimately old and must not be read as a fault.
+ * Because neither timestamp is compared against `now` to decide anything, an idle but healthy
+ * connection cannot drift into looking stale or offline.
  */
 export function ConnectionStatus({ onDark, compact }: { onDark?: boolean; compact?: boolean }) {
   const { status, lastSyncAt, lastEventAt } = useRealtimeStatus();

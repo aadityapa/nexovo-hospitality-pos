@@ -79,7 +79,7 @@ export default function CustomerDetailPage() {
         </div>
       </Card>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+      <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <StatCard label="Visits" value={c.totalVisits} tone="primary" hint={c.lastVisitAt ? `last ${fmtRelative(c.lastVisitAt)}` : 'no visits yet'} />
         <StatCard label="Total spend" value={money(c.totalSpend)} tone="success" hint={`avg ${money(c.averageSpend)}`} />
         <StatCard label="Lifetime points" value={loyalty.lifetimePoints} icon={<Star className="h-5 w-5" />} tone="warning" />

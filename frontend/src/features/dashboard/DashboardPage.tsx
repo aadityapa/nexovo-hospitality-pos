@@ -182,7 +182,7 @@ export default function DashboardPage() {
         return (
           <div className="space-y-5">
             {/* Headline row — the four numbers a manager checks first. */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4">
               <StatCard
                 label="Sales"
                 value={money(d.sales.totalSales)}
@@ -218,7 +218,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Secondary row — occupancy and exceptions. */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4">
               <StatCard
                 label="Tables occupied"
                 value={`${d.occupiedTables} / ${d.totalTables}`}

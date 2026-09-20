@@ -42,7 +42,7 @@ export default function SupplierDetailPage() {
         </>}
       />
 
-      <div className="grid gap-4 lg:grid-cols-[320px_1fr] items-start">
+      <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)] items-start">
         {/* Contact first — this page usually starts with a phone call. */}
         <div className="space-y-4">
           <Card>
@@ -87,7 +87,7 @@ export default function SupplierDetailPage() {
             {canPay && owes && <Button className="mt-4" block leftIcon={<IndianRupee className="h-4 w-4" />} onClick={() => setPayOpen(true)}>Record payment</Button>}
           </Card>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 xs:grid-cols-2 gap-4">
             <StatCard label="Purchased" value={money(s.totalPurchased)} tone="primary" hint="goods received value" />
             <StatCard label="Paid" value={money(s.totalPaid)} tone="success" />
             <StatCard label="Purchase orders" value={s.poCount} tone="info" hint={`${s.openPoCount} open`} />

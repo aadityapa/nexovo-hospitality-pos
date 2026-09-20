@@ -94,7 +94,7 @@ export default function PaymentPage() {
     <div>
       <PageHeader back={() => navigate(`/cashier/bills/${b.id}`)} title={`Payment · ${b.tableName}`} subtitle={`${b.billNumber} · ${b.orderNumber}${b.customerName ? ` · ${b.customerName}` : ''}`} />
       {/* The trailing padding is what keeps the confirm button reachable above the phone dock. */}
-      <div className="grid gap-4 pb-16 lg:pb-0 lg:grid-cols-[minmax(0,1fr)_400px]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_400px]">
         <div className="space-y-4">
           {balance <= 0 ? (
             <Card className="text-center py-10"><CheckCircle2 className="h-12 w-12 text-success-600 mx-auto" /><h2 className="text-heading mt-3">Fully paid</h2><p className="text-neutral-500 mt-1">Print the receipt and close the order.</p><div className="mt-5 flex flex-col sm:flex-row sm:justify-center gap-2"><Button variant="outline" block className="sm:w-auto" leftIcon={<Printer className="h-4 w-4" />} onClick={() => navigate(`/cashier/bills/${b.id}/receipt`)}>Receipt</Button><Button block className="sm:w-auto" onClick={() => navigate(`/cashier/bills/${b.id}`)}>Back to bill</Button></div></Card>
@@ -165,14 +165,12 @@ export default function PaymentPage() {
       </div>
 
       {/*
-        PHONE DOCK — the balance stays on screen while the keypad is in use.
-        `bottom-24` matches the clearance PosLayout already reserves for the POS bottom
-        navigation (`main … pb-24`), so the dock parks above the tab bar rather than covering
-        it; being last in the flow it settles into exactly that position at the end of the
-        scroll, with the grid's `pb-16` keeping the confirm button clear of it. The nav's own
-        `.safe-bottom` already holds the home-indicator inset, so the dock must not add it again.
+        PHONE DOCK — stays on screen while the page scrolls, parks above the bottom navigation.
+        Offset comes from the shared `.save-bar` rule (`--app-bottom-nav`), never from a
+        hand-matched padding value; because the dock is sticky and last in the flow it settles
+        into its natural place at the end of the scroll, so the final card is always reachable.
       */}
-      <div className="lg:hidden sticky bottom-24 z-sticky mt-4">
+      <div className="lg:hidden save-bar mt-4">
         <div className="card shadow-panel overflow-hidden">
           <div id="pay-summary-sheet" hidden={!dockOpen} className="max-h-64 overflow-y-auto overscroll-contain px-4 py-3 border-b border-neutral-100">
             <BillSummary bill={b} compact />

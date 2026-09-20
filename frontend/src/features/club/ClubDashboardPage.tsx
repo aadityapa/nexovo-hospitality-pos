@@ -8,7 +8,7 @@ import { useClubDashboard, useClubEntries, useCoverTypes, useClubMutations, useC
 import { useTables } from '@/features/tables/hooks';
 import { usePermission } from '@/hooks/useAuth';
 import { useRealtimeInvalidate } from '@/hooks/useRealtime';
-import { PageHeader, Button, Card, CardHeader, StatCard, Modal, ConfirmDialog, Input, Select, Textarea, Switch, StatusBadge, Badge, SegmentedControl, SearchInput, LoadingState, ErrorState, EmptyState, IconButton, KeyValue } from '@/components/ui';
+import { PageHeader, Button, Card, CardHeader, StatCard, Modal, ConfirmDialog, Input, Select, Textarea, Switch, StatusBadge, StatusDot, statusMeta, Badge, SegmentedControl, SearchInput, LoadingState, ErrorState, EmptyState, IconButton, KeyValue } from '@/components/ui';
 import { ApiError } from '@/services/api/client';
 import { ENTRY_TYPE_LABELS, PAYMENT_METHOD_LABELS } from '@/config/statuses';
 import { money } from '@/utils/money';
@@ -126,10 +126,15 @@ export default function ClubDashboardPage() {
         <div className="grid gap-4 mb-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           {/* Door and floor first: how many people are in the room, how they got in,
               how much of the VIP floor is actually in use. */}
-          <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
+          {/* One column below 420 px: StatCard's row variant needs the full width, and a
+              `col-span-2` inside a single-column grid would create an implicit second track
+              and overflow the page. */}
+          <div className="grid grid-cols-1 xs:grid-cols-2 xl:grid-cols-3 gap-3 xs:gap-4">
             <StatCard size="lg" label="Guests inside" value={d.guestsInside} icon={<Users className="h-5 w-5" />} tone="primary" hint={`${d.guestsTotal} entered today`} />
             <StatCard size="lg" label="Entries tonight" value={d.entries} icon={<Ticket className="h-5 w-5" />} tone="info" hint={`${d.vipEntries} VIP entr${d.vipEntries === 1 ? 'y' : 'ies'}`} />
-            <StatCard size="lg" label="VIP tables in use" value={`${d.vipTables.filter((v) => v.status === 'SEATED').length} / ${d.vipTables.length}`} icon={<Crown className="h-5 w-5" />} tone="warning" hint="seated / booked tonight" onClick={() => navigate('/admin/vip')} className="col-span-2 xl:col-span-1" />
+            {/* Counts VIP RESERVATIONS that have been seated — a reservation fact, not a
+                claim about every VIP table on the floor. */}
+            <StatCard size="lg" label="VIP bookings seated" value={`${d.vipTables.filter((v) => v.status === 'SEATED').length} / ${d.vipTables.length}`} icon={<Crown className="h-5 w-5" />} tone="warning" hint="seated / booked tonight" onClick={() => navigate('/admin/vip')} className="xs:col-span-2 xl:col-span-1" />
           </div>
           {/* Money is context, not the door's job — grouped quietly instead of four more tiles. */}
           <Card className="min-w-0">
@@ -170,9 +175,31 @@ export default function ClubDashboardPage() {
         </Card>
         <div className="space-y-4">
           <Card padded={false}>
-            <CardHeader className="p-4 pb-0" title="VIP tables tonight" action={<Button size="sm" variant="ghost" onClick={() => navigate('/admin/vip')}>Manage</Button>} />
+            <CardHeader className="p-4 pb-0" title="VIP tables tonight" subtitle="Booking and current service shown separately" action={<Button size="sm" variant="ghost" onClick={() => navigate('/admin/vip')}>Manage</Button>} />
             {vip.isLoading ? <div className="p-4"><LoadingState rows={2} /></div> : (vip.data ?? []).length === 0 ? <EmptyState compact title="No VIP tables" description="Mark tables as VIP in Tables settings." /> : (
-              <ul className="divide-y divide-neutral-100 mt-2">{(vip.data ?? []).map((t) => <li key={t.tableId} className="px-4 py-2.5 text-sm flex items-center gap-2"><Crown className="h-4 w-4 text-warning-500 shrink-0" /><span className="flex-1 min-w-0"><span className="font-medium">{t.tableName}</span><span className="block text-caption text-neutral-500 truncate">{t.booking ? `${t.booking.guestName} · ${t.booking.guests} guests · ${money(t.booking.currentSpend)} of ${money(t.booking.minSpend)}` : `min spend ${money(t.minSpendDefault)} · free`}</span></span>{t.booking ? <StatusBadge kind="vip" status={t.booking.status} size="sm" hideIcon /> : <StatusBadge kind="table" status={t.status} size="sm" hideIcon />}</li>)}</ul>
+              /* A table can be occupied without a booking and booked without being occupied,
+                 so both axes are always printed: the VIP reservation for tonight, and the
+                 table's own live status. Neither is inferred from the other. */
+              <ul className="divide-y divide-neutral-100 mt-2">{(vip.data ?? []).map((t) => {
+                const svc = statusMeta('table', t.status);
+                return (
+                  <li key={t.tableId} className="px-4 py-3 text-sm flex items-start gap-2">
+                    <Crown className="h-4 w-4 text-warning-500 shrink-0 mt-0.5" aria-hidden />
+                    <span className="flex-1 min-w-0">
+                      <span className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium truncate">{t.tableName}</span>
+                        {t.booking ? <StatusBadge kind="vip" status={t.booking.status} size="sm" hideIcon /> : <Badge size="sm" tone="neutral">No booking</Badge>}
+                      </span>
+                      <span className="block text-caption text-neutral-500 truncate tabular-nums">
+                        {t.booking ? `${t.booking.guestName} · ${t.booking.guests} guests · ${money(t.booking.currentSpend)} of ${money(t.booking.minSpend)}` : `minimum ${money(t.minSpendDefault)} if booked`}
+                      </span>
+                      <span className="mt-1 flex items-center gap-1.5 text-caption text-neutral-500">
+                        <StatusDot tone={svc.tone} />Now: {svc.label}
+                      </span>
+                    </span>
+                  </li>
+                );
+              })}</ul>
             )}
           </Card>
           {d && d.byEntryType.length > 0 && (

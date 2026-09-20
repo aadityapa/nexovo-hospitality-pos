@@ -146,7 +146,7 @@ export function DataTable<T>({
                       <button
                         type="button"
                         onClick={() => toggleSort(c.key)}
-                        className={cn('inline-flex items-center gap-1.5 rounded-sm transition-colors hover:text-neutral-900', active && 'text-neutral-900')}
+                        className={cn('inline-flex items-center gap-1.5 rounded-sm transition-colors hover:text-neutral-900 touch-target', active && 'text-neutral-900')}
                       >
                         {c.header}
                         {active

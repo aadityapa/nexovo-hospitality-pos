@@ -51,7 +51,7 @@ export default function ManagerDashboardPage() {
       {dash.isError && <ErrorState error={dash.error} onRetry={() => void dash.refetch()} compact />}
 
       {/* Service state first — a manager opens this page because something might be wrong. */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard
           label="Delayed"
           value={delayed.length}
@@ -144,7 +144,7 @@ export default function ManagerDashboardPage() {
 
       {/* Commercial performance below the operational picture. */}
       <div className="mt-6 space-y-5">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard label="Sales" value={dash.data ? money(dash.data.sales.totalSales) : '…'} icon={<IndianRupee className="h-5 w-5" />} tone="primary" size="lg" hint={dash.data ? `${dash.data.sales.totalOrders} paid bills` : undefined} />
           <StatCard label="Average bill" value={dash.data ? money(dash.data.sales.averageOrderValue) : '…'} tone="neutral" />
           <StatCard label="Discounts" value={dash.data ? money(dash.data.sales.discountTotal) : '…'} tone="neutral" />

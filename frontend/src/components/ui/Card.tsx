@@ -21,8 +21,10 @@ export function Card({ className, padded = true, interactive, children, ...rest 
 }
 
 export function CardHeader({ title, subtitle, action, className }: { title: ReactNode; subtitle?: ReactNode; action?: ReactNode; className?: string }) {
+  // `flex-wrap` so a long title plus a header action drops to a second line on a narrow
+  // phone instead of forcing the whole card wider than its column.
   return (
-    <div className={cn('flex items-start justify-between gap-3 mb-4', className)}>
+    <div className={cn('flex flex-wrap items-start justify-between gap-3 mb-4', className)}>
       <div className="min-w-0">
         <h3 className="text-subheading text-neutral-900">{title}</h3>
         {subtitle && <p className="text-sm text-neutral-500 mt-1 leading-snug">{subtitle}</p>}
@@ -68,17 +70,27 @@ export function StatCard({ label, value, icon, delta, tone = 'neutral', hint, on
       type={onClick ? 'button' : undefined}
       onClick={onClick}
       className={cn(
-        'card p-4 sm:p-5 flex items-start gap-4 text-left w-full min-w-0',
+        'card p-3.5 sm:p-5 flex items-center xs:items-start gap-3 sm:gap-4 text-left w-full min-w-0',
         onClick && 'transition-[border-color,box-shadow] hover:border-neutral-300 hover:shadow-panel press',
         className,
       )}
     >
-      {icon && <span className={cn('shrink-0 h-10 w-10 rounded-md flex items-center justify-center', iconTones[tone])} aria-hidden>{icon}</span>}
+      {icon && <span className={cn('shrink-0 h-9 w-9 sm:h-10 sm:w-10 rounded-md flex items-center justify-center', iconTones[tone])} aria-hidden>{icon}</span>}
+      {/*
+       * Below 420 px the card is a full-width ROW: label on the left (free to wrap onto a
+       * second line), figure on the right. Truncating the label to "T…" is never acceptable —
+       * an operator cannot act on a metric they cannot name — so nothing here truncates.
+       */}
       <div className="min-w-0 flex-1">
-        <p className="text-label text-neutral-500 uppercase truncate">{label}</p>
-        <p className={cn('text-neutral-900 font-semibold tabular-nums mt-1.5 truncate', size === 'lg' ? 'text-metric' : 'text-2xl leading-8 tracking-[-0.02em]')}>
-          {value}
-        </p>
+        <div className="flex items-center justify-between gap-3 xs:block">
+          <p className="text-label text-neutral-500 uppercase leading-tight break-words min-w-0">{label}</p>
+          <p className={cn(
+            'text-neutral-900 font-semibold tabular-nums whitespace-nowrap shrink-0 xs:mt-1.5',
+            size === 'lg' ? 'text-xl xs:text-metric' : 'text-xl xs:text-2xl leading-7 xs:leading-8 tracking-[-0.02em]',
+          )}>
+            {value}
+          </p>
+        </div>
         {delta && (
           <p className={cn(
             'text-caption mt-1.5 inline-flex items-center gap-1 font-medium',

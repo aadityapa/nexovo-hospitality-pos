@@ -106,7 +106,7 @@ export function SegmentedControl<V extends string>({ options, value, onChange, c
             aria-label={o.ariaLabel}
             onClick={() => onChange(o.value)}
             className={cn(
-              'rounded-sm font-medium whitespace-nowrap transition-colors inline-flex items-center gap-1.5',
+              'rounded-sm font-medium whitespace-nowrap transition-colors inline-flex items-center gap-1.5 touch-target',
               size === 'sm' ? 'px-2.5 h-8 text-xs' : size === 'lg' ? 'px-4 h-11 text-base' : 'px-3 h-9 text-sm',
               on ? 'bg-white text-neutral-900 shadow-card' : 'text-neutral-600 hover:text-neutral-900',
             )}

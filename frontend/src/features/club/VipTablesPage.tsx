@@ -7,7 +7,7 @@ import { Crown, Plus, Armchair, CheckCircle2, X, UserX, TrendingUp, Pencil, Aler
 import { useVipTables, useVipList, useVipSpend, useClubMutations, useCustomers, useStaff } from '@/features/p2/hooks';
 import { usePermission } from '@/hooks/useAuth';
 import { useRealtimeInvalidate } from '@/hooks/useRealtime';
-import { PageHeader, Button, Card, Modal, ConfirmDialog, Input, Select, Textarea, Switch, StatusBadge, Badge, SegmentedControl, LoadingState, ErrorState, EmptyState, KeyValue } from '@/components/ui';
+import { PageHeader, Button, Card, Modal, ConfirmDialog, Input, Select, Textarea, Switch, StatusBadge, statusMeta, Badge, SegmentedControl, LoadingState, ErrorState, EmptyState, KeyValue } from '@/components/ui';
 import { ApiError } from '@/services/api/client';
 import { money } from '@/utils/money';
 import { fmtDate, todayInput } from '@/utils/date';
@@ -77,8 +77,10 @@ function SpendPanel({ booking, onClose }: { booking: VipReservation; onClose: ()
         </div>
       ) : <p className="mb-4 text-sm text-neutral-500">No minimum spend on this booking.</p>}
       <KeyValue items={[
-        { label: 'Status', value: <StatusBadge kind="vip" status={s.status} size="sm" /> },
-        { label: 'Order', value: s.orderNumber ? `${s.orderNumber} (${s.orderStatus})` : 'not seated yet' },
+        /* Reservation and service are two different facts and are labelled as two rows. */
+        { label: 'Reservation', value: <StatusBadge kind="vip" status={s.status} size="sm" /> },
+        { label: 'Reserved for', value: fmtDate(s.date) },
+        { label: 'Order on the table', value: s.orderNumber ? `${s.orderNumber} (${s.orderStatus})` : 'no order — nobody seated on this booking' },
         { label: 'Deposit', value: `${money(s.depositAmount)} ${s.depositPaid ? '· paid' : '· not collected'}` },
         { label: 'Shortfall rule', value: s.shortfallMode === 'WAIVE' ? 'Waived at billing' : s.shortfallMode === 'FLAT_FEE' ? 'Flat fee if under minimum' : 'Difference charged on the bill' },
         { label: 'Projected shortfall', value: <span className={cn('tabular-nums', (s.projectedShortfall ?? s.shortfallAmount) > 0 ? 'text-danger-700 font-semibold' : 'text-success-700')}>{money(s.projectedShortfall ?? s.shortfallAmount)}</span> },
@@ -108,40 +110,76 @@ export default function VipTablesPage() {
       {b.status === 'BOOKED' && <Button size="sm" variant="ghost" leftIcon={<UserX className="h-4 w-4" />} onClick={() => transitionVip.mutate({ id: b.id, action: 'NO_SHOW' })}>No-show</Button>}
       {b.status === 'SEATED' && <Button size="sm" variant="outline" leftIcon={<TrendingUp className="h-4 w-4" />} onClick={() => setSpend(b)}>Spend</Button>}
       {b.status === 'SEATED' && <Button size="sm" variant="outline" leftIcon={<CheckCircle2 className="h-4 w-4" />} onClick={() => transitionVip.mutate({ id: b.id, action: 'COMPLETE' })}>Complete</Button>}
-      {['BOOKED', 'SEATED'].includes(b.status) && <><Button size="sm" variant="ghost" onClick={() => setForm({ editing: b })}><Pencil className="h-4 w-4" /></Button><Button size="sm" variant="ghost" className="text-danger-700" onClick={() => setCancel(b)}><X className="h-4 w-4" /></Button></>}
+      {['BOOKED', 'SEATED'].includes(b.status) && <><Button size="sm" variant="ghost" aria-label={`Edit booking ${b.vipNumber}`} onClick={() => setForm({ editing: b })}><Pencil className="h-4 w-4" aria-hidden /></Button><Button size="sm" variant="ghost" className="text-danger-700" aria-label={`Cancel booking ${b.vipNumber}`} onClick={() => setCancel(b)}><X className="h-4 w-4" aria-hidden /></Button></>}
     </span>
   );
+  /**
+   * `vip/tables` scopes each table's `booking` to the club's CURRENT BUSINESS DAY (it rolls
+   * over at 06:00), so every booking it returns carries that date. The reservation axis is
+   * therefore labelled from the data itself; when no table is booked at all there is no date
+   * in the payload and the period is named as "tonight" rather than invented.
+   */
+  const bookedDate = (tables.data ?? []).find((t) => t.booking)?.booking?.date ?? null;
+  const periodLabel = bookedDate ? `for ${fmtDate(bookedDate)}` : 'tonight';
   return (
     <div>
-      <PageHeader title="VIP tables" subtitle="Bookings, minimum spend and deposits for premium tables" actions={canManage && <Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => setForm({ editing: null })}>Book VIP table</Button>} />
+      <PageHeader title="VIP tables" subtitle="Each table shows two separate facts: who is at it right now, and the VIP booking for tonight" actions={canManage && <Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => setForm({ editing: null })}>Book VIP table</Button>} />
       {tables.isLoading && <LoadingState variant="cards" rows={2} />}
       {tables.isError && <ErrorState error={tables.error} onRetry={() => void tables.refetch()} />}
       {tables.data && (tables.data.length === 0 ? <EmptyState icon={<Crown className="h-6 w-6" />} title="No VIP tables configured" description="Mark a table as VIP (with default minimum spend and deposit) under Tables." action={<Button variant="outline" onClick={() => navigate('/admin/tables')}>Go to tables</Button>} /> : (
         <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4 mb-6">
           {tables.data.map((t) => {
             const b = t.booking;
+            /**
+             * TWO AXES, NEVER MERGED.
+             *  · current service — what is happening at the table now. It comes from the
+             *    table's own status, which the engine derives from the active order
+             *    (`syncTableStatus`), so it is true whether or not a VIP booking exists.
+             *  · reservation — whether a VIP booking exists for the business day this list
+             *    covers, from the booking record.
+             * A table can be occupied by a walk-in with no booking, and booked for tonight
+             * with nobody sitting at it, so "free" is never inferred from a missing booking.
+             */
+            const svc = statusMeta('table', t.status);
+            const inService = t.status !== 'AVAILABLE' && t.status !== 'CLOSED';
+            const seatedHere = b?.status === 'SEATED';
             /* Progress is only shown once the table is seated and a real minimum exists —
                a booked-but-empty table has no spend to report. */
             const showProgress = !!b && b.status === 'SEATED' && b.minSpend > 0;
             const pct = b && b.minSpend ? Math.min(100, (b.currentSpend / b.minSpend) * 100) : 0;
             const met = !!b && b.remainingSpend <= 0;
             return (
-              <Card key={t.tableId} padded={false} className={cn('flex flex-col border-2', b ? (b.status === 'SEATED' ? 'border-warning-400' : 'border-info-300') : 'border-neutral-200')}>
+              <Card key={t.tableId} padded={false} className={cn('flex flex-col border-2', inService ? 'border-warning-400' : b ? 'border-info-300' : 'border-neutral-200')}>
                 <div className="p-4 flex-1 flex flex-col">
                   <div className="flex items-center gap-2">
                     <Crown className="h-4 w-4 text-warning-500 shrink-0" aria-hidden />
                     <h3 className="font-bold text-lg text-neutral-900 truncate">{t.tableName}</h3>
-                    <span className="ml-auto shrink-0"><StatusBadge kind="table" status={t.status} size="sm" hideIcon /></span>
                   </div>
                   <p className="text-caption text-neutral-500 mt-0.5">{t.floorName} · {t.capacity} seats</p>
 
-                  {b ? (
-                    <div className="mt-3 flex-1 flex flex-col">
-                      <div className="flex items-center gap-2 flex-wrap">
+                  {/* ---------------------------------------------- axis 1: right now */}
+                  <div className="mt-3 pt-3 border-t border-neutral-100">
+                    <p className="text-label uppercase text-neutral-500">Current service</p>
+                    <p className="mt-1.5"><StatusBadge kind="table" status={t.status} size="sm" /></p>
+                    <p className="text-caption text-neutral-500 mt-1.5">
+                      {seatedHere
+                        ? `This VIP party is seated${b?.orderNumber ? ` · ${b.orderNumber}` : ''}`
+                        : inService
+                          ? 'An order is open on this table — not from a VIP booking'
+                          : t.status === 'CLOSED' ? 'Table closed, nobody seated' : 'Nobody seated right now'}
+                    </p>
+                  </div>
+
+                  {/* ------------------------------------ axis 2: the booking, with its date */}
+                  <div className="mt-3 pt-3 border-t border-neutral-100 flex-1 flex flex-col">
+                    <p className="text-label uppercase text-neutral-500">Reservation {b ? `for ${fmtDate(b.date)}` : periodLabel}</p>
+                    {b ? (
+                    <>
+                      <div className="flex items-center gap-2 flex-wrap mt-1.5">
                         <span className="font-medium text-neutral-900 truncate">{b.guestName}</span>
                         <StatusBadge kind="vip" status={b.status} size="sm" />
                       </div>
-                      <p className="text-caption text-neutral-500">{b.guests} guests · {fmtDate(b.date)}{b.hostName ? ` · ${b.hostName}` : ''}</p>
+                      <p className="text-caption text-neutral-500 mt-1">{b.guests} guests · {b.vipNumber}{b.hostName ? ` · ${b.hostName}` : ''}</p>
                       {b.depositAmount > 0 && <p className="mt-1.5"><Badge size="sm" tone={b.depositPaid ? 'success' : 'warning'}>deposit {money(b.depositAmount)}{b.depositPaid ? ' paid' : ' due'}</Badge></p>}
 
                       <div className="mt-auto pt-3">
@@ -173,25 +211,43 @@ export default function VipTablesPage() {
                           <p className="text-caption text-neutral-500 mt-1.5">{b.status === 'BOOKED' ? 'Not seated yet — no spend recorded' : b.minSpend > 0 ? 'Spend tracked once the table is seated' : 'No minimum on this booking'}</p>
                         )}
                       </div>
-                    </div>
-                  ) : (
-                    <div className="mt-3 flex-1 flex flex-col justify-end">
-                      <p className="text-sm text-neutral-500">Free tonight</p>
-                      <p className="text-caption text-neutral-500 mt-0.5 tabular-nums">Default minimum {money(t.minSpendDefault)}{t.depositDefault > 0 ? ` · deposit ${money(t.depositDefault)}` : ''}</p>
-                    </div>
+                    </>
+                    ) : (
+                    <>
+                      {/* No booking record — that says nothing about who is at the table, so
+                          this line speaks only about the booking. */}
+                      <p className="text-sm text-neutral-700 mt-1.5">No VIP booking taken</p>
+                      <p className="text-caption text-neutral-500 mt-auto pt-3 tabular-nums">Table default: minimum {money(t.minSpendDefault)}{t.depositDefault > 0 ? ` · deposit ${money(t.depositDefault)}` : ''}</p>
+                    </>
+                    )}
+                  </div>
+
+                  {/* The server creates a fresh order when a booking is seated, and refuses a
+                      second open order on a table unless the branch allows it — say so before
+                      the waiter taps Seat. */}
+                  {b?.status === 'BOOKED' && inService && (
+                    <p className="mt-3 flex items-start gap-1.5 text-caption text-warning-700">
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" aria-hidden />
+                      <span>Table is {svc.label.toLowerCase()} on another order. Seating opens a new order and is refused while that one is open.</span>
+                    </p>
                   )}
                 </div>
 
-                {/* Every card ends in the one action that moves this table forward. */}
+                {/* Every card ends in the one action that moves this table forward. Each button
+                    matches a transition the engine accepts: SEAT only from BOOKED, COMPLETE
+                    only from SEATED, and a new booking only where tonight has none (saveVip
+                    rejects a second BOOKED/SEATED reservation on the same table and date). */}
+                {(b || canManage) && (
                 <div className="border-t border-neutral-200 p-3 flex flex-wrap gap-2 [&>button]:min-h-touch">
                   {b ? <>
                     {canManage && b.status === 'BOOKED' && <Button size="sm" variant="success" className="flex-1" leftIcon={<Armchair className="h-4 w-4" />} loading={transitionVip.isPending && transitionVip.variables?.id === b.id} onClick={async () => { const r = await transitionVip.mutateAsync({ id: b.id, action: 'SEAT' }); if (r.orderId) navigate(`/admin/orders/${r.orderId}`); }}>Seat</Button>}
                     {canManage && b.status === 'SEATED' && <Button size="sm" variant="primary" className="flex-1" leftIcon={<CheckCircle2 className="h-4 w-4" />} loading={transitionVip.isPending && transitionVip.variables?.id === b.id} onClick={() => transitionVip.mutate({ id: b.id, action: 'COMPLETE' })}>Complete</Button>}
                     <Button size="sm" variant="outline" className={canManage && ['BOOKED', 'SEATED'].includes(b.status) ? '' : 'flex-1'} leftIcon={<TrendingUp className="h-4 w-4" />} onClick={() => setSpend(b)}>Details</Button>
-                  </> : canManage ? (
+                  </> : (
                     <Button size="sm" variant="outline" block leftIcon={<Plus className="h-4 w-4" />} onClick={() => setForm({ editing: null, table: t })}>Book {t.tableName}</Button>
-                  ) : <span className="text-caption text-neutral-500 px-1 py-2">Available</span>}
+                  )}
                 </div>
+                )}
               </Card>
             );
           })}
@@ -217,7 +273,7 @@ export default function VipTablesPage() {
                   </span>
                 </> : <>
                   <span className="block tabular-nums font-semibold">{money(b.minSpend)}</span>
-                  <span className="text-caption text-neutral-500">minimum · not seated</span>
+                  <span className="text-caption text-neutral-500">minimum · nobody seated on it yet</span>
                 </>}
               </span>
               {actions(b)}

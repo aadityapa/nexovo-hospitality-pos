@@ -117,7 +117,7 @@ export default function InventoryDashboardPage() {
               />
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-[1.35fr_1fr] items-start">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] items-start">
               {/* The worklist. Out-of-stock first, then low, because that is the order to act in. */}
               <Card padded={false}>
                 <CardHeader

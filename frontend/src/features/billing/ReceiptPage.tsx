@@ -30,9 +30,9 @@ export default function ReceiptPage() {
       <PageHeader back={() => navigate(`/cashier/bills/${b.id}`)} title={<span className="flex items-center gap-3 flex-wrap">Receipt <StatusBadge kind="payment" status={b.paymentStatus} /></span>} subtitle={`${b.billNumber} · ${b.tableName}`}
         actions={
           <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:w-auto sm:items-center">
-            <Button variant="outline" className="w-full sm:w-auto min-h-touch" leftIcon={<ArrowLeft className="h-4 w-4" />} onClick={() => navigate('/cashier')}>Cashier home</Button>
-            <Button className="w-full sm:w-auto min-h-touch" leftIcon={<Printer className="h-4 w-4" />} onClick={() => void browserPrinter.print(r)}>Print</Button>
-            {canClose && b.paymentStatus === 'PAID' && b.status !== 'CLOSED' && <Button variant="success" className="col-span-2 w-full sm:col-span-1 sm:w-auto min-h-touch" leftIcon={<CheckCircle2 className="h-4 w-4" />} loading={m.close.isPending} onClick={() => m.close.mutate(b.id, { onSuccess: () => navigate('/cashier') })}>Close order</Button>}
+            <Button variant="outline" className="w-full sm:w-auto min-h-touch sm:min-h-0" leftIcon={<ArrowLeft className="h-4 w-4" />} onClick={() => navigate('/cashier')}>Cashier home</Button>
+            <Button className="w-full sm:w-auto min-h-touch sm:min-h-0" leftIcon={<Printer className="h-4 w-4" />} onClick={() => void browserPrinter.print(r)}>Print</Button>
+            {canClose && b.paymentStatus === 'PAID' && b.status !== 'CLOSED' && <Button variant="success" className="col-span-2 w-full sm:col-span-1 sm:w-auto min-h-touch sm:min-h-0" leftIcon={<CheckCircle2 className="h-4 w-4" />} loading={m.close.isPending} onClick={() => m.close.mutate(b.id, { onSuccess: () => navigate('/cashier') })}>Close order</Button>}
           </div>
         } />
       {b.paymentStatus !== 'PAID' && <p className="mb-3 text-sm text-warning-700 bg-warning-50 border border-warning-100 rounded-sm px-3 py-2">This is a bill copy — payment is still pending.</p>}

@@ -228,7 +228,9 @@ export function BranchSwitcher() {
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex items-center gap-2 min-w-0 max-w-[16rem] text-sm rounded-sm px-2 py-1 hover:bg-neutral-100 min-h-touch transition-colors"
+        /* The venue name is how staff know which business they are operating; it gets as much
+           room as the header can spare, and only gives it back as the viewport narrows. */
+        className="flex items-center gap-2 min-w-0 max-w-[13rem] md:max-w-[22rem] xl:max-w-[32rem] text-sm rounded-sm px-2 py-1 hover:bg-neutral-100 min-h-touch transition-colors"
       >
         {label}
         <ChevronDown className={cn('h-4 w-4 text-neutral-400 shrink-0 transition-transform', open && 'rotate-180')} aria-hidden />
@@ -353,9 +355,10 @@ export function AppHeader({ onMenu, title, left, right }: { onMenu?: () => void;
         </button>
       )}
       {left}
-      <BranchSwitcher />
-      {title && <div className="hidden xl:block text-sm text-neutral-500 truncate border-l border-neutral-200 pl-3 ml-1">{title}</div>}
-      <div className="flex-1" />
+      <div className="min-w-0 flex-1 flex items-center gap-2 sm:gap-3">
+        <BranchSwitcher />
+        {title && <div className="hidden xl:block text-sm text-neutral-500 truncate border-l border-neutral-200 pl-3 ml-1">{title}</div>}
+      </div>
       {right}
       <span className="hidden sm:inline-flex"><ConnectionStatus /></span>
       <NotificationBell />
@@ -369,7 +372,8 @@ export function BottomNav({ items }: { items: NavItem[] }) {
   const can = useAuthStore((s) => s.hasPermission);
   const visible = items.filter((i) => !i.permission || can(i.permission));
   return (
-    <nav aria-label="Primary" className="fixed bottom-0 inset-x-0 z-nav bg-white border-t border-neutral-200 safe-bottom lg:hidden shadow-bar-bottom">
+    <nav aria-label="Primary" data-bottom-nav
+      className="fixed bottom-0 inset-x-0 z-nav bg-white border-t border-neutral-200 safe-bottom lg:hidden shadow-bar-bottom">
       <ul className="grid" style={{ gridTemplateColumns: `repeat(${visible.length}, minmax(0, 1fr))` }}>
         {visible.map((it) => (
           <li key={it.to}>

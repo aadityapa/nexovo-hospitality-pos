@@ -22,7 +22,11 @@ export default defineConfig({
     },
   },
   test: {
+    // Engine, billing and state-machine tests are pure logic and run fastest in node.
+    // Component tests (*.test.tsx) need a DOM, so happy-dom is applied to those only —
+    // declared as a devDependency so a clean `npm ci` reproduces the suite on any platform.
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    environmentMatchGlobs: [['src/**/*.test.tsx', 'happy-dom']],
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
   },
 });

@@ -182,7 +182,7 @@ export default function ReservationsPage() {
               onClick={() => { setDate(key); if (view === 'week') setView('day'); }}
               aria-current={selected ? 'date' : undefined}
               className={cn(
-                'rounded-md border px-2 py-2 text-left min-h-touch transition-colors',
+                'relative rounded-md border px-2 py-2 text-left min-h-touch transition-colors',
                 view === 'week' && 'min-h-[76px]',
                 selected ? 'border-primary-600 ring-1 ring-primary-600/20 bg-primary-50'
                   : isToday ? 'border-primary-300 bg-primary-50/50' : 'border-neutral-200 bg-white hover:border-neutral-300',
@@ -192,7 +192,10 @@ export default function ReservationsPage() {
               <span className={cn('block font-semibold', selected ? 'text-primary-800' : 'text-neutral-900')}>{format(d, 'd MMM')}</span>
               {/* Counts are only honest in week view — day view fetches a single day. */}
               {view === 'week' && <span className="text-caption text-neutral-500">{n} booking{n === 1 ? '' : 's'}</span>}
-              {selected && view !== 'week' && <span className="sr-only">Selected day</span>}
+              {/* `sr-only` is position:absolute at its static position; on the last day of the
+                  strip that sits past the viewport edge and added 2 px of page-wide horizontal
+                  scroll. `left-0` pins it inside the (relative) button instead. */}
+              {selected && view !== 'week' && <span className="sr-only left-0">Selected day</span>}
             </button>
           );
         })}

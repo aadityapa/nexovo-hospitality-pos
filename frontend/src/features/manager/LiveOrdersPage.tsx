@@ -176,7 +176,7 @@ export default function LiveOrdersPage() {
             : `${all.length} active order${all.length === 1 ? '' : 's'} · longest waiting ${oldest ? `${elapsedMinutes(waitOf(oldest).since, now)} min on ${oldest.tableName}` : '—'} · refreshes every 20s`}
         actions={anyFilter ? <Button variant="ghost" className="min-h-touch" leftIcon={<X className="h-4 w-4" />} onClick={clearFilters}>Clear filters</Button> : undefined}
       >
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
           <StatCard label="Delayed orders" value={delayedOrders.length} icon={<AlertTriangle className="h-5 w-5" />} tone={delayedOrders.length ? 'danger' : 'success'} hint={`In prep over ${DELAY_THRESHOLDS.late} min`} onClick={() => setStation(station === 'DELAYED' ? 'ALL' : 'DELAYED')} className={tile(station === 'DELAYED')} />
           <StatCard label="Kitchen backlog" value={kitchenBacklog} icon={<ChefHat className="h-5 w-5" />} tone={kitchenBacklog > DELAY_THRESHOLDS.backlog ? 'danger' : 'warning'} hint="items pending" onClick={() => setStation(station === 'KITCHEN' ? 'ALL' : 'KITCHEN')} className={tile(station === 'KITCHEN')} />
           <StatCard label="Bar backlog" value={barBacklog} icon={<Wine className="h-5 w-5" />} tone={barBacklog > DELAY_THRESHOLDS.backlog ? 'danger' : 'info'} hint="items pending" onClick={() => setStation(station === 'BAR' ? 'ALL' : 'BAR')} className={tile(station === 'BAR')} />

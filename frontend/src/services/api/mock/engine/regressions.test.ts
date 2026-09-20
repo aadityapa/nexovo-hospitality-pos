@@ -6,8 +6,6 @@
  * test is not on its own evidence that an expectation is correct, so the authority is named.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
-import BillSummarySource from '@/features/billing/BillSummary.tsx?raw';
-import ReceiptViewSource from '@/features/billing/ReceiptView.tsx?raw';
 import { createSeedDb, type MockDb } from '../db';
 import type { Ctx } from './context';
 import * as orders from './orders';
@@ -98,9 +96,9 @@ describe('regression: rejected order creation leaves no trace', () => {
  * and visually unexplainable — the guest saw a grand total larger than the sum of the printed
  * lines, which is exactly the situation that produces disputes at the table.
  *
- * Fix: both surfaces now render the shortfall as its own line. The engine test below proves the
- * number reconciles; the source guard proves both surfaces still print it, so the regression
- * cannot silently return when either file is edited.
+ * Fix: both surfaces now render the shortfall as its own line. The tests below prove the number
+ * reconciles; `src/features/billing/vipShortfall.test.tsx` renders the two components and proves
+ * the labelled row and the formatted amount are actually on screen.
  */
 describe('regression: VIP minimum-spend shortfall', () => {
   const vipBillUnderMinimum = (minSpend = 50000) => {
@@ -137,12 +135,11 @@ describe('regression: VIP minimum-spend shortfall', () => {
     expect(bill.minSpendShortfall ?? 0).toBe(0);
   });
 
-  it('is rendered on BOTH the bill summary and the receipt', () => {
-    // Source-level guard, not a rendered-DOM assertion: these tests run in the node environment,
-    // so the sources are pulled in with Vite's `?raw` loader (no filesystem or @types/node needed).
-    expect(BillSummarySource, 'BillSummary must print the shortfall').toMatch(/minSpendShortfall/);
-    expect(ReceiptViewSource, 'ReceiptView must print the shortfall').toMatch(/minSpendShortfall/);
-  });
+  // The presentation half of this defect — that both surfaces actually RENDER a labelled row
+  // with the formatted amount — is covered by `src/features/billing/vipShortfall.test.tsx`,
+  // which renders the real components under happy-dom. A source-text check was used here
+  // before and was deliberately removed: matching a property name in a file proves nothing
+  // about what a guest sees.
 });
 
 // ---------------------------------------------------------------------------

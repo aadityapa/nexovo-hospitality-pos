@@ -40,7 +40,7 @@ const darkVariants: Partial<Record<ButtonVariant, string>> = {
 };
 
 const sizes: Record<ButtonSize, string> = {
-  sm:   'h-8 px-3 text-xs rounded-sm',
+  sm:   'h-8 px-3 text-xs rounded-sm touch-target',
   md:   'h-10 px-4 text-sm rounded-sm',
   lg:   'h-11 px-5 text-[0.9375rem] rounded-sm',
   /* Primary POS actions: taller than the 44px touch minimum and visually weightier. */
@@ -108,7 +108,7 @@ export function IconButton({ label, variant = 'ghost', size = 'md', loading, onD
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={cn(
-        'relative inline-flex items-center justify-center rounded-sm transition-colors press shrink-0',
+        'relative inline-flex items-center justify-center rounded-sm transition-colors press shrink-0 touch-target',
         'disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100',
         // Invisible padded hit area so small icon buttons still meet the 44px touch target.
         'before:absolute before:left-1/2 before:top-1/2 before:-translate-x-1/2 before:-translate-y-1/2 before:h-touch before:w-touch before:content-[""]',
