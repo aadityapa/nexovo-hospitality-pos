@@ -1,0 +1,194 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   BASE
+   ========================================================================== */
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    /* Inter stylistic sets: straight-sided 1, open 4/6/9 — clearer at POS distance */
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-surface text-neutral-800 font-sans text-sm antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4, h5 { @apply text-neutral-900 font-semibold; }
+
+  /* Numbers that are compared vertically (money, quantities, timers) never jitter. */
+  th, td, time, output { font-variant-numeric: tabular-nums; }
+
+  /*
+   * One focus indicator for the whole app. `outline` is used instead of a ring so the
+   * indicator never needs to know the background colour behind it (rings need an
+   * offset colour, which breaks on the navy chrome).
+   * primary-500 scores 4.1:1 on white and 4.4:1 on navy — both above the 3:1 required
+   * for non-text indicators.
+   */
+  *:focus-visible {
+    outline: 2px solid theme('colors.primary.500');
+    outline-offset: 2px;
+  }
+  /* Brighter indicator inside dark chrome (sidebar, kitchen/bar displays). */
+  .chrome-dark *:focus-visible { outline-color: theme('colors.primary.300'); }
+
+  /* Remove the indicator only when the browser would not have shown it anyway. */
+  *:focus:not(:focus-visible) { outline: none; }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { @apply bg-neutral-300 rounded-full border-2 border-solid border-transparent bg-clip-padding; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-neutral-400; }
+  ::-webkit-scrollbar-track { @apply bg-transparent; }
+  .chrome-dark ::-webkit-scrollbar-thumb { @apply bg-neutral-700; }
+
+  ::selection { @apply bg-primary-100 text-primary-900; }
+
+  /* Native controls follow the brand */
+  [type='checkbox'], [type='radio'] { @apply accent-primary-600; }
+  input[type='date'], input[type='time'] { @apply font-sans; }
+}
+
+/* ==========================================================================
+   COMPONENT PRIMITIVES
+   Shared structural classes. Visual variants live in components/ui.
+   ========================================================================== */
+@layer components {
+  /* Surfaces ---------------------------------------------------------------- */
+  .card  { @apply bg-white border border-neutral-200 rounded-md shadow-card; }
+  .panel { @apply bg-white border border-neutral-200 rounded-lg shadow-panel; }
+  .popover { @apply bg-white border border-neutral-200 rounded-md shadow-pop; }
+  /* A quiet, borderless grouping used inside cards */
+  .well  { @apply bg-neutral-50 border border-neutral-200 rounded-sm; }
+
+  /* Form controls ----------------------------------------------------------- */
+  .input-base {
+    @apply w-full rounded-sm border border-neutral-300 bg-white px-3 text-sm text-neutral-900
+           placeholder:text-neutral-400 min-h-control transition-colors
+           hover:border-neutral-400
+           focus:border-primary-600 focus:outline-none focus:ring-4 focus:ring-primary-600/10
+           disabled:bg-neutral-100 disabled:text-neutral-500 disabled:border-neutral-200 disabled:cursor-not-allowed;
+  }
+  .input-error {
+    @apply border-danger-500 hover:border-danger-500 focus:border-danger-600 focus:ring-danger-600/10;
+  }
+  /* Larger control for POS / touch contexts */
+  .input-pos { @apply min-h-pos text-base px-4; }
+
+  /* Sticky bars ------------------------------------------------------------- */
+  .bar-top    { @apply sticky top-0 z-sticky bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 border-b border-neutral-200; }
+  .bar-bottom { @apply sticky bottom-0 z-sticky bg-white border-t border-neutral-200 shadow-bar-bottom; }
+
+  /* Loading placeholder with a single sweeping highlight.
+     The keyframes are declared here (not only in the Tailwind config) because they are
+     referenced from raw CSS, which the JIT compiler does not scan. */
+  @keyframes shimmer { 100% { transform: translateX(100%); } }
+  .skeleton {
+    @apply relative overflow-hidden rounded-sm bg-neutral-200/70;
+  }
+  .skeleton::after {
+    content: '';
+    @apply absolute inset-0 -translate-x-full;
+    background-image: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+    animation: shimmer 1.6s infinite;
+  }
+
+  /* Table shells ------------------------------------------------------------ */
+  .table-scroll { @apply overflow-x-auto overscroll-x-contain; }
+  .table-base   { @apply w-full border-collapse text-sm; }
+  .table-base th {
+    @apply text-left text-label uppercase text-neutral-500 font-semibold px-3 py-2.5 bg-neutral-50 border-b border-neutral-200 whitespace-nowrap;
+  }
+  .table-base td { @apply px-3 py-2.5 border-b border-neutral-100 align-middle; }
+  .table-base tbody tr:last-child td { @apply border-b-0; }
+}
+
+/* ==========================================================================
+   UTILITIES
+   ========================================================================== */
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* Respect the iOS home indicator on sticky bottom bars */
+  .safe-bottom { padding-bottom: max(env(safe-area-inset-bottom), 0px); }
+  .safe-top    { padding-top: max(env(safe-area-inset-top), 0px); }
+
+  /* Money / quantity alignment */
+  .tnum { font-variant-numeric: tabular-nums; }
+
+  /* Multi-line truncation without the plugin */
+  .line-clamp-1, .line-clamp-2, .line-clamp-3 {
+    display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .line-clamp-1 { -webkit-line-clamp: 1; }
+  .line-clamp-2 { -webkit-line-clamp: 2; }
+  .line-clamp-3 { -webkit-line-clamp: 3; }
+
+  /* Visible only to assistive technology */
+  .sr-only-focusable:not(:focus):not(:focus-within) {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0;
+  }
+
+  /* Subtle press feedback on large touch targets */
+  .press { @apply active:scale-[0.985] transition-transform; }
+}
+
+/* ==========================================================================
+   MOTION PREFERENCES
+   Operators who disable animation get an instant interface, but never an
+   invisible one — animated entrances collapse to their final state.
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .skeleton::after { animation: none; display: none; }
+  .press { @apply active:scale-100; }
+}
+
+/* ==========================================================================
+   THERMAL RECEIPT (80 mm)
+   Only #receipt-print is put on paper: no navigation, no buttons, no shadows.
+   ========================================================================== */
+@media print {
+  html, body { background: #fff !important; }
+  body * { visibility: hidden !important; }
+  #receipt-print, #receipt-print * { visibility: visible !important; }
+
+  #receipt-print {
+    position: absolute;
+    left: 0; top: 0;
+    width: 80mm;
+    padding: 3mm 4mm;
+    margin: 0;
+    border: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+    color: #000 !important;
+    font-family: 'Courier New', ui-monospace, monospace;
+    font-size: 11px;
+    line-height: 1.45;
+    font-variant-numeric: tabular-nums;
+  }
+  /* Thermal printers render grey as dithered noise — force pure black rules. */
+  #receipt-print hr,
+  #receipt-print .receipt-rule { border-color: #000 !important; }
+  #receipt-print [data-print-hide] { display: none !important; }
+
+  @page { size: 80mm auto; margin: 0; }
+}

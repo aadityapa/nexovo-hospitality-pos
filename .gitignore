@@ -1,0 +1,22 @@
+# Dependencies and builds
+node_modules/
+dist/
+*.local
+
+# Env (keep .env.example)
+.env
+.env.*
+!.env.example
+
+# Logs and OS
+*.log
+.DS_Store
+Thumbs.db
+
+# Editor
+.idea/
+.vscode/
+*.swp
+
+# Accidental root lockfile (app lives in frontend/)
+/package-lock.json
