@@ -6,8 +6,13 @@ import { deriveOrderStatus, deriveTicketStatus, canTransitionItem, isOrderActive
 import { round2 } from '@/utils/money';
 import type { DbTicket } from '../db';
 
+/**
+ * An order, scoped to the caller's branch — see the note on `findBill`. Every mutation on this
+ * screen resolves its order through here, so the predicate has to live here rather than at each
+ * call site, where one missed copy is a cross-branch write.
+ */
 function findOrder(ctx: Ctx, id: number): Order {
-  const o = ctx.db.orders.find((x) => x.id === Number(id));
+  const o = ctx.db.orders.find((x) => x.id === Number(id) && x.branchId === ctx.branchId);
   if (!o) throw errors.notFound('Order not found');
   return o;
 }

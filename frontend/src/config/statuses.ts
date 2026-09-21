@@ -1,7 +1,19 @@
 import type { OrderStatus, OrderItemStatus, TableStatus, BillStatus, PaymentStatus, TicketStatus, PaymentMethod, StockStatus, PoStatus, ReservationStatus, VipStatus, EntryStatus, SupplierStatus, MovementType, EntryType } from '@/types';
 
-/** Visual tone — every status also has a text label; colour never carries meaning alone. */
-/** `accent` is the restrained amber reserved for hospitality highlights (VIP, loyalty, bottle service). */
+/**
+ * Visual tone — every status also has a text label (and, in `StatusBadge`, an icon); colour never
+ * carries meaning alone.
+ *
+ * On the dark palette each tone renders as a tinted `-50` fill, a `-200` hairline and `-700` text:
+ *   neutral … quiet / terminal states (closed, inactive, no-show)
+ *   primary … WARM GOLD. Emphasis: the state an operator is meant to notice first in its group.
+ *   success … resolved well (ready, paid, in stock)
+ *   warning … needs attention soon (preparing too long, low stock, part-paid)
+ *   danger  … failed / destructive (cancelled, void, unpaid, out of stock)
+ *   info    … in flight, no action required yet (confirmed, sent, billed)
+ *   accent  … VIOLET, and reserved for VIP classification only. It is never an action colour and
+ *             never a generic "highlight" — if a state is merely important, it is `primary`.
+ */
 export type Tone = 'neutral' | 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'accent';
 
 export interface StatusMeta { label: string; tone: Tone }
@@ -80,8 +92,13 @@ export const RESERVATION_STATUS: Record<ReservationStatus, StatusMeta> = {
   PENDING: { label: 'Pending', tone: 'warning' }, CONFIRMED: { label: 'Confirmed', tone: 'info' }, SEATED: { label: 'Seated', tone: 'primary' },
   COMPLETED: { label: 'Completed', tone: 'success' }, CANCELLED: { label: 'Cancelled', tone: 'danger' }, NO_SHOW: { label: 'No-show', tone: 'neutral' },
 };
+/**
+ * VIP table bookings. `SEATED` is the one state in the whole app that means "a VIP is in the room
+ * right now", so it takes the violet `accent` reserved for VIP classification — which also keeps it
+ * visually distinct from an ordinary seated reservation (gold `primary`, above).
+ */
 export const VIP_STATUS: Record<VipStatus, StatusMeta> = {
-  BOOKED: { label: 'Booked', tone: 'info' }, SEATED: { label: 'Seated', tone: 'primary' }, COMPLETED: { label: 'Completed', tone: 'success' }, CANCELLED: { label: 'Cancelled', tone: 'danger' }, NO_SHOW: { label: 'No-show', tone: 'neutral' },
+  BOOKED: { label: 'Booked', tone: 'info' }, SEATED: { label: 'Seated', tone: 'accent' }, COMPLETED: { label: 'Completed', tone: 'success' }, CANCELLED: { label: 'Cancelled', tone: 'danger' }, NO_SHOW: { label: 'No-show', tone: 'neutral' },
 };
 export const ENTRY_STATUS: Record<EntryStatus, StatusMeta> = {
   CHECKED_IN: { label: 'Inside', tone: 'success' }, CHECKED_OUT: { label: 'Left', tone: 'neutral' }, CANCELLED: { label: 'Cancelled', tone: 'danger' },

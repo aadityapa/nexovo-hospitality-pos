@@ -35,10 +35,28 @@ export default function ReceiptPage() {
             {canClose && b.paymentStatus === 'PAID' && b.status !== 'CLOSED' && <Button variant="success" className="col-span-2 w-full sm:col-span-1 sm:w-auto min-h-touch sm:min-h-0" leftIcon={<CheckCircle2 className="h-4 w-4" />} loading={m.close.isPending} onClick={() => m.close.mutate(b.id, { onSuccess: () => navigate('/cashier') })}>Close order</Button>}
           </div>
         } />
-      {b.paymentStatus !== 'PAID' && <p className="mb-3 text-sm text-warning-700 bg-warning-50 border border-warning-100 rounded-sm px-3 py-2">This is a bill copy — payment is still pending.</p>}
+      {b.paymentStatus !== 'PAID' && <p className="mb-3 text-sm text-warning-700 bg-warning-50 border border-warning-200 rounded-sm px-3 py-2">This is a bill copy — payment is still pending.</p>}
       {/* Names the narrow column on a phone, so the 80 mm paper width reads as intentional. */}
       <p className="sm:hidden text-caption text-neutral-500 text-center mb-2">80 mm thermal preview</p>
-      <ReceiptView receipt={r} />
+      {/*
+        MOTION — SCREEN ONLY. The paper rises in once, on a plain wrapper AROUND `ReceiptView`.
+        Nothing is added to `#receipt-print` itself, and neither the `paper`/`ink` tokens nor the
+        80 mm print stylesheet is touched, so what comes out of the thermal printer is byte for
+        byte what came out of it before.
+
+        `print:!animate-none` is the belt to that braces: an entrance is `both`-filled and has
+        long finished by the time anyone reaches the Print button, but if a print were ever
+        triggered mid-animation a transformed ancestor would become the containing block for the
+        absolutely positioned `#receipt-print` and shift the paper on the page. Killing the
+        animation inside `@media print` removes that possibility entirely — and because the
+        animation ends on the element's natural state, dropping it changes nothing on paper.
+
+        It plays on mount only. A refetch of the receipt re-renders the same element and animates
+        nothing; there is no entrance on a data update anywhere in this product.
+      */}
+      <div className="anim-enter print:!animate-none">
+        <ReceiptView receipt={r} />
+      </div>
     </div>
   );
 }

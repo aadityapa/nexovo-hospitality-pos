@@ -1,16 +1,17 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Plus, Pencil, KeyRound, UserX, UserCheck, Users as UsersIcon, ShieldCheck, ShieldOff, Clock, Building2, X } from 'lucide-react';
+import { Plus, Pencil, KeyRound, UserX, UserCheck, ShieldCheck, ShieldOff, Clock, Building2, X } from 'lucide-react';
 import { usersApi } from '@/services/api/endpoints';
 import { useBranches, useBranchMutations } from '@/features/p2/hooks';
 import { usePermission } from '@/hooks/useAuth';
 import { useDebounce } from '@/hooks/useRealtime';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from '@/store/uiStore';
-import { PageHeader, Button, IconButton, Modal, ConfirmDialog, Input, PasswordInput, Switch, Badge, LoadingState, ErrorState, DataTable, SearchInput, SegmentedControl, FilterSelect, Avatar, StatCard, Alert, type Column } from '@/components/ui';
+import { HeaderSearch } from '@/components/layout/Shell';
+import { PageHeader, Button, IconButton, Modal, ConfirmDialog, Input, PasswordInput, Switch, Badge, LoadingState, ErrorState, DataTable, SearchInput, SegmentedControl, FilterChips, Avatar, Alert, type Column } from '@/components/ui';
 import { ApiError } from '@/services/api/client';
 import { ROLE_LABELS, type RoleCodeKey } from '@/config/permissions';
 import { fmtDateTime, fmtRelative } from '@/utils/date';
@@ -90,7 +91,7 @@ function UserForm({ onClose, editing }: { onClose: () => void; editing: User | n
       description={editing ? 'Changes take effect on the user’s next request.' : 'Set the sign-in details and the roles that decide what this person can reach.'}
       footer={<><Button variant="outline" onClick={onClose}>Cancel</Button><Button onClick={handleSubmit(onSubmit)} loading={save.isPending}>{editing ? 'Save changes' : 'Create user'}</Button></>}
     >
-      <form onSubmit={handleSubmit(onSubmit)} className="grid sm:grid-cols-2 gap-4" noValidate>
+      <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 sm:grid-cols-2 gap-4" noValidate>
         {errorCount > 0 && (
           <div className="sm:col-span-2">
             <Alert tone="danger" title={`${errorCount} field${errorCount === 1 ? '' : 's'} need${errorCount === 1 ? 's' : ''} attention`}>
@@ -105,21 +106,21 @@ function UserForm({ onClose, editing }: { onClose: () => void; editing: User | n
         <PasswordInput label={editing ? 'New password (leave blank to keep)' : 'Password'} required={!editing} autoComplete="new-password" hint="Minimum 6 characters" error={errors.password?.message} {...register('password')} />
         <Input label="Approval PIN" inputMode="numeric" maxLength={4} hint="4 digits — used to approve cancellations & discounts (managers/admins)" error={errors.approvalPin?.message} {...register('approvalPin')} />
         <div className="sm:col-span-2">
-          <p className="text-label text-neutral-700 mb-1.5">Roles <span className="text-danger-600">*</span></p>
+          <p className="text-label text-neutral-700 mb-1.5">Roles <span className="text-danger-700">*</span></p>
           <Controller control={control} name="roles" render={({ field }) => (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-              {ROLES.map((r) => { const on = field.value.includes(r); return <label key={r} className={cn('flex items-center gap-2 rounded-sm border px-2 min-h-touch text-sm cursor-pointer', on ? 'bg-primary-50 border-primary-200 text-primary-800' : 'border-neutral-200 hover:border-neutral-300')}><input type="checkbox" className="h-4 w-4 rounded-sm shrink-0" checked={on} onChange={() => field.onChange(on ? field.value.filter((x) => x !== r) : [...field.value, r])} /><span className="min-w-0 truncate">{ROLE_LABELS[r]}</span></label>; })}
+              {ROLES.map((r) => { const on = field.value.includes(r); return <label key={r} className={cn('flex items-center gap-2 rounded-sm border px-2 min-h-touch text-sm cursor-pointer transition-colors duration-control', on ? 'bg-primary-50 border-primary-200 text-primary-800' : 'border-neutral-300 text-neutral-800 hover:border-neutral-400')}><input type="checkbox" className="h-4 w-4 rounded-sm shrink-0" checked={on} onChange={() => field.onChange(on ? field.value.filter((x) => x !== r) : [...field.value, r])} /><span className="min-w-0 truncate">{ROLE_LABELS[r]}</span></label>; })}
             </div>
           )} />
           <p className="text-caption text-neutral-500 mt-1">Roles carry the permissions; the matrix behind each role is on the Roles page.</p>
-          {errors.roles?.message && <p role="alert" className="text-caption text-danger-600 mt-1">{errors.roles.message}</p>}
+          {errors.roles?.message && <p role="alert" className="text-caption text-danger-700 mt-1">{errors.roles.message}</p>}
         </div>
         {canBranches && (branches.data ?? []).length > 1 && (
           <div className="sm:col-span-2">
             <p className="text-label text-neutral-700 mb-1.5">Branch access</p>
             <Controller control={control} name="branchIds" render={({ field }) => (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                {(branches.data ?? []).map((b) => { const on = field.value.includes(Number(b.id)); return <label key={b.id} className={cn('flex items-center gap-2 rounded-sm border px-2 min-h-touch text-sm cursor-pointer', on ? 'bg-primary-50 border-primary-200 text-primary-800' : 'border-neutral-200 hover:border-neutral-300')}><input type="checkbox" className="h-4 w-4 rounded-sm shrink-0" checked={on} onChange={() => field.onChange(on ? field.value.filter((x) => x !== Number(b.id)) : [...field.value, Number(b.id)])} /><span className="min-w-0 truncate">{b.name}</span></label>; })}
+                {(branches.data ?? []).map((b) => { const on = field.value.includes(Number(b.id)); return <label key={b.id} className={cn('flex items-center gap-2 rounded-sm border px-2 min-h-touch text-sm cursor-pointer transition-colors duration-control', on ? 'bg-primary-50 border-primary-200 text-primary-800' : 'border-neutral-300 text-neutral-800 hover:border-neutral-400')}><input type="checkbox" className="h-4 w-4 rounded-sm shrink-0" checked={on} onChange={() => field.onChange(on ? field.value.filter((x) => x !== Number(b.id)) : [...field.value, Number(b.id)])} /><span className="min-w-0 truncate">{b.name}</span></label>; })}
               </div>
             )} />
             <p className="text-caption text-neutral-500 mt-1">The user can switch between the selected branches from the header; all data stays scoped to the active one.</p>
@@ -156,6 +157,35 @@ export default function UsersPage() {
     inactive: all.filter((u) => !u.isActive).length,
     never: all.filter((u) => !u.lastLoginAt).length,
   }), [all]);
+
+  /**
+   * ROLE CENSUS — the numbers on the filter chips.
+   *
+   * The list request is narrowed by role on the SERVER, so only an UNFILTERED response can say
+   * how many people each role actually holds. The census taken from the last unfiltered response
+   * is therefore remembered against the search it was taken under; if the search moves on while a
+   * role chip is still active the chips print no counts at all rather than stale ones. Nothing
+   * here ever prints a figure the API did not return.
+   */
+  const censusRef = useRef<{ key: string; total: number; counts: Partial<Record<RoleCodeKey, number>> } | null>(null);
+  const census = useMemo(() => {
+    if (role === 'ALL' && users.data) {
+      const byRole: Partial<Record<RoleCodeKey, number>> = {};
+      users.data.forEach((u) => u.roles.forEach((r) => { byRole[r] = (byRole[r] ?? 0) + 1; }));
+      censusRef.current = { key: dq, total: users.data.length, counts: byRole };
+    }
+    return censusRef.current?.key === dq ? censusRef.current : null;
+  }, [users.data, role, dq]);
+
+  /** All users, then one chip per role that actually has members — plus the active one, always. */
+  const roleOptions = useMemo(() => {
+    const present = census ? ROLES.filter((r) => (census.counts[r] ?? 0) > 0 || r === role) : ROLES;
+    return [
+      { value: 'ALL' as const, label: 'All users', count: census?.total },
+      ...present.map((r) => ({ value: r, label: ROLE_LABELS[r], count: census?.counts[r] })),
+    ];
+  }, [census, role]);
+
   const rows = useMemo(() => all.filter((u) => {
     if (status === 'ACTIVE') return u.isActive;
     if (status === 'INACTIVE') return !u.isActive;
@@ -164,11 +194,6 @@ export default function UsersPage() {
   }), [all, status]);
   const filtered = !!search || role !== 'ALL' || status !== 'ALL';
   const clearFilters = () => { setSearch(''); setRole('ALL'); setStatus('ALL'); };
-  /** A stat card doubles as the filter it describes — selected state is border + ring + hint text. */
-  const cardProps = (v: StatusFilter) => ({
-    onClick: () => setStatus((s) => (s === v ? 'ALL' : v)),
-    className: status === v ? 'border-primary-600 ring-1 ring-primary-600' : undefined,
-  });
 
   const deactivateButton = (u: User, block?: boolean) => {
     const self = u.id === me?.id;
@@ -195,22 +220,27 @@ export default function UsersPage() {
 
   const columns = useMemo<Column<User>[]>(() => [
     {
+      /* IDENTITY. A round record tile, the person, and the address they are reached at beneath.
+         `variant="record"` keeps the tile neutral — a column of gold discs would each be as loud
+         as the page's one primary action. */
       key: 'name', header: 'User', sortValue: (u) => u.fullName,
       render: (u) => (
         <div className="flex items-center gap-3 min-w-0">
-          <Avatar name={u.fullName} size="sm" />
+          <Avatar name={u.fullName} variant="record" size="sm" />
           <div className="min-w-0">
             <p className={cn('font-medium truncate', !u.isActive && 'text-neutral-500')}>
               {u.fullName}{u.id === me?.id && <span className="text-caption text-neutral-500"> (you)</span>}
             </p>
-            <p className="text-caption text-neutral-500 truncate">@{u.username}{u.email ? ` · ${u.email}` : ''}</p>
+            <p className="text-caption text-neutral-500 truncate">{u.email || `@${u.username}`}</p>
           </div>
         </div>
       ),
     },
-    { key: 'roles', header: 'Roles', render: (u) => <div className="flex flex-wrap gap-1">{u.roles.map((r) => <Badge key={r} tone="primary" size="sm">{ROLE_LABELS[r]}</Badge>)}</div> },
+    { key: 'roles', header: 'Role', render: (u) => <div className="flex flex-wrap gap-1">{u.roles.map((r) => <Badge key={r} tone="primary" size="sm">{ROLE_LABELS[r]}</Badge>)}</div> },
     {
-      key: 'branches', header: 'Branch access', hideBelow: 'lg', sortValue: (u) => u.branchIds?.length ?? 0,
+      /* The API returns branch ACCESS (which branches this account may switch to), not a branch
+         name per user, so that is what the column says. */
+      key: 'branches', header: 'Branch', hideBelow: 'lg', sortValue: (u) => u.branchIds?.length ?? 0,
       render: (u) => (
         <span className="inline-flex items-center gap-1.5 text-neutral-600">
           <Building2 className="h-3.5 w-3.5 shrink-0 text-neutral-400" aria-hidden />
@@ -219,7 +249,7 @@ export default function UsersPage() {
       ),
     },
     { key: 'disc', header: 'Max discount', hideBelow: 'lg', align: 'right', sortValue: (u) => u.maxDiscountPercent, render: (u) => <span className="tabular-nums">{u.maxDiscountPercent}%</span> },
-    { key: 'login', header: 'Last sign-in', hideBelow: 'md', sortValue: (u) => u.lastLoginAt ?? '', render: (u) => <LastSignIn user={u} className="text-sm" /> },
+    { key: 'login', header: 'Last active', hideBelow: 'md', sortValue: (u) => u.lastLoginAt ?? '', render: (u) => <LastSignIn user={u} className="text-sm" /> },
     {
       key: 'status', header: 'Status', sortValue: (u) => (u.isActive ? 'A' : 'Z'),
       render: (u) => (
@@ -243,6 +273,12 @@ export default function UsersPage() {
 
   return (
     <div>
+      {/* The directory's own search, hoisted into the application header — which is where the
+          reference puts it. Same input, same state, same debounce; only its position moves. */}
+      <HeaderSearch>
+        <SearchInput value={search} onChange={setSearch} placeholder="Search staff by name, username or email" className="w-full max-w-md" />
+      </HeaderSearch>
+
       <PageHeader
         title="Users & access"
         subtitle="Who can sign in, the roles they hold, and whether the account is live"
@@ -250,29 +286,30 @@ export default function UsersPage() {
           ? <Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => { setEditing(null); setOpen(true); }}>Add user</Button>
           : undefined}
       >
-        <div className="flex flex-col lg:flex-row lg:items-center gap-2 min-w-0">
-          <SearchInput value={search} onChange={setSearch} placeholder="Search name, username, email" className="lg:w-72" />
-          {/* Role is a select rather than a second scrolling segmented row — nine roles do not fit a 390 px line. */}
-          <FilterSelect
-            ariaLabel="Filter by role"
-            className="lg:w-48"
+        <div className="flex flex-col gap-2.5 min-w-0">
+          {/* Facet one: role, counted from the real directory. A role nobody holds gets no chip. */}
+          <FilterChips
+            ariaLabel="Filter the directory by role"
             value={role}
-            onChange={(e) => setRole(e.target.value as 'ALL' | RoleCodeKey)}
-            options={[{ value: 'ALL', label: 'All roles' }, ...ROLES.map((r) => ({ value: r, label: ROLE_LABELS[r] }))]}
+            onChange={setRole}
+            options={roleOptions}
           />
-          <SegmentedControl
-            size="sm"
-            ariaLabel="Filter by account status"
-            value={status}
-            onChange={setStatus}
-            options={[
-              { value: 'ALL', label: 'All', count: counts.total },
-              { value: 'ACTIVE', label: 'Active', count: counts.active },
-              { value: 'INACTIVE', label: 'Inactive', count: counts.inactive },
-              { value: 'NEVER', label: 'Never signed in', count: counts.never },
-            ]}
-          />
-          {filtered && <Button size="sm" variant="ghost" className="self-start lg:self-auto min-h-touch" leftIcon={<X className="h-4 w-4" />} onClick={clearFilters}>Clear filters</Button>}
+          {/* Facet two: the account's own state, narrowed over the rows already fetched. */}
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
+            <SegmentedControl
+              size="sm"
+              ariaLabel="Filter by account status"
+              value={status}
+              onChange={setStatus}
+              options={[
+                { value: 'ALL', label: 'All', count: counts.total },
+                { value: 'ACTIVE', label: 'Active', count: counts.active },
+                { value: 'INACTIVE', label: 'Inactive', count: counts.inactive },
+                { value: 'NEVER', label: 'Never signed in', count: counts.never },
+              ]}
+            />
+            {filtered && <Button size="sm" variant="ghost" className="min-h-touch" leftIcon={<X className="h-4 w-4" />} onClick={clearFilters}>Clear filters</Button>}
+          </div>
         </div>
       </PageHeader>
 
@@ -287,24 +324,6 @@ export default function UsersPage() {
 
       {users.data && (
         <>
-          {/*
-            One column at 390 px so each card is a full-width ROW (StatCard's mobile variant) —
-            two 170 px columns crushed the label. Each card also sets the status filter it names.
-          */}
-          <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
-            <StatCard
-              label="Accounts"
-              value={counts.total}
-              tone="primary"
-              icon={<UsersIcon className="h-5 w-5" />}
-              hint={search || role !== 'ALL' ? 'Matching the search and role filter' : 'Every account in this branch'}
-              {...cardProps('ALL')}
-            />
-            <StatCard label="Active" value={counts.active} tone="success" icon={<ShieldCheck className="h-5 w-5" />} hint={status === 'ACTIVE' ? 'Showing these' : 'Able to sign in right now'} {...cardProps('ACTIVE')} />
-            <StatCard label="Inactive" value={counts.inactive} tone={counts.inactive > 0 ? 'warning' : 'neutral'} icon={<ShieldOff className="h-5 w-5" />} hint={status === 'INACTIVE' ? 'Showing these' : 'Blocked from signing in'} {...cardProps('INACTIVE')} />
-            <StatCard label="Never signed in" value={counts.never} tone={counts.never > 0 ? 'info' : 'neutral'} icon={<Clock className="h-5 w-5" />} hint={status === 'NEVER' ? 'Showing these' : 'Created but not yet used'} {...cardProps('NEVER')} />
-          </div>
-
           <DataTable
             columns={columns}
             rows={rows}
@@ -330,7 +349,7 @@ export default function UsersPage() {
             mobileCard={(u) => (
               <div className="space-y-2.5">
                 <div className="flex items-start gap-3">
-                  <Avatar name={u.fullName} size="sm" />
+                  <Avatar name={u.fullName} variant="record" size="sm" />
                   <div className="min-w-0 flex-1">
                     <p className={cn('font-medium truncate', !u.isActive && 'text-neutral-500')}>
                       {u.fullName}{u.id === me?.id && <span className="text-caption text-neutral-500"> (you)</span>}

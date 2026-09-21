@@ -9,8 +9,20 @@ import { calculateBill, discountPercentOf } from '@/utils/billing';
 import { bestOfferForLine } from '@/utils/offers';
 import { round2 } from '@/utils/money';
 
+/**
+ * A bill, scoped to the caller's branch.
+ *
+ * The branch predicate is the point. Every LIST path already filtered on `ctx.branchId`, but this
+ * by-id lookup did not — so a cashier signed in to branch 2 who knew (or guessed) a branch-1 bill
+ * id could read it, and because `addPayment`, `addDiscount` and `reversePayment` all resolve the
+ * bill through here, they could take money against another branch's bill. Filtering on the list
+ * and trusting the id on the write is the classic shape of this bug.
+ *
+ * NOT FOUND rather than FORBIDDEN, deliberately: a caller with no business seeing this row should
+ * not learn from the error that it exists.
+ */
 function findBill(ctx: Ctx, id: number): Bill {
-  const b = ctx.db.bills.find((x) => x.id === Number(id));
+  const b = ctx.db.bills.find((x) => x.id === Number(id) && x.branchId === ctx.branchId);
   if (!b) throw errors.notFound('Bill not found');
   return b;
 }

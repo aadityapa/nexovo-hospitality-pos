@@ -25,13 +25,15 @@ export function FormField({ label, hint, error, required, className, children, h
       {label && (
         <label htmlFor={htmlFor} className="text-label text-neutral-700">
           {label}
-          {required && <span className="text-danger-600 ml-0.5" aria-hidden>*</span>}
+          {required && <span className="text-danger-700 ml-0.5" aria-hidden>*</span>}
           {required && <span className="sr-only"> (required)</span>}
         </label>
       )}
       {children}
+      {/* `-700` is the legible rung of each semantic on a dark ground; `-600` is the fill value and
+          drops to ~5:1 as small text. */}
       {error ? (
-        <p id={describedById} role="alert" className="text-caption text-danger-600 flex items-start gap-1">
+        <p id={describedById} role="alert" className="text-caption text-danger-700 flex items-start gap-1">
           <AlertCircle className="h-3.5 w-3.5 mt-px shrink-0" aria-hidden />
           <span>{error}</span>
         </p>
@@ -99,9 +101,15 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label?: string; hint?: string; error?: string; options: { value: string | number; label: string; disabled?: boolean }[]; placeholder?: string; wrapperClassName?: string;
 }
 
-/* Chevron drawn in neutral-500 (#667085) to match the token palette. */
+/*
+ * The select's own chevron. A native `appearance: none` select has no arrow, so it is drawn as a
+ * background SVG — the one place a literal colour is unavoidable, because a data URI cannot read a
+ * Tailwind token. %238E98A3 is `neutral-500`, the same value every other secondary glyph uses;
+ * the old #667085 was the light theme's secondary and reads at 2.6:1 on the dark input.
+ * Keep this in step with `colors.neutral.500` in tailwind.config.ts.
+ */
 const CHEVRON =
-  'bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 fill=%27none%27 viewBox=%270 0 20 20%27%3E%3Cpath stroke=%27%23667085%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27 stroke-width=%271.5%27 d=%27m6 8 4 4 4-4%27/%3E%3C/svg%3E")] bg-[length:1.25rem] bg-[right_0.5rem_center] bg-no-repeat';
+  'bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 fill=%27none%27 viewBox=%270 0 20 20%27%3E%3Cpath stroke=%27%238E98A3%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27 stroke-width=%271.5%27 d=%27m6 8 4 4 4-4%27/%3E%3C/svg%3E")] bg-[length:1.25rem] bg-[right_0.5rem_center] bg-no-repeat';
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
   { label, hint, error, options, placeholder, className, wrapperClassName, id, required, 'aria-describedby': describedBy, ...rest }, ref,
@@ -128,11 +136,20 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
   );
 });
 
-export interface FilterSelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
+/* `size` is omitted from the native attributes on purpose: on a `<select>` it is the number of
+   visible rows, which a one-line filter control never wants, and keeping the name free lets the
+   prop mean height the way it does on every other control in this system. */
+export interface FilterSelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 'size'> {
   /** Required: toolbar selects have no visible label, so this becomes the accessible name. */
   ariaLabel: string;
   options: { value: string | number; label: string; disabled?: boolean }[];
   placeholder?: string;
+  /**
+   * `sm` is 36 px — the height of a chip, a date input and the reference's filter row. A filter
+   * row that mixes a 40 px select with a 36 px date field has a visible step in it, which is the
+   * kind of thing nobody names but everybody sees.
+   */
+  size?: 'sm' | 'md';
 }
 
 /**
@@ -140,10 +157,15 @@ export interface FilterSelectProps extends SelectHTMLAttributes<HTMLSelectElemen
  * stacked label block that would break a single-row toolbar. The accessible name is required.
  */
 export const FilterSelect = forwardRef<HTMLSelectElement, FilterSelectProps>(function FilterSelect(
-  { ariaLabel, options, placeholder, className, ...rest }, ref,
+  { ariaLabel, options, placeholder, size = 'md', className, ...rest }, ref,
 ) {
   return (
-    <select ref={ref} aria-label={ariaLabel} className={cn('input-base appearance-none pr-9 cursor-pointer', CHEVRON, className)} {...rest}>
+    <select
+      ref={ref}
+      aria-label={ariaLabel}
+      className={cn('input-base appearance-none pr-9 cursor-pointer', size === 'sm' && 'h-9 min-h-0 text-[13px]', CHEVRON, className)}
+      {...rest}
+    >
       {placeholder && <option value="">{placeholder}</option>}
       {options.map((o) => <option key={o.value} value={o.value} disabled={o.disabled}>{o.label}</option>)}
     </select>
@@ -187,7 +209,11 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Che
         id={cid}
         type="checkbox"
         disabled={disabled}
-        className="mt-0.5 h-5 w-5 rounded-[5px] border-neutral-300 text-primary-600 transition-shadow focus:ring-0 focus:ring-offset-0"
+        /* No forms plugin is installed, so this stays a native control: `color-scheme: dark` on
+           :root gives it a dark box and `accent-color` gives it the gold tick. The browser picks
+           the check mark's own colour against that accent, which is why the accent is the -500
+           rung (#D6A84F) rather than a darker gold it would have to draw white on. */
+        className="mt-0.5 h-5 w-5 shrink-0 rounded-[5px] border-neutral-300 bg-surface accent-primary-500 transition-shadow focus:ring-0 focus:ring-offset-0"
         {...rest}
       />
       <span className="flex flex-col gap-0.5">
@@ -226,18 +252,29 @@ export function Switch({ checked, onChange, label, description, disabled, size =
           aria-label={!label ? (ariaLabel ?? description) : undefined}
           onChange={(e) => onChange(e.target.checked)}
         />
+        {/* Track: a mid-charcoal when off (visible against both `surface` and `surface-raised`),
+            gold when on. */}
         <span
           aria-hidden
           className={cn(
-            'absolute inset-0 rounded-full bg-neutral-300 transition-colors',
-            'peer-checked:bg-primary-600',
+            'absolute inset-0 rounded-full bg-neutral-300 ring-1 ring-inset ring-neutral-400/40 transition-colors duration-control',
+            'peer-checked:bg-primary-500 peer-checked:ring-primary-400',
             'peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary-500',
             track,
           )}
         />
+        {/*
+          The knob inverts with the track. A bright knob on the charcoal track reads at 10:1; the
+          same bright knob on the gold track would read at 1.9:1 and the switch would look like a
+          solid gold pill with no thumb, so on it becomes the near-black `on-primary` (12:1).
+        */}
         <span
           aria-hidden
-          className={cn('pointer-events-none absolute top-1/2 left-0.5 -translate-y-1/2 rounded-full bg-white shadow-card transition-transform', knob, shift)}
+          className={cn(
+            'pointer-events-none absolute top-1/2 left-0.5 -translate-y-1/2 rounded-full bg-neutral-900 shadow-card',
+            'transition-[transform,background-color] duration-control ease-out-soft peer-checked:bg-on-primary',
+            knob, shift,
+          )}
         />
       </span>
       {(label || description) && (

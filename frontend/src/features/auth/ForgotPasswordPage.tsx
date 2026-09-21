@@ -37,7 +37,7 @@ export default function ForgotPasswordPage() {
         <div className="card p-8">
           {sent ? (
             <div className="text-center">
-              <span className="mx-auto h-12 w-12 rounded-full bg-success-50 text-success-600 flex items-center justify-center mb-4" aria-hidden>
+              <span className="mx-auto h-12 w-12 rounded-full bg-success-50 text-success-700 ring-1 ring-inset ring-success-200 flex items-center justify-center mb-4" aria-hidden>
                 <MailCheck className="h-6 w-6" />
               </span>
               <h1 className="text-heading text-neutral-900">Check your inbox</h1>
@@ -46,7 +46,7 @@ export default function ForgotPasswordPage() {
                 reset instructions are on their way.
               </p>
               {env.isMock && (
-                <p className="text-caption text-neutral-500 mt-4 rounded-sm bg-neutral-50 border border-neutral-200 px-3 py-2">
+                <p className="text-caption text-neutral-500 mt-4 rounded-sm well px-3 py-2">
                   Demo backend: no email is actually sent. Ask an administrator to set a new password from the Users page.
                 </p>
               )}
@@ -56,7 +56,7 @@ export default function ForgotPasswordPage() {
             </div>
           ) : (
             <>
-              <span className="h-11 w-11 rounded-full bg-primary-50 text-primary-700 flex items-center justify-center mb-4" aria-hidden>
+              <span className="h-11 w-11 rounded-full bg-primary-50 text-primary-700 ring-1 ring-inset ring-primary-200 flex items-center justify-center mb-4" aria-hidden>
                 <KeyRound className="h-5 w-5" />
               </span>
               <h1 className="text-heading text-neutral-900">Reset password</h1>

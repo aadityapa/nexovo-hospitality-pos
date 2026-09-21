@@ -1,22 +1,73 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Download, ArrowLeft, Building2, Layers, Wallet, ReceiptText, Receipt, TrendingDown, Boxes, Trash2, Soup, Users, Info } from 'lucide-react';
+import { Download, ArrowLeft, Building2, Layers, Wallet, ReceiptText, Receipt, TrendingDown, Boxes, Trash2, Soup, Users, Info, RefreshCw, GitCompare } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, LineChart, Line, Legend, PieChart, Pie, Cell } from 'recharts';
 import { reports2Api } from '@/services/api/endpoints';
 import { useDateRange, DateRangeFilter } from '@/features/shared/DateRangeFilter';
+import { DashboardHero, previousRange, comparePeriodLabel } from '@/features/dashboard/DashboardPage';
 import { useAuth } from '@/hooks/useAuth';
-import { PageHeader, Tabs, Card, CardHeader, StatCard, LoadingState, ErrorState, EmptyState, DataTable, Button, SegmentedControl, StatusBadge, Badge, Alert, type Column } from '@/components/ui';
+import { Card, CardHeader, StatCard, LoadingState, ErrorState, EmptyState, DataTable, Button, SegmentedControl, FilterSelect, StatusBadge, Badge, Alert, type Column } from '@/components/ui';
+import { staggerDelay } from '@/components/motion';
 import { money } from '@/utils/money';
-import { fmtDate } from '@/utils/date';
-import { CHART, CHART_SERIES, axisProps, gridProps, tooltipProps, compactMoney } from '@/config/chartTheme';
+import { cn } from '@/utils/cn';
+import { fmtDate, nowIso } from '@/utils/date';
+import { useChartTheme, compactMoney } from '@/config/chartTheme';
 import { downloadCsv } from '@/utils/csv';
 import { MOVEMENT_LABELS } from '@/config/statuses';
-import type { BranchComparisonRow, CategoryPerformanceRow, ConsumptionRow, StaffPerformanceRow, WastageReport, InventoryValuation, MovementType } from '@/types';
+import type { BranchComparisonRow, CategoryPerformanceRow, ConsumptionRow, DateRange, StaffPerformanceRow, WastageReport, InventoryValuation, MovementType, SalesPeriodReport } from '@/types';
 
 type Tab = 'sales' | 'branches' | 'categories' | 'profit' | 'valuation' | 'wastage' | 'consumption' | 'staff';
 type GroupBy = 'DAY' | 'WEEK' | 'MONTH' | 'YEAR';
-const COLORS = CHART_SERIES;
+
+/* ---------------------------------------------------------------------------------------------
+ * COMPARISON PERIODS
+ *
+ * Every option below resolves to a REAL date range which is fetched through the same
+ * `reports2Api.sales(range, groupBy)` contract as the current period. There is no derived
+ * baseline, no synthesised trend and no "last year, roughly". A comparison that has not resolved
+ * yet contributes nothing at all — not a zero, not a placeholder — and a comparison period that
+ * took no money prints "no data for <period>" rather than a percentage measured from nothing.
+ * ------------------------------------------------------------------------------------------- */
+type CompareWith = 'NONE' | 'PREVIOUS' | 'WEEK_AGO' | 'YEAR_AGO';
+
+/** The same range shifted back a whole number of days — exact, with no calendar rounding. */
+function shiftDays(range: DateRange, days: number): DateRange {
+  const ms = days * 86_400_000;
+  return {
+    from: new Date(new Date(range.from).getTime() - ms).toISOString(),
+    to: new Date(new Date(range.to).getTime() - ms).toISOString(),
+  };
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * SPARKLINE SERIES — only the sales tab has one. Its rows ARE a measured series: one bucket per
+ * day, week, month or year that settled a bill, in order, exactly as the chart below the cards
+ * plots them. A bucket that took nothing is absent from `rows`, and no zero is invented for it.
+ *
+ * Every other tab on this screen is a ranking (branches, categories, ingredients, staff, items)
+ * or a single set of totals — neither is a series through time, so drawing a line across them
+ * would assert a trend that was never measured. Those cards carry no sparkline.
+ * ------------------------------------------------------------------------------------------- */
+type PeriodRow = SalesPeriodReport['rows'][number];
+const periodSalesSeries = (rows: PeriodRow[]) => rows.map((r) => r.sales);
+const periodBillsSeries = (rows: PeriodRow[]) => rows.map((r) => r.bills);
+/** The report's own per-bucket average, from the buckets that actually settled a bill. */
+const periodAvgBillSeries = (rows: PeriodRow[]) => rows.filter((r) => r.bills > 0).map((r) => r.averageBill);
+
+/**
+ * MOTION on this screen.
+ *
+ * Eight tabs, each one a different question. Opening a tab mounts its content, and that is the one
+ * moment these entrances play: the four summary cards sweep in sequence (`.anim-reveal`, beats
+ * 0–3), the charts FADE without moving (`.anim-enter-soft` — an axis that slides implies a figure
+ * that slid), and every table rises as a CONTAINER with its rows left alone. Nothing polls here
+ * and no entrance is keyed on a figure, so nothing can re-animate underneath a reader. No
+ * `CountUp` anywhere: every number on this screen exists to be reconciled or exported.
+ */
+
+/** The `--d` beat of a staged reveal — a function of a card's position in its row and nothing else. */
+const beat = (i: number) => ({ '--d': `${staggerDelay(i)}ms` }) as CSSProperties;
 
 const Panel = <T,>({ q, variant = 'stats', children }: {
   q: { isLoading: boolean; isError: boolean; error: unknown; refetch: () => unknown; data?: T };
@@ -47,6 +98,12 @@ export default function AdvancedReportsPage() {
   const dr = useDateRange('month');
   const [tab, setTab] = useState<Tab>('sales');
   const [groupBy, setGroupBy] = useState<GroupBy>('DAY');
+  const [compareWith, setCompareWith] = useState<CompareWith>('NONE');
+  const [branchFilter, setBranchFilter] = useState('');
+  /* Grid, axis ticks, tooltip and every series colour resolve for the theme painted right now,
+     so the same markup reads correctly on charcoal and on white. */
+  const { CHART, CHART_SERIES, axisProps, gridProps, tooltipProps } = useChartTheme();
+  const COLORS = CHART_SERIES;
   const multiBranch = (user?.branchIds?.length ?? 0) > 1 || !!user?.roles.includes('SUPER_ADMIN');
   const sales = useQuery({ queryKey: ['reports', 'v2', 'sales', dr.range, groupBy], queryFn: () => reports2Api.sales(dr.range, groupBy), enabled: tab === 'sales' });
   const branches = useQuery({ queryKey: ['reports', 'v2', 'branches', dr.range], queryFn: () => reports2Api.branches(dr.range), enabled: tab === 'branches' });
@@ -62,6 +119,31 @@ export default function AdvancedReportsPage() {
     const to = fmtDate(dr.range.to);
     return from === to ? from : `${from} – ${to}`;
   }, [dr.range]);
+
+  /* ---------------------------------------------------------------- the comparison period */
+  const cmpRange = useMemo<DateRange>(() => {
+    if (compareWith === 'WEEK_AGO') return shiftDays(dr.range, 7);
+    if (compareWith === 'YEAR_AGO') return shiftDays(dr.range, 364);
+    return previousRange(dr.range);
+  }, [compareWith, dr.range]);
+  const cmpLabel = compareWith === 'WEEK_AGO' ? 'one week earlier'
+    : compareWith === 'YEAR_AGO' ? '52 weeks earlier'
+      : comparePeriodLabel(dr.preset, dr.range);
+  const cmpRangeLabel = useMemo(() => {
+    const from = fmtDate(cmpRange.from);
+    const to = fmtDate(cmpRange.to);
+    return from === to ? from : `${from} – ${to}`;
+  }, [cmpRange]);
+  /* A second, separate fetch behind its own key, so the two periods cache independently and
+     switching the comparison off and on again costs nothing. */
+  const comparison = useQuery({
+    queryKey: ['reports', 'v2', 'sales', cmpRange, groupBy],
+    queryFn: () => reports2Api.sales(cmpRange, groupBy),
+    enabled: tab === 'sales' && compareWith !== 'NONE',
+    staleTime: 60_000,
+  });
+  /** Resolved only once the second fetch has actually returned. Until then there is no delta. */
+  const cmp = compareWith !== 'NONE' && tab === 'sales' ? comparison.data : undefined;
 
   // ---------------------------------------------------------------- export, always the open tab
   const exportMeta: Record<Tab, { file: string; what: string }> = {
@@ -154,16 +236,60 @@ export default function AdvancedReportsPage() {
   ];
   const needsRange = tab !== 'valuation';
   const emptyForRange = `Nothing recorded between ${rangeLabel}.`;
+  /*
+   * Stock on hand is not measured over a period — it is what is on the shelf at the moment the
+   * page asked. So on the valuation tab the band's period is that moment rather than the selected
+   * range, which is the same thing the line under the tabs says in words. Every other tab hands
+   * the band the range its figures were actually computed over.
+   */
+  const snapshot = useMemo(() => { const at = nowIso(); return { from: at, to: at }; }, []);
+
+  /**
+   * The two periods, paired bucket by bucket in the order each report returned them. Nothing is
+   * interpolated and nothing is zero-filled: where the comparison period has fewer buckets the
+   * series simply has no point there, which Recharts draws as a gap rather than as a collapse.
+   */
+  const comparisonSeries = useMemo(() => {
+    const cur = sales.data?.rows ?? [];
+    const prev = cmp?.rows ?? [];
+    return cur.map((r, i) => ({
+      bucket: r.bucket,
+      current: r.sales,
+      comparison: prev[i] ? prev[i].sales : null,
+      comparisonBucket: prev[i] ? prev[i].bucket : null,
+    }));
+  }, [sales.data, cmp]);
+
+  /* The open tab's query, structurally typed so "Generate" can re-run whichever one it is. */
+  const active: { isFetching: boolean; refetch: () => unknown } =
+    tab === 'sales' ? sales : tab === 'branches' ? branches : tab === 'categories' ? categories
+      : tab === 'profit' ? profit : tab === 'valuation' ? valuation : tab === 'wastage' ? wastage
+        : tab === 'consumption' ? consumption : staff;
+  const generating = active.isFetching || (tab === 'sales' && compareWith !== 'NONE' && comparison.isFetching);
+  const generate = () => {
+    void active.refetch();
+    if (tab === 'sales' && compareWith !== 'NONE') void comparison.refetch();
+  };
+
+  /* Branch options come from the comparison rows the report already returned — there is no
+     branch parameter on any reports/v2 endpoint, so this narrows what was fetched rather than
+     pretending to scope the query. */
+  const branchOptions = (branches.data ?? []).map((b) => ({ value: String(b.branchId), label: `${b.name} · ${b.code}` }));
 
   return (
     <div>
-      <PageHeader
+      {/* The same band as the two main dashboards: venue and branch identity, the page, and the
+          period behind the figures — with the range selector and grouping inside it. */}
+      <DashboardHero
         title="Advanced reports"
         subtitle="Cross-period, cross-branch, inventory and profitability analytics"
+        range={needsRange ? dr.range : snapshot}
         actions={<>
           <Button variant="ghost" leftIcon={<ArrowLeft className="h-4 w-4" />} onClick={() => navigate('/admin/reports')}>Basic reports</Button>
-          {/* Primary weight: exporting the open tab is what this screen is for. */}
+          {/* Export keeps every behaviour it had; the single gold action on this screen is now
+              Generate, in the workspace below, which is the control the reference leads with. */}
           <Button
+            variant="outline"
             leftIcon={<Download className="h-4 w-4" />}
             disabled={exportRows.length === 0}
             aria-label={`Export ${ex.what}${needsRange ? ` for ${rangeLabel}` : ''} as CSV`}
@@ -172,10 +298,23 @@ export default function AdvancedReportsPage() {
             Export<span className="hidden sm:inline">&nbsp;{ex.what}</span>
           </Button>
         </>}
-      >
-        <div className="flex flex-col lg:flex-row lg:items-center gap-2">
-          {needsRange && <DateRangeFilter state={dr} />}
-          {tab === 'sales' && (
+      />
+
+      {/* ---------------------------------------------------------------- filter workspace
+          One wrapping row of the controls that are actually wired to this screen's queries. The
+          grouping and the comparison belong to the sales report, the branch facet to the branch
+          comparison, and each only appears on the tab it governs — a control that does nothing
+          is worse than no control. */}
+      <Card className="mb-4 flex flex-wrap items-end gap-x-4 gap-y-3 min-w-0">
+        {needsRange && (
+          <div className="min-w-0">
+            <p className="text-label uppercase text-neutral-500 mb-1.5">Date range</p>
+            <DateRangeFilter state={dr} />
+          </div>
+        )}
+        {tab === 'sales' && (
+          <div className="min-w-0">
+            <p className="text-label uppercase text-neutral-500 mb-1.5">Group by</p>
             <SegmentedControl
               size="sm"
               ariaLabel="Group sales by"
@@ -183,11 +322,50 @@ export default function AdvancedReportsPage() {
               onChange={setGroupBy}
               options={[{ value: 'DAY', label: 'Daily' }, { value: 'WEEK', label: 'Weekly' }, { value: 'MONTH', label: 'Monthly' }, { value: 'YEAR', label: 'Yearly' }]}
             />
-          )}
-        </div>
-      </PageHeader>
+          </div>
+        )}
+        {tab === 'branches' && (
+          <div className="min-w-0">
+            <p className="text-label uppercase text-neutral-500 mb-1.5">Branch</p>
+            <FilterSelect
+              ariaLabel="Narrow the branch comparison to one branch"
+              value={branchFilter}
+              onChange={(e) => setBranchFilter(e.target.value)}
+              placeholder={`All branches (${branchOptions.length})`}
+              options={branchOptions}
+              className="h-9 min-h-0 w-auto text-sm"
+            />
+          </div>
+        )}
+        {tab === 'sales' && (
+          <div className="min-w-0">
+            <p className="text-label uppercase text-neutral-500 mb-1.5">Compare with</p>
+            <FilterSelect
+              ariaLabel="Compare the current period against a second, separately fetched period"
+              value={compareWith}
+              onChange={(e) => setCompareWith(e.target.value as CompareWith)}
+              options={[
+                { value: 'NONE', label: 'No comparison' },
+                { value: 'PREVIOUS', label: `Previous period (${comparePeriodLabel(dr.preset, dr.range)})` },
+                { value: 'WEEK_AGO', label: 'Same period one week earlier' },
+                { value: 'YEAR_AGO', label: 'Same period 52 weeks earlier' },
+              ]}
+              className="h-9 min-h-0 w-auto text-sm"
+            />
+          </div>
+        )}
+        <Button
+          className="ml-auto"
+          leftIcon={<RefreshCw className="h-4 w-4" />}
+          loading={generating}
+          onClick={generate}
+          aria-label={`Generate ${ex.what}${needsRange ? ` for ${rangeLabel}` : ''}${tab === 'sales' && compareWith !== 'NONE' ? `, compared with ${cmpLabel}` : ''}`}
+        >
+          Generate
+        </Button>
+      </Card>
 
-      <Tabs className="mb-3" ariaLabel="Advanced report" value={tab} onChange={setTab} options={tabs} />
+      <SegmentedControl className="mb-3 max-w-full" size="sm" ariaLabel="Advanced report" value={tab} onChange={setTab} options={tabs} />
       <p className="text-caption text-neutral-500 mb-4" aria-live="polite">
         {needsRange
           ? <strong className="text-neutral-700 font-semibold">{rangeLabel}</strong>
@@ -201,14 +379,68 @@ export default function AdvancedReportsPage() {
       {/* ---------------------------------------------------------------- Sales by period */}
       {tab === 'sales' && <Panel q={sales} variant="page">{(d) => (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <StatCard label="Sales" value={money(d.totalSales)} tone="primary" size="lg" icon={<Wallet className="h-5 w-5" />} hint={`Bills paid between ${rangeLabel}`} />
-            <StatCard label="Bills" value={d.totalBills} tone="info" icon={<ReceiptText className="h-5 w-5" />} />
-            <StatCard label="Average bill" value={money(d.averageBill)} tone="success" icon={<Receipt className="h-5 w-5" />} hint="Sales ÷ bills" />
-            <StatCard label={`${groupBy[0]}${groupBy.slice(1).toLowerCase()} buckets`} value={d.rows.length} tone="neutral" hint={d.rows.length ? `${d.rows[0].bucket} → ${d.rows[d.rows.length - 1].bucket}` : 'No settled bills'} />
+          {/* ------------------------------------------- comparison chart · period figures */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-start">
+            <Card className="anim-enter-soft min-w-0">
+              <CardHeader
+                title={compareWith === 'NONE' ? `Revenue per ${groupBy.toLowerCase()}` : 'Period comparison'}
+                subtitle={compareWith === 'NONE'
+                  ? 'Every bucket in the range that settled a bill'
+                  : `Two separately fetched periods: ${rangeLabel} against ${cmpRangeLabel}`}
+                action={compareWith !== 'NONE' ? <Badge size="sm" tone="info" icon={<GitCompare className="h-3 w-3" aria-hidden />}>vs {cmpLabel}</Badge> : undefined}
+              />
+              {d.rows.length === 0 ? (
+                <EmptyState compact icon={<Receipt className="h-6 w-6" />} title="No settled bills to plot" description={`${emptyForRange} Widen the range or switch the grouping.`} />
+              ) : (
+                <>
+                  <div className="h-72">
+                    <ResponsiveContainer>
+                      <BarChart data={comparisonSeries} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                        <CartesianGrid {...gridProps} />
+                        <XAxis dataKey="bucket" {...axisProps} />
+                        <YAxis tickFormatter={compactMoney} width={64} {...axisProps} />
+                        <Tooltip
+                          {...tooltipProps}
+                          formatter={(v: number) => money(v)}
+                          labelFormatter={(b: string) => {
+                            const row = comparisonSeries.find((r) => r.bucket === b);
+                            return row?.comparisonBucket ? `${b}  ·  ${cmpLabel}: ${row.comparisonBucket}` : b;
+                          }}
+                        />
+                        {/* The legend names BOTH periods in full — a bare "current / previous"
+                            pair says nothing about which dates were measured. */}
+                        <Legend />
+                        <Bar dataKey="current" name={`Current period · ${rangeLabel}`} fill={CHART.primary} radius={[4, 4, 0, 0]} isAnimationActive={false} maxBarSize={48} />
+                        {cmp && <Bar dataKey="comparison" name={`${cmpLabel} · ${cmpRangeLabel}`} fill={CHART.info} radius={[4, 4, 0, 0]} isAnimationActive={false} maxBarSize={48} />}
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  {compareWith !== 'NONE' && (
+                    comparison.isPending
+                      ? <p className="text-caption text-neutral-500 mt-2">Fetching {cmpLabel} ({cmpRangeLabel}) — nothing is compared until it arrives.</p>
+                      : comparison.isError
+                        ? <p className="text-caption text-danger-700 mt-2">The {cmpLabel} period could not be loaded, so no comparison is drawn.</p>
+                        : cmp && cmp.rows.length === 0
+                          ? <p className="text-caption text-neutral-500 mt-2">No data for {cmpLabel} ({cmpRangeLabel}) — nothing settled in that period, so there is nothing to compare against.</p>
+                          : <p className="text-caption text-neutral-500 mt-2">Buckets are paired in order — the first {groupBy.toLowerCase()} of this period against the first of {cmpLabel}. The axis names this period&rsquo;s bucket; the tooltip names both.</p>
+                  )}
+                </>
+              )}
+            </Card>
+
+            {/* The first three are measured bucket by bucket, so each carries the line the chart
+                beside it plots. The fourth counts the buckets themselves — no series of its own.
+                A `compare` is passed ONLY once the second fetch resolved; while it is in flight
+                the prop is absent and the card shows no delta at all. */}
+            <div className="grid grid-cols-1 gap-3 sm:gap-4">
+              <StatCard label="Sales" value={money(d.totalSales)} tone="primary" size="lg" icon={<Wallet className="h-5 w-5" />} series={periodSalesSeries(d.rows)} hint={`Bills paid between ${rangeLabel}`} compare={cmp ? { current: d.totalSales, previous: cmp.totalSales, label: cmpLabel } : undefined} className="anim-reveal" style={beat(0)} />
+              <StatCard label="Bills" value={d.totalBills} tone="info" icon={<ReceiptText className="h-5 w-5" />} series={periodBillsSeries(d.rows)} compare={cmp ? { current: d.totalBills, previous: cmp.totalBills, label: cmpLabel } : undefined} className="anim-reveal" style={beat(1)} />
+              <StatCard label="Average bill" value={money(d.averageBill)} tone="success" icon={<Receipt className="h-5 w-5" />} series={periodAvgBillSeries(d.rows)} hint="Sales ÷ bills" compare={cmp ? { current: d.averageBill, previous: cmp.averageBill, label: cmpLabel } : undefined} className="anim-reveal" style={beat(2)} />
+              <StatCard label={`${groupBy[0]}${groupBy.slice(1).toLowerCase()} buckets`} value={d.rows.length} tone="neutral" hint={d.rows.length ? `${d.rows[0].bucket} → ${d.rows[d.rows.length - 1].bucket}` : 'No settled bills'} className="anim-reveal" style={beat(3)} />
+            </div>
           </div>
 
-          <Card>
+          <Card className="anim-enter-soft">
             <CardHeader title={`Sales per ${groupBy.toLowerCase()}`} subtitle="Sales, tax and discounts side by side — all three come from the same settled bills" />
             {d.rows.length === 0 ? (
               <EmptyState compact icon={<Receipt className="h-6 w-6" />} title="No settled bills to plot" description={`${emptyForRange} Widen the range or switch the grouping.`} />
@@ -221,9 +453,9 @@ export default function AdvancedReportsPage() {
                     <YAxis tickFormatter={compactMoney} width={64} {...axisProps} />
                     <Tooltip {...tooltipProps} formatter={(v: number) => money(v)} />
                     <Legend />
-                    <Line type="monotone" dataKey="sales" name="Sales" stroke={CHART.primary} strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="tax" name="Tax" stroke={CHART_SERIES[4]} dot={false} />
-                    <Line type="monotone" dataKey="discounts" name="Discounts" stroke={CHART.danger} dot={false} />
+                    <Line type="monotone" dataKey="sales" name="Sales" stroke={CHART.primary} strokeWidth={2} dot={false} isAnimationActive={false} />
+                    <Line type="monotone" dataKey="tax" name="Tax" stroke={CHART.info} dot={false} isAnimationActive={false} />
+                    <Line type="monotone" dataKey="discounts" name="Discounts" stroke={CHART.danger} dot={false} isAnimationActive={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -231,6 +463,7 @@ export default function AdvancedReportsPage() {
           </Card>
 
           <DataTable
+            className="anim-reveal"
             rows={d.rows}
             rowKey={(r) => r.bucket}
             caption="Sales per period with bills, tax, discounts, service charge and average bill"
@@ -260,19 +493,24 @@ export default function AdvancedReportsPage() {
       )}</Panel>}
 
       {/* ---------------------------------------------------------------- Branch comparison */}
-      {tab === 'branches' && <Panel q={branches} variant="page">{(rows) => {
+      {tab === 'branches' && <Panel q={branches} variant="page">{(all) => {
+        /* The workspace's branch facet narrows the rows this report returned; it is not a
+           parameter on the query, because no reports/v2 endpoint takes one. */
+        const rows = branchFilter ? all.filter((r) => String(r.branchId) === branchFilter) : all;
         const totals = rows.reduce((a, r) => ({ sales: a.sales + r.sales, bills: a.bills + r.bills, gp: a.gp + r.grossProfit }), { sales: 0, bills: 0, gp: 0 });
         const best = rows.length ? rows.reduce((b, r) => (r.sales > b.sales ? r : b), rows[0]) : null;
         return (
           <div className="space-y-4">
             <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              <StatCard label="Sales, all branches" value={money(totals.sales)} tone="primary" size="lg" icon={<Wallet className="h-5 w-5" />} hint={`${rows.length} branch${rows.length === 1 ? '' : 'es'} in range`} />
-              <StatCard label="Bills, all branches" value={totals.bills} tone="info" icon={<ReceiptText className="h-5 w-5" />} />
-              <StatCard label="Gross profit, all branches" value={money(totals.gp)} tone="success" hint="Sales less recipe cost of goods" />
-              <StatCard label="Highest sales" value={best ? best.name : '—'} tone="accent" icon={<Building2 className="h-5 w-5" />} hint={best ? `${money(best.sales)} from ${best.bills} bill${best.bills === 1 ? '' : 's'}` : 'No branch took money in this range'} />
+              <StatCard label="Sales, all branches" value={money(totals.sales)} tone="primary" size="lg" icon={<Wallet className="h-5 w-5" />} hint={`${rows.length} branch${rows.length === 1 ? '' : 'es'} in range`} className="anim-reveal" style={beat(0)} />
+              <StatCard label="Bills, all branches" value={totals.bills} tone="info" icon={<ReceiptText className="h-5 w-5" />} className="anim-reveal" style={beat(1)} />
+              {/* Profit actually made, across every branch — a genuine positive, so it takes the
+                  success wash. It is the only washed tile on the tab. */}
+              <StatCard label="Gross profit, all branches" value={money(totals.gp)} tone="success" hint="Sales less recipe cost of goods" className={cn('anim-reveal', totals.gp > 0 && 'fill-success')} style={beat(2)} />
+              <StatCard label="Highest sales" value={best ? best.name : '—'} tone="primary" icon={<Building2 className="h-5 w-5" />} hint={best ? `${money(best.sales)} from ${best.bills} bill${best.bills === 1 ? '' : 's'}` : 'No branch took money in this range'} className="anim-reveal" style={beat(3)} />
             </div>
 
-            <Card>
+            <Card className="anim-enter-soft">
               <CardHeader title="Sales and gross profit by branch" subtitle="Same range for every branch — the gap between the bars is the cost of goods" />
               {rows.length === 0 ? (
                 <EmptyState compact icon={<Building2 className="h-6 w-6" />} title="No branch activity" description={emptyForRange} />
@@ -285,8 +523,8 @@ export default function AdvancedReportsPage() {
                       <YAxis tickFormatter={compactMoney} width={64} {...axisProps} />
                       <Tooltip {...tooltipProps} formatter={(v: number) => money(v)} labelFormatter={(c: string) => rows.find((r) => r.code === c)?.name ?? c} />
                       <Legend />
-                      <Bar dataKey="sales" name="Sales" fill={CHART.primary} radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="grossProfit" name="Gross profit" fill={CHART.success} radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="sales" name="Sales" fill={CHART.primary} radius={[4, 4, 0, 0]} isAnimationActive={false} maxBarSize={56} />
+                      <Bar dataKey="grossProfit" name="Gross profit" fill={CHART.success} radius={[4, 4, 0, 0]} isAnimationActive={false} maxBarSize={56} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -294,6 +532,7 @@ export default function AdvancedReportsPage() {
             </Card>
 
             <DataTable
+              className="anim-reveal"
               columns={branchCols}
               rows={rows}
               rowKey={(r) => r.branchId}
@@ -326,14 +565,14 @@ export default function AdvancedReportsPage() {
         return (
           <div className="space-y-4">
             <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              <StatCard label="Category revenue" value={money(totalRevenue)} tone="primary" size="lg" icon={<Wallet className="h-5 w-5" />} hint="Line totals after item discounts" />
-              <StatCard label="Items sold" value={totalQty} tone="info" icon={<Layers className="h-5 w-5" />} />
-              <StatCard label="Categories selling" value={rows.length} tone="neutral" />
-              <StatCard label="Largest share" value={top ? top.categoryName : '—'} tone="accent" hint={top ? `${top.sharePercent.toFixed(1)}% of revenue · ${money(top.revenue)}` : 'Nothing sold in this range'} />
+              <StatCard label="Category revenue" value={money(totalRevenue)} tone="primary" size="lg" icon={<Wallet className="h-5 w-5" />} hint="Line totals after item discounts" className="anim-reveal" style={beat(0)} />
+              <StatCard label="Items sold" value={totalQty} tone="info" icon={<Layers className="h-5 w-5" />} className="anim-reveal" style={beat(1)} />
+              <StatCard label="Categories selling" value={rows.length} tone="neutral" className="anim-reveal" style={beat(2)} />
+              <StatCard label="Largest share" value={top ? top.categoryName : '—'} tone="primary" hint={top ? `${top.sharePercent.toFixed(1)}% of revenue · ${money(top.revenue)}` : 'Nothing sold in this range'} className="anim-reveal" style={beat(3)} />
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
-              <Card>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
+              <Card className="anim-enter-soft">
                 <CardHeader title="Revenue share" subtitle="Share of item revenue in this range" />
                 {rows.length === 0 ? (
                   <EmptyState compact icon={<Layers className="h-6 w-6" />} title="No category sales" description={emptyForRange} />
@@ -342,7 +581,7 @@ export default function AdvancedReportsPage() {
                     <div className="h-64">
                       <ResponsiveContainer>
                         <PieChart>
-                          <Pie data={rows} dataKey="revenue" nameKey="categoryName" innerRadius={45} outerRadius={85}>
+                          <Pie data={rows} dataKey="revenue" nameKey="categoryName" innerRadius={45} outerRadius={85} isAnimationActive={false}>
                             {rows.map((r, i) => <Cell key={r.categoryName} fill={COLORS[i % COLORS.length]} />)}
                           </Pie>
                           <Tooltip {...tooltipProps} formatter={(v: number) => money(v)} />
@@ -356,6 +595,7 @@ export default function AdvancedReportsPage() {
               </Card>
 
               <DataTable
+                className="anim-reveal"
                 columns={catCols}
                 rows={rows}
                 rowKey={(r) => r.categoryName}
@@ -382,14 +622,16 @@ export default function AdvancedReportsPage() {
       {tab === 'profit' && <Panel q={profit} variant="page">{(p) => (
         <div className="space-y-4">
           <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <StatCard label="Revenue" value={money(p.revenue)} tone="primary" size="lg" icon={<Wallet className="h-5 w-5" />} hint={`Food ${money(p.foodRevenue)} · beverage ${money(p.beverageRevenue)}`} />
-            <StatCard label="Cost of goods" value={money(p.cogs)} tone="warning" icon={<Boxes className="h-5 w-5" />} hint={`Food ${money(p.foodCogs)} · beverage ${money(p.beverageCogs)}`} />
-            <StatCard label="Gross profit" value={money(p.grossProfit)} tone="success" hint={`${p.grossMarginPercent.toFixed(1)}% margin on revenue`} />
-            <StatCard label="Wastage & discounts" value={money(p.wastageCost + p.discountsGiven)} tone={p.wastageCost + p.discountsGiven > 0 ? 'danger' : 'neutral'} icon={<TrendingDown className="h-5 w-5" />} hint={`Wastage ${money(p.wastageCost)} · discounts ${money(p.discountsGiven)}`} />
+            <StatCard label="Revenue" value={money(p.revenue)} tone="primary" size="lg" icon={<Wallet className="h-5 w-5" />} hint={`Food ${money(p.foodRevenue)} · beverage ${money(p.beverageRevenue)}`} className="anim-reveal" style={beat(0)} />
+            <StatCard label="Cost of goods" value={money(p.cogs)} tone="warning" icon={<Boxes className="h-5 w-5" />} hint={`Food ${money(p.foodCogs)} · beverage ${money(p.beverageCogs)}`} className="anim-reveal" style={beat(1)} />
+            {/* The two tiles on this tab that are genuinely an answer, not a component of one:
+                what was kept, and what was thrown away or given away. */}
+            <StatCard label="Gross profit" value={money(p.grossProfit)} tone="success" hint={`${p.grossMarginPercent.toFixed(1)}% margin on revenue`} className={cn('anim-reveal', p.grossProfit > 0 && 'fill-success')} style={beat(2)} />
+            <StatCard label="Wastage & discounts" value={money(p.wastageCost + p.discountsGiven)} tone={p.wastageCost + p.discountsGiven > 0 ? 'danger' : 'neutral'} icon={<TrendingDown className="h-5 w-5" />} hint={`Wastage ${money(p.wastageCost)} · discounts ${money(p.discountsGiven)}`} className={cn('anim-reveal', p.wastageCost + p.discountsGiven > 0 && 'fill-danger')} style={beat(3)} />
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <Card className="anim-reveal">
               <CardHeader title="Cost percentages" subtitle="Recipe cost ÷ revenue, by prep location" />
               {p.revenue === 0 ? (
                 <EmptyState compact icon={<Boxes className="h-6 w-6" />} title="No revenue to measure cost against" description={`${emptyForRange} A cost percentage of a zero total would be meaningless, so none is drawn.`} />
@@ -406,7 +648,7 @@ export default function AdvancedReportsPage() {
                           <span className="font-normal">{over ? 'over target' : 'within target'}</span>
                         </span>
                       </div>
-                      <div className="h-2 rounded-full bg-neutral-100 overflow-hidden">
+                      <div className="h-2 rounded-full bg-neutral-200 overflow-hidden">
                         <div className={`h-full ${over ? 'bg-danger-500' : 'bg-success-500'}`} style={{ width: `${Math.min(100, r.v)}%` }} aria-hidden />
                       </div>
                       <p className="text-caption text-neutral-500 mt-1">Target ≤ {r.warn}%</p>
@@ -417,7 +659,7 @@ export default function AdvancedReportsPage() {
               )}
             </Card>
 
-            <Card>
+            <Card className="anim-enter-soft">
               <CardHeader title="Revenue against cost" subtitle="Food and beverage side by side — the gap between the bars is the gross margin" />
               {p.revenue === 0 && p.cogs === 0 ? (
                 <EmptyState compact icon={<Receipt className="h-6 w-6" />} title="Nothing to plot" description={emptyForRange} />
@@ -430,8 +672,8 @@ export default function AdvancedReportsPage() {
                       <YAxis tickFormatter={compactMoney} width={64} {...axisProps} />
                       <Tooltip {...tooltipProps} formatter={(v: number) => money(v)} />
                       <Legend />
-                      <Bar dataKey="revenue" name="Revenue" fill={CHART.primary} radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="cogs" name="Cost of goods" fill={CHART.warning} radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="revenue" name="Revenue" fill={CHART.primary} radius={[4, 4, 0, 0]} isAnimationActive={false} maxBarSize={56} />
+                      <Bar dataKey="cogs" name="Cost of goods" fill={CHART.warning} radius={[4, 4, 0, 0]} isAnimationActive={false} maxBarSize={56} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -452,14 +694,16 @@ export default function AdvancedReportsPage() {
         return (
           <div className="space-y-4">
             <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              <StatCard label="Total stock value" value={money(v.totalValue)} tone="primary" size="lg" icon={<Boxes className="h-5 w-5" />} hint="On hand right now, at moving-average cost" />
-              <StatCard label="Categories" value={v.byCategory.length} tone="neutral" icon={<Layers className="h-5 w-5" />} />
-              <StatCard label="Items holding stock" value={itemCount} tone="info" />
-              <StatCard label="Largest category" value={top ? top.categoryName : '—'} tone="accent" hint={top ? `${money(top.value)} · ${top.items} item${top.items === 1 ? '' : 's'} · ${top.kind.toLowerCase()}` : 'Nothing in stock'} />
+              {/* Nothing on the valuation tab takes a wash: stock on a shelf is a reference
+                  figure, and calling it good or bad news would be a judgement no one measured. */}
+              <StatCard label="Total stock value" value={money(v.totalValue)} tone="primary" size="lg" icon={<Boxes className="h-5 w-5" />} hint="On hand right now, at moving-average cost" className="anim-reveal" style={beat(0)} />
+              <StatCard label="Categories" value={v.byCategory.length} tone="neutral" icon={<Layers className="h-5 w-5" />} className="anim-reveal" style={beat(1)} />
+              <StatCard label="Items holding stock" value={itemCount} tone="info" className="anim-reveal" style={beat(2)} />
+              <StatCard label="Largest category" value={top ? top.categoryName : '—'} tone="primary" hint={top ? `${money(top.value)} · ${top.items} item${top.items === 1 ? '' : 's'} · ${top.kind.toLowerCase()}` : 'Nothing in stock'} className="anim-reveal" style={beat(3)} />
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
-              <Card>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
+              <Card className="anim-enter-soft">
                 <CardHeader title="By category" subtitle="Where the money on the shelf is sitting" />
                 {v.byCategory.length === 0 ? (
                   <EmptyState compact icon={<Boxes className="h-6 w-6" />} title="No stock on hand" description="Receive a purchase order or record opening stock to value it here." />
@@ -468,7 +712,7 @@ export default function AdvancedReportsPage() {
                     <div className="h-64">
                       <ResponsiveContainer>
                         <PieChart>
-                          <Pie data={v.byCategory} dataKey="value" nameKey="categoryName" innerRadius={45} outerRadius={85}>
+                          <Pie data={v.byCategory} dataKey="value" nameKey="categoryName" innerRadius={45} outerRadius={85} isAnimationActive={false}>
                             {v.byCategory.map((c, i) => <Cell key={c.categoryName} fill={COLORS[i % COLORS.length]} />)}
                           </Pie>
                           <Tooltip {...tooltipProps} formatter={(val: number) => money(val)} />
@@ -481,6 +725,7 @@ export default function AdvancedReportsPage() {
               </Card>
 
               <DataTable
+                className="anim-reveal"
                 columns={valCols}
                 rows={v.topItems}
                 rowKey={(r) => r.itemName}
@@ -515,13 +760,15 @@ export default function AdvancedReportsPage() {
         return (
           <div className="space-y-4">
             <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              <StatCard label="Wastage cost" value={money(w.totalCost)} tone={w.totalCost > 0 ? 'danger' : 'success'} size="lg" icon={<Trash2 className="h-5 w-5" />} hint={`Written off between ${rangeLabel}`} />
-              <StatCard label="Entries" value={entries} tone="neutral" hint="Individual write-off movements" />
-              <StatCard label="Items affected" value={items} tone="neutral" icon={<Boxes className="h-5 w-5" />} />
-              <StatCard label="Costliest line" value={worst ? worst.itemName : '—'} tone={worst ? 'warning' : 'neutral'} hint={worst ? `${money(worst.cost)} · ${worst.qty} ${worst.unitCode} · ${MOVEMENT_LABELS[worst.type as MovementType] ?? worst.type}` : 'Nothing written off'} />
+              {/* The verdict tile of the whole tab: money written off, or a clean period. */}
+              <StatCard label="Wastage cost" value={money(w.totalCost)} tone={w.totalCost > 0 ? 'danger' : 'success'} size="lg" icon={<Trash2 className="h-5 w-5" />} hint={`Written off between ${rangeLabel}`} className={cn('anim-reveal', w.totalCost > 0 ? 'fill-danger' : 'fill-success')} style={beat(0)} />
+              <StatCard label="Entries" value={entries} tone="neutral" hint="Individual write-off movements" className="anim-reveal" style={beat(1)} />
+              <StatCard label="Items affected" value={items} tone="neutral" icon={<Boxes className="h-5 w-5" />} className="anim-reveal" style={beat(2)} />
+              <StatCard label="Costliest line" value={worst ? worst.itemName : '—'} tone={worst ? 'warning' : 'neutral'} hint={worst ? `${money(worst.cost)} · ${worst.qty} ${worst.unitCode} · ${MOVEMENT_LABELS[worst.type as MovementType] ?? worst.type}` : 'Nothing written off'} className="anim-reveal" style={beat(3)} />
             </div>
 
             <DataTable
+              className="anim-reveal"
               columns={wasteCols}
               rows={w.rows}
               rowKey={(r) => `${r.itemName}-${r.type}`}
@@ -554,13 +801,15 @@ export default function AdvancedReportsPage() {
         return (
           <div className="space-y-4">
             <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              <StatCard label="Ingredient cost consumed" value={money(totalCost)} tone="primary" size="lg" icon={<Soup className="h-5 w-5" />} hint={`Deducted by confirmed orders between ${rangeLabel}`} />
-              <StatCard label="Ingredients used" value={rows.length} tone="info" icon={<Boxes className="h-5 w-5" />} />
-              <StatCard label="Largest consumer" value={top ? top.itemName : '—'} tone="accent" hint={top ? `${money(top.cost)} · ${top.qty} ${top.unitCode}` : 'No consumption recorded'} />
-              <StatCard label="Shown in the chart" value={Math.min(12, rows.length)} tone="neutral" hint="Top ingredients by cost; the table lists them all" />
+              {/* Consumption is neither good nor bad — a kitchen that sold food used ingredients.
+                  No wash on any of these four. */}
+              <StatCard label="Ingredient cost consumed" value={money(totalCost)} tone="primary" size="lg" icon={<Soup className="h-5 w-5" />} hint={`Deducted by confirmed orders between ${rangeLabel}`} className="anim-reveal" style={beat(0)} />
+              <StatCard label="Ingredients used" value={rows.length} tone="info" icon={<Boxes className="h-5 w-5" />} className="anim-reveal" style={beat(1)} />
+              <StatCard label="Largest consumer" value={top ? top.itemName : '—'} tone="primary" hint={top ? `${money(top.cost)} · ${top.qty} ${top.unitCode}` : 'No consumption recorded'} className="anim-reveal" style={beat(2)} />
+              <StatCard label="Shown in the chart" value={Math.min(12, rows.length)} tone="neutral" hint="Top ingredients by cost; the table lists them all" className="anim-reveal" style={beat(3)} />
             </div>
 
-            <Card>
+            <Card className="anim-enter-soft">
               <CardHeader title="Top ingredients by cost consumed" subtitle="Stock deducted when orders were confirmed" />
               {rows.length === 0 ? (
                 <EmptyState compact icon={<Soup className="h-6 w-6" />} title="No consumption recorded" description={`${emptyForRange} Stock deductions from confirmed orders appear here.`} />
@@ -576,7 +825,7 @@ export default function AdvancedReportsPage() {
                         {/* The tooltip label is the raw category value, so the full name survives. */}
                         <Tooltip {...tooltipProps} formatter={(v: number) => money(v)} />
                         <Legend />
-                        <Bar dataKey="cost" name="Cost consumed" fill={CHART.primary} radius={[0, 4, 4, 0]} />
+                        <Bar dataKey="cost" name="Cost consumed" fill={CHART.primary} radius={[0, 4, 4, 0]} isAnimationActive={false} maxBarSize={56} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -588,6 +837,7 @@ export default function AdvancedReportsPage() {
             </Card>
 
             <DataTable
+              className="anim-reveal"
               columns={consCols}
               rows={rows}
               rowKey={(r) => r.itemName}
@@ -621,13 +871,16 @@ export default function AdvancedReportsPage() {
         return (
           <div className="space-y-4">
             <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              <StatCard label="Sales handled" value={money(totalSales)} tone="primary" size="lg" icon={<Wallet className="h-5 w-5" />} hint={`Across ${rows.length} staff member${rows.length === 1 ? '' : 's'}`} />
-              <StatCard label="Orders handled" value={totalOrders} tone="info" icon={<ReceiptText className="h-5 w-5" />} />
-              <StatCard label="Highest sales" value={top ? top.fullName : '—'} tone="accent" icon={<Users className="h-5 w-5" />} hint={top ? `${money(top.sales)} from ${top.ordersHandled} order${top.ordersHandled === 1 ? '' : 's'}` : 'No activity in this range'} />
-              <StatCard label="Orders cancelled" value={cancels} tone={cancels > 0 ? 'warning' : 'neutral'} hint="Cancellations attributed to these staff" />
+              {/* Staff figures stay plain. A wash on a person's row would read as a verdict on
+                  them, and nothing here measures anything of the kind. */}
+              <StatCard label="Sales handled" value={money(totalSales)} tone="primary" size="lg" icon={<Wallet className="h-5 w-5" />} hint={`Across ${rows.length} staff member${rows.length === 1 ? '' : 's'}`} className="anim-reveal" style={beat(0)} />
+              <StatCard label="Orders handled" value={totalOrders} tone="info" icon={<ReceiptText className="h-5 w-5" />} className="anim-reveal" style={beat(1)} />
+              <StatCard label="Highest sales" value={top ? top.fullName : '—'} tone="primary" icon={<Users className="h-5 w-5" />} hint={top ? `${money(top.sales)} from ${top.ordersHandled} order${top.ordersHandled === 1 ? '' : 's'}` : 'No activity in this range'} className="anim-reveal" style={beat(2)} />
+              <StatCard label="Orders cancelled" value={cancels} tone={cancels > 0 ? 'warning' : 'neutral'} hint="Cancellations attributed to these staff" className="anim-reveal" style={beat(3)} />
             </div>
 
             <DataTable
+              className="anim-reveal"
               columns={staffCols}
               rows={rows}
               rowKey={(r) => r.userId}

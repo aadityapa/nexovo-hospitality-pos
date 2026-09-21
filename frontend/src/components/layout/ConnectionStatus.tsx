@@ -25,6 +25,11 @@ const AGO = (from: string, now: Date): string => {
  *                   night is legitimately old and must not be read as a fault.
  * Because neither timestamp is compared against `now` to decide anything, an idle but healthy
  * connection cannot drift into looking stale or offline.
+ *
+ * Two treatments, not a light and a dark one — the whole product is dark now. `base` is the tinted
+ * chip used on the app header (`surface-raised`); `deep` is a translucent version for the
+ * kitchen/bar boards, which sit on `surface-sunken` where an opaque chip would look pasted on.
+ * Both keep the `-700` text rung, so "Offline" is legible on either.
  */
 export function ConnectionStatus({ onDark, compact }: { onDark?: boolean; compact?: boolean }) {
   const { status, lastSyncAt, lastEventAt } = useRealtimeStatus();
@@ -40,15 +45,15 @@ export function ConnectionStatus({ onDark, compact }: { onDark?: boolean; compac
       title: lastSyncAt
         ? `Connected — checked ${AGO(lastSyncAt, now)} · ${activity}`
         : `Connected · ${activity}`,
-      light: 'text-success-700 bg-success-50 border-success-200',
-      dark: 'text-success-500 bg-success-500/10 border-success-500/25',
+      base: 'text-success-700 bg-success-50 border-success-200',
+      deep: 'text-success-700 bg-success-500/12 border-success-500/30',
     },
     connecting: {
       Icon: Loader2,
       label: 'Connecting',
       title: 'Connecting to the live update channel…',
-      light: 'text-neutral-600 bg-neutral-100 border-neutral-200',
-      dark: 'text-neutral-300 bg-white/5 border-white/15',
+      base: 'text-neutral-600 bg-neutral-100 border-neutral-200',
+      deep: 'text-neutral-600 bg-neutral-200/50 border-neutral-300',
     },
     offline: {
       Icon: WifiOff,
@@ -56,15 +61,15 @@ export function ConnectionStatus({ onDark, compact }: { onDark?: boolean; compac
       title: lastSyncAt
         ? `Not receiving updates — last connected ${AGO(lastSyncAt, now)}. Retrying automatically.`
         : 'Not receiving updates. Retrying automatically.',
-      light: 'text-danger-700 bg-danger-50 border-danger-200',
-      dark: 'text-danger-500 bg-danger-500/10 border-danger-500/25',
+      base: 'text-danger-700 bg-danger-50 border-danger-200',
+      deep: 'text-danger-700 bg-danger-500/12 border-danger-500/30',
     },
     disabled: {
       Icon: RefreshCw,
       label: 'Manual refresh',
       title: 'Live updates are turned off for this deployment — refresh to see new activity.',
-      light: 'text-neutral-600 bg-neutral-100 border-neutral-200',
-      dark: 'text-neutral-300 bg-white/5 border-white/15',
+      base: 'text-neutral-600 bg-neutral-100 border-neutral-200',
+      deep: 'text-neutral-600 bg-neutral-200/50 border-neutral-300',
     },
   }[status];
 
@@ -76,7 +81,7 @@ export function ConnectionStatus({ onDark, compact }: { onDark?: boolean; compac
       aria-label={`Live updates: ${meta.label}`}
       className={cn(
         'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium whitespace-nowrap',
-        onDark ? meta.dark : meta.light,
+        onDark ? meta.deep : meta.base,
       )}
     >
       <Icon className={cn('h-3 w-3 shrink-0', status === 'connecting' && 'animate-spin')} aria-hidden />

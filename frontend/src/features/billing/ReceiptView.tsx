@@ -14,8 +14,19 @@ export function ReceiptView({ receipt, id = 'receipt-print' }: { receipt: Receip
   return (
     <div
       id={id}
-      /* On screen this is a paper preview; the print stylesheet strips the frame and shadow. */
-      className="mx-auto w-[80mm] max-w-full bg-white text-neutral-900 font-mono text-[12px] leading-[1.35] p-4 border border-neutral-200 rounded-sm shadow-card"
+      /*
+       * THE ONE SCREEN IN THE PRODUCT THAT IS NOT DARK.
+       *
+       * A thermal receipt is ink on white paper, so the preview has to be dark-on-white whatever
+       * the app theme is. That is stated with the dedicated `paper` / `ink` / `ink-soft` tokens
+       * rather than `bg-white text-neutral-900`: on the inverted ramp `neutral-900` is the
+       * BRIGHTEST value, so the old pairing would have printed white ink on white paper the
+       * moment the theme flipped. These three tokens are fixed and never follow the theme.
+       *
+       * The frame and shadow are screen-only — the `#receipt-print` rules in styles/index.css
+       * strip them and force #fff/#000 for the printer. Nothing here weakens that block.
+       */
+      className="mx-auto w-[80mm] max-w-full bg-paper text-ink font-mono text-[12px] leading-[1.35] p-4 border border-neutral-200 rounded-sm shadow-card"
     >
       <div className="text-center">
         <p className="text-base font-bold uppercase tracking-wide">{business.name}</p>
@@ -24,7 +35,7 @@ export function ReceiptView({ receipt, id = 'receipt-print' }: { receipt: Receip
         {business.phone && <p>Ph: {business.phone}</p>}
         {business.gstNumber && <p>GSTIN: {business.gstNumber}</p>}
       </div>
-      <hr className="my-2 border-dashed border-neutral-400" />
+      <hr className="my-2 border-dashed border-ink-soft" />
       <p className="text-center font-bold">TAX INVOICE</p>
       {line('Bill No', bill.billNumber)}
       {line('Order', bill.orderNumber)}
@@ -33,15 +44,15 @@ export function ReceiptView({ receipt, id = 'receipt-print' }: { receipt: Receip
       {line('Waiter', bill.waiterName)}
       {line('Cashier', bill.cashierName)}
       {bill.customerName && line('Guest', bill.customerName)}
-      <hr className="my-2 border-dashed border-neutral-400" />
+      <hr className="my-2 border-dashed border-ink-soft" />
       <div className="grid grid-cols-[1fr_auto_auto] gap-x-2 font-bold"><span>Item</span><span className="text-right">Qty</span><span className="text-right">Amount</span></div>
       {bill.items.map((it) => (
         <div key={it.id} className="grid grid-cols-[1fr_auto_auto] gap-x-2">
-          <span className="break-words">{it.itemName}<span className="block text-[10px] text-neutral-600">@ {m(it.unitPrice)}{it.discountAmount > 0 ? ` (offer −${m(it.discountAmount)})` : ''}</span></span>
+          <span className="break-words">{it.itemName}<span className="block text-[10px] text-ink-soft">@ {m(it.unitPrice)}{it.discountAmount > 0 ? ` (offer −${m(it.discountAmount)})` : ''}</span></span>
           <span className="text-right tabular-nums">{it.quantity}</span><span className="text-right tabular-nums">{m(it.lineTotal)}</span>
         </div>
       ))}
-      <hr className="my-2 border-dashed border-neutral-400" />
+      <hr className="my-2 border-dashed border-ink-soft" />
       {line('Subtotal', m(bill.subtotal))}
       {bill.itemDiscountTotal > 0 && line('Offer discount', `-${m(bill.itemDiscountTotal)}`)}
       {bill.orderDiscountTotal > 0 && line('Discount', `-${m(bill.orderDiscountTotal)}`)}
@@ -49,21 +60,21 @@ export function ReceiptView({ receipt, id = 'receipt-print' }: { receipt: Receip
       {bill.taxLines.map((t) => <div key={`${t.code}${t.percent}`}>{line(`${t.name} @${t.percent}%`, m(t.amount))}</div>)}
       {(bill.minSpendShortfall ?? 0) > 0 && line('Min spend shortfall', m(bill.minSpendShortfall!))}
       {bill.roundOff !== 0 && line('Round off', m(bill.roundOff))}
-      <hr className="my-2 border-dashed border-neutral-400" />
+      <hr className="my-2 border-dashed border-ink-soft" />
       <div className="text-base">{line('GRAND TOTAL', m(bill.grandTotal), true)}</div>
-      <hr className="my-2 border-dashed border-neutral-400" />
+      <hr className="my-2 border-dashed border-ink-soft" />
       {bill.payments.filter((p) => p.status === 'SUCCESS').map((p) => <div key={p.id}>{line(`${PAYMENT_METHOD_LABELS[p.method]}${p.reference ? ` (${p.reference})` : ''}`, m(p.amount))}</div>)}
       {bill.paidAmount === 0 && line('Payment', 'UNPAID')}
       {bill.balanceDue > 0 && line('Balance due', m(bill.balanceDue), true)}
       {(bill.loyaltyPointsEarned ?? 0) > 0 && (
         <>
-          <hr className="my-2 border-dashed border-neutral-400" />
+          <hr className="my-2 border-dashed border-ink-soft" />
           <p className="text-center">You earned {bill.loyaltyPointsEarned} loyalty points</p>
         </>
       )}
-      <hr className="my-2 border-dashed border-neutral-400" />
+      <hr className="my-2 border-dashed border-ink-soft" />
       <p className="text-center">{business.footer ?? 'Thank you!'}</p>
-      <p className="text-center text-[10px] text-neutral-500 mt-1">Printed {fmtDate(receipt.printedAt)} {fmtTime(receipt.printedAt)}</p>
+      <p className="text-center text-[10px] text-ink-soft mt-1">Printed {fmtDate(receipt.printedAt)} {fmtTime(receipt.printedAt)}</p>
     </div>
   );
 }

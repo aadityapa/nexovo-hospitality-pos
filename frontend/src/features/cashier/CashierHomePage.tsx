@@ -1,10 +1,14 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Receipt, Clock, CheckCircle2, ChevronRight, Search, AlertTriangle, Wallet, Users } from 'lucide-react';
 import { useOrders } from '@/features/orders/hooks';
 import { useBills } from '@/features/billing/hooks';
 import { useNow, useDebounce } from '@/hooks/useRealtime';
-import { PageHeader, Card, Button, Badge, StatusBadge, LoadingState, ErrorState, EmptyState, SearchInput, Alert } from '@/components/ui';
+import { useWorkspace } from '@/hooks/useSurface';
+import { Card, Button, Badge, StatusBadge, LoadingState, ErrorState, EmptyState, SearchInput, Alert } from '@/components/ui';
+import { EmptySearch } from '@/components/graphics';
+import { DashboardHero } from '@/components/layout/DashboardHero';
+import { staggerDelay } from '@/components/motion';
 import { money } from '@/utils/money';
 import { elapsedMinutes, fmtTime } from '@/utils/date';
 import { DELAY_THRESHOLDS } from '@/config/statuses';
@@ -18,9 +22,24 @@ import type { Bill, Order } from '@/types';
  * a table that has asked for its bill, and a finalized bill that still has a balance —
  * ordered longest-waiting first. Takings so far are context at the foot of the page,
  * not the headline.
+ *
+ * MOTION. The three PANELS rise once, in sequence, and nothing else on the screen moves:
+ *
+ *   • Queue rows never animate. They re-render on the 20-second order poll and the 30-second bill
+ *     poll, they carry the money a cashier is about to collect, and a figure that is still
+ *     arriving cannot be checked against a guest's card machine.
+ *   • The search results card is deliberately static. It mounts and unmounts as the cashier types,
+ *     so an entrance on it would replay on every keystroke.
+ *   • The overdue banner is deliberately static. It appears the moment a guest crosses the late
+ *     threshold; an animated escalation reads as an alarm, and this one is a sentence to be read.
+ *   • No entrance gates a tap. "Take payment", "Generate bill" and every queue row are live on
+ *     first paint — the animation is on the panel behind them and never on the control.
  */
 
 type WaitKind = 'REQUEST' | 'BALANCE';
+
+/** The `--d` beat of a staged reveal — a function of position, never of the queue's contents. */
+const beat = (i: number) => ({ '--d': `${staggerDelay(i)}ms` }) as CSSProperties;
 
 interface WaitingRow {
   key: string;
@@ -49,10 +68,11 @@ function WaitFor({ mins }: { mins: number }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium tabular-nums whitespace-nowrap',
-        tone === 'danger' ? 'bg-danger-50 text-danger-700 border-danger-100'
-          : tone === 'warning' ? 'bg-warning-50 text-warning-700 border-warning-100'
-            : 'bg-neutral-100 text-neutral-700 border-neutral-200',
+        /* Same construction as the shared Badge: `-50` fill, `-200` hairline, `-700` label. */
+        'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium tnum whitespace-nowrap',
+        tone === 'danger' ? 'bg-danger-50 text-danger-700 border-danger-200'
+          : tone === 'warning' ? 'bg-warning-50 text-warning-700 border-warning-200'
+            : 'bg-neutral-100 text-neutral-700 border-neutral-300',
       )}
     >
       {tone === 'danger' ? <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden /> : <Clock className="h-3 w-3 shrink-0" aria-hidden />}
@@ -63,6 +83,7 @@ function WaitFor({ mins }: { mins: number }) {
 
 export default function CashierHomePage() {
   const navigate = useNavigate();
+  const ws = useWorkspace();
   const now = useNow(15_000);
   const [search, setSearch] = useState('');
   const dq = useDebounce(search, 200).toLowerCase();
@@ -132,6 +153,10 @@ export default function CashierHomePage() {
 
   const outstanding = useMemo(() => unpaid.reduce((a, b) => a + b.balanceDue, 0), [unpaid]);
   const takings = useMemo(() => paidToday.reduce((a, b) => a + b.grandTotal, 0), [paidToday]);
+  /* The manager board prints an average beside the total. It is the mean of the SAME real bills
+     listed below it — takings divided by how many were settled — and it is simply absent while
+     nothing has been settled, rather than printed as zero. */
+  const averageBill = paidToday.length ? takings / paidToday.length : null;
   const oldest = queue.length ? elapsedMinutes(queue[0].since, now) : 0;
   const overdue = queue.filter((r) => elapsedMinutes(r.since, now) >= DELAY_THRESHOLDS.late);
 
@@ -152,30 +177,36 @@ export default function CashierHomePage() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <PageHeader
+      {/*
+        Compact hero — the shared band at the scale a live queue can afford. The subtitle here is
+        LIVE state, not a description, so it stays beside the title rather than being demoted, and
+        the search keeps its place directly under it.
+      */}
+      <DashboardHero
+        compact
         title="Waiting to pay"
         subtitle={loading ? 'Loading the settlement queue…' : queue.length ? `${queue.length} table${queue.length === 1 ? '' : 's'} to settle · longest waiting ${oldest} min` : 'Nothing is waiting to be settled'}
       >
         <SearchInput value={search} onChange={setSearch} placeholder="Search table, order # or bill #" className="sm:max-w-md" />
-      </PageHeader>
+      </DashboardHero>
 
       {!failed && dq && (
         <Card padded={false} className="mb-4">
-          <div className="px-4 py-2 border-b border-neutral-100 text-label text-neutral-500 uppercase flex items-center gap-1">
+          <div className="px-4 py-2 border-b border-neutral-200 text-label text-neutral-500 uppercase flex items-center gap-1">
             <Search className="h-3.5 w-3.5" aria-hidden />Results for “{search.trim()}”
           </div>
           {hits.length === 0 ? (
-            <EmptyState compact title="No matches" description="Search by table name, order number or bill number." action={<Button variant="outline" onClick={() => setSearch('')}>Clear search</Button>} />
+            <EmptyState compact icon={<EmptySearch />} title="No matches" description="Search by table name, order number or bill number." action={<Button variant="outline" onClick={() => setSearch('')}>Clear search</Button>} />
           ) : (
-            <ul className="divide-y divide-neutral-100">
+            <ul className="divide-y divide-neutral-200">
               {hits.slice(0, 10).map((h) => (
                 <li key={h.key}>
-                  <button type="button" onClick={() => navigate(h.to)} className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-neutral-50 min-h-touch">
+                  <button type="button" onClick={() => navigate(h.to)} className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors duration-control hover:bg-neutral-100 min-h-touch">
                     <span className="flex-1 min-w-0">
-                      <span className="block font-medium truncate">{h.label}</span>
+                      <span className="block font-medium truncate text-neutral-900">{h.label}</span>
                       <span className="text-caption text-neutral-500">{h.sub}</span>
                     </span>
-                    <span className="tabular-nums font-medium shrink-0">{money(h.amount)}</span>
+                    <span className="tnum font-medium text-neutral-900 shrink-0">{money(h.amount)}</span>
                     <ChevronRight className="h-4 w-4 text-neutral-400 shrink-0" aria-hidden />
                   </button>
                 </li>
@@ -198,16 +229,192 @@ export default function CashierHomePage() {
         </Alert>
       )}
 
+      {/*
+        THE MANAGER BOARD (panel 11). The same two reads, the same queue and the same oldest-first
+        ordering, arranged the way the manager board draws billing: what is still owed down the
+        left, what has actually been taken down the right. Every figure below is one the cashier's
+        own composition already computes — this is a different arrangement of the same numbers,
+        never a different set of them, and the cashier's screen further down is untouched.
+      */}
+      {!failed && ws === 'manager' && (
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] xl:items-start">
+          <div className="min-w-0 space-y-4">
+            <Card padded={false} className="anim-reveal" style={beat(0)}>
+              <div className="px-4 py-3 border-b border-neutral-200 flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-subheading flex items-center gap-2">
+                  <Wallet className="h-5 w-5 text-primary-700" aria-hidden />Settlement queue
+                </h2>
+                <span className="flex flex-wrap items-center gap-2 text-caption text-neutral-600">
+                  <Badge tone={queue.length ? 'primary' : 'neutral'} size="sm">{queue.length} waiting</Badge>
+                  {unpaid.length > 0 && <span className="tnum">{money(outstanding)} outstanding</span>}
+                </span>
+              </div>
+
+              {loading ? (
+                <div className="p-4"><LoadingState rows={4} /></div>
+              ) : queue.length === 0 ? (
+                <EmptyState
+                  compact
+                  icon={<CheckCircle2 className="h-6 w-6" />}
+                  title="Nobody is waiting to pay"
+                  description="Tables that ask for their bill, and finalized bills with a balance, arrive here the moment they do."
+                />
+              ) : (
+                <ul className="divide-y divide-neutral-200">
+                  {/* Longest waiting first — the order the queue is built in, taken from each
+                      row's fixed timestamp, so a 20-second poll never reshuffles it. */}
+                  {queue.map((r) => {
+                    const mins = elapsedMinutes(r.since, now);
+                    const tone = ageTone(mins);
+                    return (
+                      <li
+                        key={r.key}
+                        className={cn(
+                          'relative px-4 py-3 pl-5',
+                          tone === 'danger' && 'bg-danger-50/60',
+                          tone === 'warning' && 'bg-warning-50/60',
+                        )}
+                      >
+                        <span
+                          aria-hidden
+                          className={cn(
+                            'absolute inset-y-0 left-0 w-1',
+                            tone === 'danger' ? 'bg-danger-500' : tone === 'warning' ? 'bg-warning-500' : 'bg-transparent',
+                          )}
+                        />
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                          <span className="min-w-0 flex-1">
+                            <span className="flex flex-wrap items-center gap-2">
+                              <span className="font-semibold text-neutral-900 truncate">{r.tableName}</span>
+                              <WaitFor mins={mins} />
+                              {r.badge}
+                            </span>
+                            <span className="block text-caption text-neutral-500 mt-0.5 truncate">
+                              {r.reference} · {r.kind === 'REQUEST' ? 'bill requested' : 'finalized'} {fmtTime(r.since)} · {r.detail}
+                            </span>
+                          </span>
+                          <span className="text-right shrink-0">
+                            <span className="block text-lg font-semibold tnum text-neutral-900 leading-tight">{money(r.amount)}</span>
+                            <span className="block text-caption text-neutral-500">{r.amountLabel}</span>
+                          </span>
+                          <Button
+                            variant={r.kind === 'BALANCE' ? 'success' : 'primary'}
+                            className="shrink-0 min-h-touch"
+                            onClick={() => navigate(r.to)}
+                          >
+                            {r.action}
+                          </Button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </Card>
+
+            <Card padded={false} className="anim-reveal" style={beat(1)}>
+              <div className="px-4 py-3 border-b border-neutral-200 flex items-center justify-between gap-2">
+                <h2 className="text-subheading flex items-center gap-2"><Users className="h-4 w-4 text-neutral-500" aria-hidden />Still dining</h2>
+                <span className="text-caption text-neutral-500">{notRequested.length} open order{notRequested.length === 1 ? '' : 's'}</span>
+              </div>
+              {loading ? (
+                <div className="p-4"><LoadingState rows={2} /></div>
+              ) : notRequested.length === 0 ? (
+                <EmptyState compact title="No other open orders" description="Every active order has already reached billing." />
+              ) : (
+                <ul className="divide-y divide-neutral-200">
+                  {notRequested.slice(0, 6).map((o) => (
+                    <li key={o.id} className="px-4 py-2.5 flex items-center gap-3">
+                      <span className="font-semibold w-20 shrink-0 truncate text-neutral-900">{o.tableName}</span>
+                      <span className="flex-1 min-w-0">
+                        <StatusBadge kind="order" status={o.status} size="sm" />
+                        <span className="block text-caption text-neutral-500 mt-0.5 truncate">{o.orderNumber} · {o.itemCount} items</span>
+                      </span>
+                      <span className="font-medium tnum text-neutral-900 shrink-0">{money(o.subtotal)}</span>
+                      <Button
+                        size="sm" variant="outline" className="min-h-touch shrink-0"
+                        aria-label={`Generate the bill for ${o.tableName}`}
+                        onClick={() => navigate(`/cashier/orders/${o.id}/bill`)}
+                      >
+                        Bill
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {notRequested.length > 6 && (
+                <div className="px-4 py-2.5 border-t border-neutral-200">
+                  <Button variant="ghost" size="sm" className="min-h-touch" rightIcon={<ChevronRight className="h-4 w-4" />} onClick={() => navigate('/cashier/tables')}>
+                    {notRequested.length - 6} more on the table map
+                  </Button>
+                </div>
+              )}
+            </Card>
+          </div>
+
+          <Card padded={false} className="min-w-0 anim-reveal" style={beat(2)}>
+            <div className="px-4 py-3 border-b border-neutral-200 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-subheading flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-success-500" aria-hidden />Settled today</h2>
+              <Button size="sm" variant="ghost" className="min-h-touch" rightIcon={<ChevronRight className="h-4 w-4" />} onClick={() => navigate('/cashier/paid')}>
+                View all settled bills
+              </Button>
+            </div>
+
+            {/* Money genuinely taken and reconciled. It does not roll: `CountUp` is barred from
+                anything anyone has to agree with a receipt. */}
+            <div className="px-4 py-3 border-b border-neutral-200 fill-success">
+              <p className="text-metric text-neutral-900 tnum leading-none">{money(takings)}</p>
+              <p className="text-caption text-neutral-500 mt-1.5">taken so far today</p>
+            </div>
+
+            <dl className="grid grid-cols-2 divide-x divide-neutral-200 border-b border-neutral-200">
+              <div className="px-4 py-2.5 min-w-0">
+                <dt className="text-label text-neutral-500">Bills</dt>
+                <dd className="text-lg font-semibold tnum text-neutral-900 leading-tight">{paidToday.length}</dd>
+              </div>
+              <div className="px-4 py-2.5 min-w-0">
+                <dt className="text-label text-neutral-500">Average bill</dt>
+                <dd className="text-lg font-semibold tnum text-neutral-900 leading-tight">
+                  {averageBill == null ? <span className="text-caption font-normal text-neutral-500 tracking-normal">Nothing settled yet</span> : money(averageBill)}
+                </dd>
+              </div>
+            </dl>
+
+            {loading ? (
+              <div className="p-4"><LoadingState rows={2} /></div>
+            ) : paidToday.length === 0 ? (
+              <EmptyState compact icon={<Receipt className="h-6 w-6" />} title="No payments yet today" description="Completed payments are listed here with their tender and time." />
+            ) : (
+              <ul className="divide-y divide-neutral-200">
+                {paidToday.slice(0, 6).map((b) => (
+                  <li key={b.id}>
+                    <button type="button" onClick={() => navigate(`/cashier/bills/${b.id}/receipt`)} className="w-full px-4 py-2.5 flex items-center gap-3 text-left transition-colors duration-control hover:bg-neutral-100 min-h-touch">
+                      <span className="font-semibold w-16 shrink-0 truncate text-neutral-900">{b.tableName}</span>
+                      <span className="flex-1 min-w-0 text-caption text-neutral-500 truncate">
+                        {b.billNumber} · {fmtTime(b.paidAt)}
+                        {b.payments.filter((p) => p.status === 'SUCCESS').length > 0 && ` · ${[...new Set(b.payments.filter((p) => p.status === 'SUCCESS').map((p) => p.method))].join(' + ')}`}
+                      </span>
+                      <span className="font-semibold tnum text-neutral-900 shrink-0">{money(b.grandTotal)}</span>
+                      <ChevronRight className="h-4 w-4 text-neutral-400 shrink-0" aria-hidden />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        </div>
+      )}
+
       {/* ---------------------------------------------------------------- the queue */}
-      {!failed && (
-      <Card padded={false} className="mb-5">
+      {!failed && ws !== 'manager' && (
+      <Card padded={false} className="mb-5 anim-reveal" style={beat(0)}>
         <div className="px-4 py-3 border-b border-neutral-200 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-subheading flex items-center gap-2">
             <Wallet className="h-5 w-5 text-primary-700" aria-hidden />Settlement queue
           </h2>
           <span className="flex flex-wrap items-center gap-2 text-caption text-neutral-600">
             <Badge tone={queue.length ? 'primary' : 'neutral'} size="sm">{queue.length} waiting</Badge>
-            {unpaid.length > 0 && <span className="tabular-nums">{money(outstanding)} outstanding on {unpaid.length} bill{unpaid.length === 1 ? '' : 's'}</span>}
+            {unpaid.length > 0 && <span className="tnum">{money(outstanding)} outstanding on {unpaid.length} bill{unpaid.length === 1 ? '' : 's'}</span>}
           </span>
         </div>
 
@@ -222,7 +429,7 @@ export default function CashierHomePage() {
             action={<Button variant="outline" onClick={() => navigate('/cashier/tables')}>Open the table map</Button>}
           />
         ) : (
-          <ul className="divide-y divide-neutral-100">
+          <ul className="divide-y divide-neutral-200">
             {queue.map((r) => {
               const mins = elapsedMinutes(r.since, now);
               const tone = ageTone(mins);
@@ -231,8 +438,8 @@ export default function CashierHomePage() {
                   key={r.key}
                   className={cn(
                     'relative px-4 py-3.5 sm:pl-5',
-                    tone === 'danger' && 'bg-danger-50/40',
-                    tone === 'warning' && 'bg-warning-50/40',
+                    tone === 'danger' && 'bg-danger-50/60',
+                    tone === 'warning' && 'bg-warning-50/60',
                   )}
                 >
                   {/* Priority edge: the fastest signal when the queue is long. */}
@@ -256,7 +463,9 @@ export default function CashierHomePage() {
                     </div>
                     <div className="flex items-center justify-between gap-3 sm:justify-end">
                       <span className="min-w-0">
-                        <span className="block text-xl font-semibold tabular-nums text-neutral-900 leading-tight">{money(r.amount)}</span>
+                        {/* The figure the cashier is about to collect: the heaviest type on the
+                            row, never a gold fill — gold belongs to the action beside it. */}
+                        <span className="block text-metric tnum text-neutral-900 leading-tight">{money(r.amount)}</span>
                         <span className="block text-caption text-neutral-500">{r.amountLabel}</span>
                       </span>
                       <Button
@@ -278,9 +487,9 @@ export default function CashierHomePage() {
       )}
 
       {/* ------------------------------------------------- context, deliberately below */}
-      {!failed && (
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card padded={false}>
+      {!failed && ws !== 'manager' && (
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card padded={false} className="anim-reveal" style={beat(1)}>
           <div className="px-4 py-3 border-b border-neutral-200 flex items-center justify-between gap-2">
             <h2 className="text-subheading flex items-center gap-2"><Users className="h-4 w-4 text-neutral-500" aria-hidden />Still dining</h2>
             <span className="text-caption text-neutral-500">{notRequested.length} open order{notRequested.length === 1 ? '' : 's'}</span>
@@ -290,22 +499,22 @@ export default function CashierHomePage() {
           ) : notRequested.length === 0 ? (
             <EmptyState compact title="No other open orders" description="Every active order has already reached billing." />
           ) : (
-            <ul className="divide-y divide-neutral-100">
+            <ul className="divide-y divide-neutral-200">
               {notRequested.slice(0, 6).map((o) => (
                 <li key={o.id} className="px-4 py-3 flex items-center gap-3">
-                  <span className="font-semibold w-20 shrink-0 truncate">{o.tableName}</span>
+                  <span className="font-semibold w-20 shrink-0 truncate text-neutral-900">{o.tableName}</span>
                   <span className="flex-1 min-w-0">
                     <StatusBadge kind="order" status={o.status} size="sm" />
                     <span className="block text-caption text-neutral-500 mt-0.5 truncate">{o.orderNumber} · {o.itemCount} items</span>
                   </span>
-                  <span className="font-medium tabular-nums shrink-0">{money(o.subtotal)}</span>
+                  <span className="font-medium tnum text-neutral-900 shrink-0">{money(o.subtotal)}</span>
                   <Button size="sm" variant="outline" className="min-h-touch shrink-0" onClick={() => navigate(`/cashier/orders/${o.id}/bill`)}>Bill</Button>
                 </li>
               ))}
             </ul>
           )}
           {notRequested.length > 6 && (
-            <div className="px-4 py-2.5 border-t border-neutral-100">
+            <div className="px-4 py-2.5 border-t border-neutral-200">
               <Button variant="ghost" size="sm" className="min-h-touch" rightIcon={<ChevronRight className="h-4 w-4" />} onClick={() => navigate('/cashier/tables')}>
                 {notRequested.length - 6} more on the table map
               </Button>
@@ -313,13 +522,16 @@ export default function CashierHomePage() {
           )}
         </Card>
 
-        <Card padded={false}>
+        <Card padded={false} className="anim-reveal" style={beat(2)}>
           <div className="px-4 py-3 border-b border-neutral-200 flex items-center justify-between gap-2">
-            <h2 className="text-subheading flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-success-600" aria-hidden />Settled today</h2>
+            <h2 className="text-subheading flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-success-500" aria-hidden />Settled today</h2>
             <Button size="sm" variant="ghost" className="min-h-touch" onClick={() => navigate('/cashier/paid')}>All paid bills</Button>
           </div>
-          <div className="px-4 py-3 border-b border-neutral-100 flex items-baseline justify-between gap-3">
-            <span className="text-metric text-neutral-900 tabular-nums">{money(takings)}</span>
+          {/* Money genuinely taken and reconciled — the one positive summary on the screen, so it
+              takes the success wash. It does NOT roll: `CountUp` is barred from anything a cashier
+              has to reconcile, and today's takings is exactly that. */}
+          <div className="px-4 py-3 border-b border-neutral-200 flex items-baseline justify-between gap-3 fill-success">
+            <span className="text-metric text-neutral-900 tnum">{money(takings)}</span>
             <span className="text-caption text-neutral-500">{paidToday.length} bill{paidToday.length === 1 ? '' : 's'} paid today</span>
           </div>
           {loading ? (
@@ -327,16 +539,16 @@ export default function CashierHomePage() {
           ) : paidToday.length === 0 ? (
             <EmptyState compact icon={<Receipt className="h-6 w-6" />} title="No payments yet today" description="Completed payments are listed here with their tender and time." />
           ) : (
-            <ul className="divide-y divide-neutral-100">
+            <ul className="divide-y divide-neutral-200">
               {paidToday.slice(0, 6).map((b) => (
                 <li key={b.id}>
-                  <button type="button" onClick={() => navigate(`/cashier/bills/${b.id}/receipt`)} className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-neutral-50 min-h-touch">
-                    <span className="font-semibold w-20 shrink-0 truncate">{b.tableName}</span>
+                  <button type="button" onClick={() => navigate(`/cashier/bills/${b.id}/receipt`)} className="w-full px-4 py-3 flex items-center gap-3 text-left transition-colors duration-control hover:bg-neutral-100 min-h-touch">
+                    <span className="font-semibold w-20 shrink-0 truncate text-neutral-900">{b.tableName}</span>
                     <span className="flex-1 min-w-0 text-caption text-neutral-500 truncate">
                       {b.billNumber} · {fmtTime(b.paidAt)}
                       {b.payments.filter((p) => p.status === 'SUCCESS').length > 0 && ` · ${[...new Set(b.payments.filter((p) => p.status === 'SUCCESS').map((p) => p.method))].join(' + ')}`}
                     </span>
-                    <span className="font-semibold tabular-nums shrink-0">{money(b.grandTotal)}</span>
+                    <span className="font-semibold tnum text-neutral-900 shrink-0">{money(b.grandTotal)}</span>
                     <ChevronRight className="h-4 w-4 text-neutral-400 shrink-0" aria-hidden />
                   </button>
                 </li>

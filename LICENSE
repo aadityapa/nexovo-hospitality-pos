@@ -1,0 +1,171 @@
+PROPRIETARY SOFTWARE LICENCE — ALL RIGHTS RESERVED
+
+                        *** DRAFT — NOT YET EFFECTIVE ***
+
+================================================================================
+  READ THIS FIRST — THIS FILE IS INCOMPLETE ON PURPOSE
+================================================================================
+
+  This is a DRAFT licence. It names no copyright holder and no year, because
+  neither has been established for this project.
+
+  Before this software is distributed, delivered, sold, sublicensed, published
+  or otherwise given to any party outside the owning organisation, the owner
+  MUST:
+
+    1. Replace every occurrence of <COPYRIGHT HOLDER> below with the correct
+       legal entity or individual.
+    2. Replace every occurrence of <YEAR> below with the correct year, or
+       range of years, of authorship.
+    3. Confirm that a proprietary, all-rights-reserved licence is in fact the
+       intended licence for this project.
+    4. Remove this notice block once 1-3 are done.
+
+  Until those steps are completed, this file must be treated as a placeholder
+  that records an intent, not as an executed grant or restriction.
+
+  Background, recorded honestly: prior to the creation of this file the
+  repository contained no licence file of any kind, no "license" field in
+  frontend/package.json (the only package.json in the repository), and no
+  copyright header in any source file. See docs/CLEANUP_LOG.md section 10 for
+  the audit that established this. Under default copyright law a work in that
+  state is unlicensed — all rights are reserved to its author by operation of
+  law and no rights are granted to anyone. This draft is written to be
+  consistent with that existing position, NOT to change it. It does not
+  relicense the project, and it is not a substitute for legal advice.
+
+================================================================================
+
+
+Copyright (c) <YEAR> <COPYRIGHT HOLDER>. All rights reserved.
+
+
+1. DEFINITIONS
+
+   "Software" means the Nexovo Hospitality POS software contained in this
+   repository, including its source code, database scripts, configuration,
+   documentation and design assets, in any form, together with any
+   modification, derivative work or copy of any part of it.
+
+   "Licensor" means <COPYRIGHT HOLDER>.
+
+   "You" means any person or entity in possession of a copy of the Software.
+
+
+2. RESERVATION OF RIGHTS
+
+   All right, title and interest in and to the Software, including all
+   copyright and other intellectual property rights in it, are and remain
+   vested in the Licensor.
+
+   NO LICENCE, RIGHT OR PERMISSION OF ANY KIND IS GRANTED BY THIS FILE.
+
+   Any right to use, copy, reproduce, modify, adapt, merge, publish,
+   distribute, sublicense, sell, lease, host, make available as a service or
+   create derivative works of the Software must be granted by the Licensor in a
+   separate written agreement signed by the Licensor. In the absence of such an
+   agreement, none of those acts is permitted.
+
+
+3. PROHIBITED ACTS
+
+   Except to the extent expressly permitted by a separate written agreement
+   with the Licensor, or to the extent that such a restriction cannot lawfully
+   be imposed under applicable law, You must not:
+
+   (a) copy, reproduce or distribute the Software or any part of it;
+   (b) modify the Software or create any derivative work based on it;
+   (c) sublicense, rent, lease, lend, sell or otherwise transfer the Software;
+   (d) host the Software, or make it available to third parties as a hosted or
+       managed service;
+   (e) reverse engineer, decompile or disassemble any part of the Software;
+   (f) remove, obscure or alter any copyright, trade mark or other proprietary
+       notice contained in the Software, including this file.
+
+
+4. CONFIDENTIALITY
+
+   The Software, including its source code, database design and internal
+   documentation, is confidential information of the Licensor. You must not
+   disclose it to any third party without the Licensor's prior written consent.
+
+
+5. THIRD-PARTY COMPONENTS — NOT SUPERSEDED BY THIS LICENCE
+
+   The Software depends on third-party open-source components that are NOT
+   owned by the Licensor and are NOT covered by this licence.
+
+   Those components are distributed under their own licences — predominantly
+   the MIT and ISC licences, with other permissive licences also present among
+   the transitive dependency tree. Each such component remains governed
+   exclusively by the terms under which its own authors published it, and
+   nothing in this file overrides, replaces, supersedes, restricts or purports
+   to relicense those terms in any way.
+
+   The copyright notices, permission notices, licence texts and attribution
+   requirements of those components continue to apply in full to those
+   components, and must be preserved and reproduced wherever their own licences
+   require it.
+
+   The authoritative list of direct dependencies is frontend/package.json. The
+   authoritative resolved tree, including every transitive dependency, is
+   frontend/package-lock.json. The licence texts themselves are distributed
+   inside each installed package under frontend/node_modules/, which is not
+   committed to this repository and is produced by "npm ci".
+
+   This licence applies ONLY to the parts of the Software authored by or on
+   behalf of the Licensor. It does not apply to, and grants no rights over, any
+   third-party component.
+
+   ACTION REQUIRED BEFORE DISTRIBUTION: if the Software is distributed in built
+   form, the owner must verify that the attribution requirements of every
+   bundled third-party licence are satisfied — typically by shipping a
+   generated third-party notices file alongside the build. No such file has
+   been generated in this repository.
+
+
+6. NO WARRANTY
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT.
+
+   Without limiting the foregoing, the Licensor does not warrant that the
+   Software is fit for use in live commercial hospitality operations. The
+   repository's own documentation records that significant parts of the system
+   are unverified — see the "Known limitations" section of README.md, which
+   states among other things that the Oracle/ORDS integration has not been
+   exercised against a live server, and that thermal printing, touch hardware,
+   external payment providers and property-management-system integration have
+   not been verified.
+
+
+7. LIMITATION OF LIABILITY
+
+   TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE
+   LICENSOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+   ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+   WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE, INCLUDING
+   WITHOUT LIMITATION ANY LOSS OF REVENUE, PROFIT, DATA OR GOODWILL.
+
+   Nothing in this licence excludes or limits any liability that cannot lawfully
+   be excluded or limited.
+
+
+8. SECURITY NOTICE
+
+   The Software includes an in-browser mock backend and seeded demonstration
+   credentials, both intended solely for local demonstration and development.
+   They provide no server-side authorisation. See SECURITY.md.
+
+
+9. GOVERNING LAW
+
+   To be determined by the Licensor. <COPYRIGHT HOLDER> must specify the
+   governing law and jurisdiction before this licence is relied upon.
+
+
+--------------------------------------------------------------------------------
+END OF DRAFT. Placeholders <COPYRIGHT HOLDER> and <YEAR> must be resolved, and
+the notice block at the top of this file removed, before distribution.
+--------------------------------------------------------------------------------

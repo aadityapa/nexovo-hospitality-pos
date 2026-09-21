@@ -54,8 +54,10 @@ export function OrderCustomerCard({ order }: { order: Order }) {
                 <p className="font-semibold text-neutral-900 truncate">{order.customerName ?? `Customer #${order.customerId}`}</p>
                 {acct && (
                   <p className="text-caption text-neutral-500 mt-0.5 flex flex-wrap items-center gap-1.5">
-                    <Badge tone="accent" size="sm" icon={<Star className="h-3 w-3" aria-hidden />}>{acct.tier}</Badge>
-                    <span className="tabular-nums">{acct.pointsBalance} pts</span>
+                    {/* Violet is reserved for VIP classification; a loyalty tier is emphasis,
+                        so it takes the gold `primary` tone. */}
+                    <Badge tone="primary" size="sm" icon={<Star className="h-3 w-3" aria-hidden />}>{acct.tier}</Badge>
+                    <span className="tnum">{acct.pointsBalance} pts</span>
                   </p>
                 )}
               </div>
@@ -83,11 +85,11 @@ export function OrderCustomerCard({ order }: { order: Order }) {
               <div className="well px-3 py-2.5">
                 <p className="flex items-baseline justify-between gap-2">
                   <span className="text-label uppercase text-neutral-500">Points balance</span>
-                  <span className="font-semibold tabular-nums text-neutral-900">{acct.pointsBalance}</span>
+                  <span className="font-semibold tnum text-neutral-900">{acct.pointsBalance}</span>
                 </p>
                 <p className="flex items-baseline justify-between gap-2 mt-1">
                   <span className="text-caption text-neutral-500">Worth</span>
-                  <span className="text-caption tabular-nums text-neutral-700">{money(acct.balanceValue)}</span>
+                  <span className="text-caption tnum text-neutral-700">{money(acct.balanceValue)}</span>
                 </p>
                 <p className="mt-2 text-caption leading-relaxed">
                   {shortBy === 0
@@ -120,13 +122,13 @@ export function OrderCustomerCard({ order }: { order: Order }) {
                   {canManage && dq ? ' Create a new profile below.' : ''}
                 </p>
               ) : (
-                <ul className="divide-y divide-neutral-100">
+                <ul className="divide-y divide-neutral-200">
                   {(results.data ?? []).map((c) => (
                     <li key={c.id}>
                       <button
                         type="button"
                         onClick={() => void attach(c)}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm min-h-touch hover:bg-neutral-50 transition-colors"
+                        className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm min-h-touch hover:bg-neutral-100 transition-colors duration-control"
                       >
                         <Avatar name={c.fullName} size="sm" />
                         <span className="flex-1 min-w-0">
@@ -135,7 +137,7 @@ export function OrderCustomerCard({ order }: { order: Order }) {
                             <Phone className="inline h-3 w-3 -mt-0.5 mr-0.5" aria-hidden />{c.phone} · {c.totalVisits} visit{c.totalVisits === 1 ? '' : 's'} · {c.loyaltyPoints} pts
                           </span>
                         </span>
-                        {c.loyaltyTier && <Badge tone="accent" size="sm">{c.loyaltyTier}</Badge>}
+                        {c.loyaltyTier && <Badge tone="primary" size="sm">{c.loyaltyTier}</Badge>}
                       </button>
                     </li>
                   ))}

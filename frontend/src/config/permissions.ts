@@ -19,7 +19,24 @@ export const PERMISSIONS = [
   'suppliers:view', 'suppliers:manage',
   'purchases:view', 'purchases:manage', 'purchases:approve', 'purchases:receive',
   'customers:view', 'customers:manage',
-  'loyalty:view', 'loyalty:manage', 'loyalty:redeem',
+  /*
+   * LOYALTY IS THREE PERMISSIONS, NOT TWO.
+   *
+   * `loyalty:manage` used to mean both "adjust this member's points" and "rewrite the programme's
+   * rules" — two jobs with very different blast radii. Adjusting points is a daily service
+   * gesture, audited and reversible, that a floor manager has to be able to make at the table.
+   * Changing the earn rate, the redemption value or the expiry window silently re-prices every
+   * point every member holds, retrospectively.
+   *
+   *   loyalty:view       see the programme and permitted member information
+   *   loyalty:manage     supported member operations, including point adjustments
+   *   loyalty:configure  edit programme rules: earning, redemption, tiers, expiry, limits
+   *
+   * Managers keep `view` and `manage`. They do not get `configure` by default. See
+   * `database/11_migration_loyalty_configure.sql` for how existing installations are upgraded and
+   * `docs/RBAC.md` for what happens to custom roles.
+   */
+  'loyalty:view', 'loyalty:manage', 'loyalty:configure', 'loyalty:redeem',
   'reservations:view', 'reservations:manage',
   'club:view', 'club:manage',
   'vip:view', 'vip:manage',
@@ -49,6 +66,7 @@ export const ROLE_PERMISSIONS: Record<RoleCodeKey, Permission[]> = {
     'billing:view', 'billing:create', 'billing:discount', 'billing:pay', 'billing:refund', 'billing:close',
     'inventory:view', 'inventory:adjust', 'inventory:manage', 'recipes:view', 'recipes:manage', 'suppliers:view',
     'purchases:view', 'purchases:manage', 'purchases:approve', 'purchases:receive',
+    // Member operations yes, programme configuration no — see the note on the permission list.
     'customers:view', 'customers:manage', 'loyalty:view', 'loyalty:manage', 'loyalty:redeem',
     'reservations:view', 'reservations:manage', 'club:view', 'club:manage', 'vip:view', 'vip:manage',
     'room-charge:post', 'branches:view', 'notifications:view', 'notifications:manage', 'reports:advanced',
@@ -86,6 +104,18 @@ export const PERMISSION_MODULES: Record<string, string> = {
   menu: 'Menu', offers: 'Offers', tables: 'Tables', qr: 'QR Codes', orders: 'Orders', kitchen: 'Kitchen', bar: 'Bar', billing: 'Billing',
   inventory: 'Inventory', recipes: 'Recipes', suppliers: 'Suppliers', purchases: 'Purchasing', customers: 'Customers', loyalty: 'Loyalty',
   reservations: 'Reservations', club: 'Club entry', vip: 'VIP tables', 'room-charge': 'Room charges', branches: 'Branches', notifications: 'Notifications',
+};
+
+/**
+ * Human wording for the permissions whose code is not self-explanatory. The role editor prints
+ * these beside the switch, because "loyalty:manage" and "loyalty:configure" look interchangeable
+ * and are not.
+ */
+export const PERMISSION_LABELS: Partial<Record<Permission, string>> = {
+  'loyalty:view': 'View the programme and member information',
+  'loyalty:manage': 'Member operations, including point adjustments',
+  'loyalty:configure': 'Edit programme rules, earning, redemption, tiers, expiry and limits',
+  'loyalty:redeem': 'Redeem points against a bill',
 };
 
 export function permissionModule(code: Permission): string {

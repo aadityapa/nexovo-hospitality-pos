@@ -168,7 +168,10 @@ CREATE OR REPLACE PACKAGE BODY loyalty_pkg AS
     l_min NUMBER := NVL(p_body.get_number('minRedeemPoints'), p.min_redeem_points); l_max NUMBER := NVL(p_body.get_number('maxRedeemPercent'), p.max_redeem_pct); l_exp NUMBER := NVL(p_body.get_number('expiryDays'), p.expiry_days);
     l_active CHAR(1) := api_pkg.yn(NVL(p_body.get_boolean('isActive'), p.is_active = 'Y'));
   BEGIN
-    sec_pkg.assert_permission('loyalty:manage');
+    -- Programme CONFIGURATION, not member management: rewriting the earn rate or the point value
+    -- re-prices every point every member holds. Split from 'loyalty:manage' — see
+    -- 11_migration_loyalty_configure.sql and docs/RBAC.md.
+    sec_pkg.assert_permission('loyalty:configure');
     IF l_ppc < 0 OR l_pv < 0 OR l_min < 0 OR l_max < 0 OR l_max > 100 OR l_exp < 0 THEN api_pkg.raise_validation('Program values must be non-negative (max redeem ≤ 100 %)'); END IF;
     UPDATE loyalty_programs SET program_name = l_name, points_per_100 = l_ppc, point_value = l_pv, min_redeem_points = l_min, max_redeem_pct = l_max, expiry_days = l_exp, is_active = l_active WHERE program_id = p.program_id;
     audit_pkg.log('LOYALTY_PROGRAM_UPDATED', 'LOYALTY_PROGRAMS', p.program_id, NULL, p_body.to_clob);

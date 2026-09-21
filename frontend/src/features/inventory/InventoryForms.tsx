@@ -16,7 +16,7 @@ function FormSection({ title, hint, children, className }: { title: string; hint
     <fieldset className={cn('min-w-0', className)}>
       <legend className="text-label uppercase text-neutral-500">{title}</legend>
       {hint && <p className="text-caption text-neutral-500 mt-1">{hint}</p>}
-      <div className="grid sm:grid-cols-2 gap-4 mt-3">{children}</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">{children}</div>
     </fieldset>
   );
 }
@@ -102,7 +102,7 @@ export function InventoryCategoriesModal({ onClose }: { onClose: () => void }) {
   const submit = async () => { await saveCategory.mutateAsync({ id: editing?.id ?? null, body: { name, kind, isActive: active } }); start(null); };
   return (
     <Modal open onClose={onClose} title="Inventory categories" description="Categories group items for filtering and drive the kind of stock each item is." footer={<Button onClick={onClose}>Done</Button>}>
-      <ul className="divide-y divide-neutral-100 rounded-md border border-neutral-200 mb-4">
+      <ul className="divide-y divide-neutral-200 rounded-md border border-neutral-200 mb-4">
         {(cats.data ?? []).map((c) => (
           <li key={c.id} className={cn('flex items-center gap-3 px-3 py-2 min-h-touch text-sm', editing?.id === c.id && 'bg-primary-50')}>
             <span className="min-w-0 flex-1">
@@ -182,8 +182,8 @@ export function MovementForm({ onClose, item, defaultType = 'WASTAGE' }: { onClo
         <div>
           <SegmentedControl ariaLabel="Movement type" value={type} onChange={setType} options={TYPES.map((t) => ({ value: t.value, label: t.label }))} />
           <p className="text-caption text-neutral-600 mt-2 inline-flex items-center gap-1.5">
-            {meta.dir === 'out' ? <ArrowUpRight className="h-3.5 w-3.5 text-danger-600" aria-hidden />
-              : meta.dir === 'in' ? <ArrowDownLeft className="h-3.5 w-3.5 text-success-600" aria-hidden />
+            {meta.dir === 'out' ? <ArrowUpRight className="h-3.5 w-3.5 text-danger-700" aria-hidden />
+              : meta.dir === 'in' ? <ArrowDownLeft className="h-3.5 w-3.5 text-success-700" aria-hidden />
                 : <ArrowLeftRight className="h-3.5 w-3.5 text-neutral-500" aria-hidden />}
             {meta.hint}
           </p>
@@ -206,7 +206,7 @@ export function MovementForm({ onClose, item, defaultType = 'WASTAGE' }: { onClo
             {after !== null && (
               <div className="flex items-center justify-between gap-3 flex-wrap text-sm mt-2 pt-2 border-t border-neutral-200">
                 <span className="text-neutral-600 inline-flex items-center gap-1.5">
-                  {effectiveQty > 0 ? <ArrowDownLeft className="h-4 w-4 text-success-600" aria-hidden /> : <ArrowUpRight className="h-4 w-4 text-danger-600" aria-hidden />}
+                  {effectiveQty > 0 ? <ArrowDownLeft className="h-4 w-4 text-success-700" aria-hidden /> : <ArrowUpRight className="h-4 w-4 text-danger-700" aria-hidden />}
                   {effectiveQty > 0 ? 'Adds' : 'Removes'} {Math.abs(effectiveQty)} {sel.unitCode} — balance after
                 </span>
                 <span className={cn('tabular-nums font-semibold', after < 0 ? 'text-danger-700' : after <= sel.minQty ? 'text-warning-700' : 'text-neutral-900')}>

@@ -3,7 +3,8 @@ import type { AppNotification, NotificationSeverity } from '@/types';
 
 export const SEVERITY_ICON: Record<NotificationSeverity, LucideIcon> = { CRITICAL: OctagonAlert, WARNING: AlertTriangle, INFO: Info };
 export const SEVERITY_TONE: Record<NotificationSeverity, 'danger' | 'warning' | 'info'> = { CRITICAL: 'danger', WARNING: 'warning', INFO: 'info' };
-export const SEVERITY_TEXT: Record<NotificationSeverity, string> = { CRITICAL: 'text-danger-600', WARNING: 'text-warning-600', INFO: 'text-info-600' };
+/** The `-700` rung is the legible text colour on the dark ground; `-500`/`-600` are fills. */
+export const SEVERITY_TEXT: Record<NotificationSeverity, string> = { CRITICAL: 'text-danger-700', WARNING: 'text-warning-700', INFO: 'text-info-700' };
 
 /** Where a notification takes the user when opened. `null` = no dedicated screen. */
 export function notificationTarget(n: Pick<AppNotification, 'entity' | 'entityId'>): string | null {

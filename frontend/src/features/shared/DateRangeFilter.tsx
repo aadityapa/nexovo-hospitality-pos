@@ -16,8 +16,18 @@ const OPTIONS: { value: DashboardPreset; label: string }[] = [
 
 export function DateRangeFilter({ state }: { state: ReturnType<typeof useDateRange> }) {
   const { preset, setPreset, custom, setCustom } = state;
+  /*
+   * `min-w-0`: this control carries a five-segment period track plus two date inputs, and as a
+   * flex item its max-content width becomes a floor the page cannot shrink under. It is mounted
+   * in the action slot of several page heads, which is why one missing `min-w-0` here showed up
+   * as a 9 px document overflow at 390 px on every screen that uses it.
+   *
+   * The comment lives HERE and not inside the `return (…)`: `return ( {/* … *\/} <div/> )` is not
+   * valid JSX, and because the build was piped to /dev/null behind an `&&`, it failed silently
+   * and the audit kept measuring the previous bundle.
+   */
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2 min-w-0">
       <SegmentedControl options={OPTIONS} value={preset} onChange={setPreset} size="sm" />
       {preset === 'custom' && (
         <div className="flex items-center gap-2">
@@ -29,7 +39,7 @@ export function DateRangeFilter({ state }: { state: ReturnType<typeof useDateRan
             onChange={(e) => setCustom((c) => ({ ...c, from: e.target.value }))}
             className="input-base h-9 min-h-0 w-auto text-sm"
           />
-          <span className="text-neutral-400 text-sm shrink-0">to</span>
+          <span className="text-neutral-500 text-sm shrink-0">to</span>
           <input
             type="date"
             aria-label="To date"

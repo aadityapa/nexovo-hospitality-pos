@@ -82,7 +82,35 @@ export function Modal({ open, onClose, title, description, children, footer, siz
   if (!open) return null;
   return createPortal(
     <div className="fixed inset-0 z-modal flex items-end sm:items-center justify-center" role="presentation">
-      <div className="absolute inset-0 bg-neutral-900/60 animate-fade-in" onClick={closeOnBackdrop ? onClose : undefined} aria-hidden />
+      {/*
+        The scrim is app-black at 70%, not a neutral at 60%. On a dark theme a light scrim is
+        impossible — the ramp is inverted, so `neutral-900` is now the *brightest* value — and a
+        thin scrim leaves the page behind competing with the dialog for attention.
+      */}
+      <div className="absolute inset-0 bg-neutral-950/70 animate-fade-in" onClick={closeOnBackdrop ? onClose : undefined} aria-hidden />
+      {/*
+        TWO ELEMENTS, for the same reason `DashboardHero` is two: `.material-edge` is a single
+        `box-shadow` declaration emitted AFTER `.shadow-modal` at equal specificity, so putting it
+        on the panel would REPLACE the deep modal shadow that lifts the dialog off its own scrim.
+        A dialog needs both — the bevel at its edge and the shadow underneath it — so the outer
+        element carries `shadow-modal` at the panel's own radius plus the entrance and the width,
+        and the panel itself carries the material. The outer element is `aria`-transparent: the
+        `role="dialog"`, the focus trap's `ref`, every label and the tab order all stay on the
+        panel, unchanged.
+
+        DURATION. The entrance lives on the wrapper and is pinned to the OVERLAY token (220 ms) —
+        `animate-scale-in` ships at 180 ms — so the sheet and the centred dialog arrive on the one
+        beat the motion system reserves for something entering over the page. It is an entrance,
+        not a gate: the dialog is interactive and focusable from the first frame, and the focus
+        timer is untouched.
+      */}
+      <div
+        className={cn(
+          'relative w-full shadow-modal [animation-duration:theme(transitionDuration.overlay)]',
+          sheet ? 'rounded-t-xl sm:rounded-lg animate-slide-up sm:animate-scale-in' : 'rounded-lg m-4 animate-scale-in',
+          sizes[size],
+        )}
+      >
       <div
         ref={ref}
         role="dialog"
@@ -92,10 +120,15 @@ export function Modal({ open, onClose, title, description, children, footer, siz
         aria-labelledby={title ? titleId : undefined}
         aria-describedby={description ? descId : undefined}
         className={cn(
-          'relative w-full bg-white shadow-modal flex flex-col outline-none',
+          /* `surface-high` + a hairline: the dialog is the topmost layer, so it is the lightest
+             surface in the stack and still needs an edge to separate it from its own shadow.
+             MATERIAL: a dialog floats above a scrim with nothing between it and the light, so it
+             is exactly the surface that should catch some — one specular band (gloss) and the
+             hairline bevel (edge). No grain: the grain belongs to the one large slab per screen,
+             and a dialog is a temporary object, not the ground. */
+          'relative w-full bg-surface-high border border-neutral-300 material-gloss material-edge flex flex-col outline-none',
           'max-h-[92dvh] sm:max-h-[85dvh]',
-          sheet ? 'rounded-t-xl sm:rounded-lg animate-slide-up sm:animate-scale-in' : 'rounded-lg m-4 animate-scale-in',
-          sizes[size],
+          sheet ? 'rounded-t-xl sm:rounded-lg' : 'rounded-lg',
         )}
       >
         {(title || description) && (
@@ -114,6 +147,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
           </div>
         )}
       </div>
+      </div>
     </div>,
     document.body,
   );
@@ -128,7 +162,17 @@ export function Drawer({ open, onClose, title, children, side = 'right', width =
   if (!open) return null;
   return createPortal(
     <div className="fixed inset-0 z-drawer flex" role="presentation">
-      <div className="absolute inset-0 bg-neutral-900/60 animate-fade-in" onClick={onClose} aria-hidden />
+      <div className="absolute inset-0 bg-neutral-950/70 animate-fade-in" onClick={onClose} aria-hidden />
+      {/* Same two-element construction as `Modal`, for the same reason: the wrapper keeps
+          `shadow-modal` (which `.material-edge` would otherwise replace), the width and the
+          slide, and the panel carries the material and every accessibility attribute. */}
+      <div
+        className={cn(
+          'relative h-full w-full shadow-modal animate-slide-in-right [animation-duration:theme(transitionDuration.overlay)]',
+          side === 'right' ? 'ml-auto' : 'mr-auto',
+          width,
+        )}
+      >
       <div
         ref={ref}
         role="dialog"
@@ -136,16 +180,19 @@ export function Drawer({ open, onClose, title, children, side = 'right', width =
         tabIndex={-1}
         aria-labelledby={title ? titleId : undefined}
         className={cn(
-          'relative bg-white h-full w-full shadow-modal flex flex-col outline-none animate-slide-in-right',
-          width, side === 'right' ? 'ml-auto' : 'mr-auto',
+          /* Only the edge that faces the page carries the hairline — the other three are against
+             the viewport, where a border would read as a stray line. */
+          'relative bg-surface-high h-full w-full material-gloss material-edge flex flex-col outline-none',
+          side === 'right' ? 'border-l border-neutral-300' : 'border-r border-neutral-300',
         )}
       >
         <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-neutral-200">
-          <h2 id={titleId} className="text-subheading truncate">{title}</h2>
+          <h2 id={titleId} className="text-subheading text-neutral-900 truncate">{title}</h2>
           <IconButton label="Close" onClick={onClose} size="sm" className="-mr-1"><X className="h-5 w-5" /></IconButton>
         </div>
         <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-4">{children}</div>
         {footer && <div className="px-5 py-4 border-t border-neutral-200 bg-neutral-50/60 flex justify-end gap-2 safe-bottom">{footer}</div>}
+      </div>
       </div>
     </div>,
     document.body,
@@ -183,7 +230,10 @@ export function ConfirmDialog({ open, onClose, onConfirm, title, message, confir
       <div className="flex gap-4">
         <span className={cn(
           'shrink-0 h-11 w-11 rounded-full flex items-center justify-center',
-          variant === 'danger' ? 'bg-danger-50 text-danger-600' : variant === 'warning' ? 'bg-warning-50 text-warning-700' : 'bg-primary-50 text-primary-700',
+          'ring-1 ring-inset',
+          variant === 'danger' ? 'bg-danger-50 text-danger-700 ring-danger-200'
+            : variant === 'warning' ? 'bg-warning-50 text-warning-700 ring-warning-200'
+              : 'bg-primary-50 text-primary-700 ring-primary-200',
         )}>
           {variant === 'primary' ? <Info className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
         </span>

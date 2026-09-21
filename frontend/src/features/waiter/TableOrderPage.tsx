@@ -6,7 +6,7 @@ import { useOrder, useOrderMutations } from '@/features/orders/hooks';
 import { OrderEntry } from './OrderEntry';
 import { usePermission } from '@/hooks/useAuth';
 import { useNow } from '@/hooks/useRealtime';
-import { LoadingState, ErrorState, StatusBadge, Button, EmptyState, Card, ConfirmDialog } from '@/components/ui';
+import { LoadingState, ErrorState, StatusBadge, Button, EmptyState, Card, ConfirmDialog, PageHeader } from '@/components/ui';
 import { money } from '@/utils/money';
 import { elapsedMinutes } from '@/utils/date';
 import { canAddItems, canRequestBill } from '@/utils/orderStatus';
@@ -123,47 +123,44 @@ export default function TableOrderPage() {
 
   return (
     <div>
-      <section aria-label={`Order summary for ${t.name}`} className="card p-4 mb-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-heading text-neutral-900">{t.name}</h1>
-              {o ? <StatusBadge kind="order" status={o.status} /> : <StatusBadge kind="table" status={t.status} />}
-            </div>
-            <p className="text-caption text-neutral-500 mt-1 truncate">
-              {t.floorName}
-              {o ? ` · ${o.orderNumber} · ${o.waiterName}` : ` · ${t.capacity} seats · new order`}
-            </p>
-          </div>
+      {/*
+        THE PAGE HEAD IS NOT A CARD. Strong title carrying the table and its live state, the
+        13 px supporting line under it, and the actions right-aligned on the same row — the one
+        page-head language the product uses everywhere. What IS a card is the order summary
+        below it, because that is a block of facts about the order rather than the head of a page.
+      */}
+      <PageHeader
+        title={<span className="flex items-center gap-3 flex-wrap">{t.name}{o ? <StatusBadge kind="order" status={o.status} /> : <StatusBadge kind="table" status={t.status} />}</span>}
+        subtitle={`${t.floorName}${o ? ` · ${o.orderNumber} · ${o.waiterName}` : ` · ${t.capacity} seats · new order`}`}
+        /* Exactly one primary action, and only when it is genuinely the next step. */
+        actions={<>
+          {o && (
+            <Button size="sm" variant="ghost" leftIcon={<ClipboardList className="h-4 w-4" />} className="min-h-touch" onClick={() => navigate(`/waiter/orders/${o.id}`)}>
+              Order details
+            </Button>
+          )}
+          {showRequestBill && o && (
+            <Button size="lg" leftIcon={<Receipt className="h-4 w-4" />} onClick={() => setConfirmBill(true)}>Request bill</Button>
+          )}
+        </>}
+      >
+        <section aria-label={`Order summary for ${t.name}`} className="card p-5">
+          {/* Nothing is invented here — every figure is already on the order the page loaded. */}
+          {o && (
+            <dl className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <Metric icon={<Users className="h-3.5 w-3.5" />} label="Guests" value={o.guestCount} />
+              <Metric icon={<Clock className="h-3.5 w-3.5" />} label="Open for" value={<time dateTime={o.createdAt}>{ageLabel(o.createdAt, now)}</time>} />
+              <Metric icon={<Utensils className="h-3.5 w-3.5" />} label="Items" value={o.itemCount} />
+              <Metric icon={<Wallet className="h-3.5 w-3.5" />} label="Running total" value={money(o.subtotal)} emphasis />
+            </dl>
+          )}
 
-          {/* Exactly one primary action, and only when it is genuinely the next step. */}
-          <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
-            {o && (
-              <Button size="sm" variant="ghost" leftIcon={<ClipboardList className="h-4 w-4" />} className="min-h-touch" onClick={() => navigate(`/waiter/orders/${o.id}`)}>
-                Order details
-              </Button>
-            )}
-            {showRequestBill && o && (
-              <Button size="lg" leftIcon={<Receipt className="h-4 w-4" />} onClick={() => setConfirmBill(true)}>Request bill</Button>
-            )}
-          </div>
-        </div>
-
-        {/* Nothing is invented here — every figure is already on the order the page loaded. */}
-        {o && (
-          <dl className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <Metric icon={<Users className="h-3.5 w-3.5" />} label="Guests" value={o.guestCount} />
-            <Metric icon={<Clock className="h-3.5 w-3.5" />} label="Open for" value={<time dateTime={o.createdAt}>{ageLabel(o.createdAt, now)}</time>} />
-            <Metric icon={<Utensils className="h-3.5 w-3.5" />} label="Items" value={o.itemCount} />
-            <Metric icon={<Wallet className="h-3.5 w-3.5" />} label="Running total" value={money(o.subtotal)} emphasis />
-          </dl>
-        )}
-
-        <p className="mt-3 text-caption text-neutral-600 flex items-start gap-1.5">
-          <ArrowRight className="h-3.5 w-3.5 mt-0.5 shrink-0 text-neutral-400" aria-hidden />
-          <span>{nextStep}</span>
-        </p>
-      </section>
+          <p className={cn('text-caption text-neutral-600 flex items-start gap-1.5', o && 'mt-3')}>
+            <ArrowRight className="h-3.5 w-3.5 mt-0.5 shrink-0 text-neutral-400" aria-hidden />
+            <span>{nextStep}</span>
+          </p>
+        </section>
+      </PageHeader>
 
       <OrderEntry
         tableId={tid}

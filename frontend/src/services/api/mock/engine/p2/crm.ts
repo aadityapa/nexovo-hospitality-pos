@@ -107,8 +107,17 @@ export function program(ctx: Ctx): LoyaltyProgram {
   return { ...clone(p), memberCount: ctx.db.p2.loyaltyAccounts.length, outstandingPoints: out, outstandingValue: round2(out * p.pointValue) };
 }
 
+/**
+ * Rewrite the programme's rules.
+ *
+ * `loyalty:configure`, NOT `loyalty:manage`. Changing the earn rate, the point value or the expiry
+ * window silently re-prices every point every member is holding, retrospectively — it is a
+ * different act from adjusting one guest's balance, and it now needs a different grant. The
+ * Oracle package asserts the same permission in `loyalty_pkg.save_program`, so a direct request
+ * to `PUT /loyalty/program` is refused by the server whatever the client renders.
+ */
 export function saveProgram(ctx: Ctx, body: LoyaltyProgramInput): LoyaltyProgram {
-  assertPermission(ctx, 'loyalty:manage');
+  assertPermission(ctx, 'loyalty:configure');
   const p = ctx.db.p2.loyaltyProgram;
   const next = { ...p, ...Object.fromEntries(Object.entries(body).filter(([, v]) => v !== undefined && v !== null)) } as LoyaltyProgram;
   if (next.pointsPer100 < 0 || next.pointValue < 0 || next.minRedeemPoints < 0 || next.maxRedeemPercent < 0 || next.maxRedeemPercent > 100 || next.expiryDays < 0) throw errors.validation('Program values must be non-negative (max redeem ≤ 100 %)');

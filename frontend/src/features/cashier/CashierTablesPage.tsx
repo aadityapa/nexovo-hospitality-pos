@@ -4,7 +4,7 @@ import { Clock, Users, Crown, UserRound, Receipt, CheckCircle2, PenLine } from '
 import { useFloors, useTables } from '@/features/tables/hooks';
 import { TableStatusLegend } from '@/features/tables/TableGrid';
 import { useNow } from '@/hooks/useRealtime';
-import { PageHeader, Button, StatusBadge, statusMeta, SegmentedControl, FilterSelect, LoadingState, ErrorState, EmptyState } from '@/components/ui';
+import { PageHeader, Button, StatusBadge, statusMeta, SegmentedControl, FilterChips, LoadingState, ErrorState, EmptyState } from '@/components/ui';
 import { money } from '@/utils/money';
 import { elapsedMinutes } from '@/utils/date';
 import { toast } from '@/store/uiStore';
@@ -72,12 +72,14 @@ export default function CashierTablesPage() {
         onClick={() => open(t)}
         aria-label={`${t.name}, ${lead ? 'ready to settle' : 'still dining'}, seats ${t.capacity}${t.activeOrderTotal != null ? `, running total ${money(t.activeOrderTotal)}` : ''}${mins != null ? `, open ${mins} minutes` : ''}`}
         className={cn(
-          'group relative overflow-hidden text-left rounded-md border bg-white p-4 pt-5 min-h-pos w-full transition-[box-shadow,border-color] press',
-          'hover:shadow-panel focus-visible:shadow-panel',
+          'group relative overflow-hidden text-left rounded-md border bg-surface-raised shadow-card p-4 pt-5 min-h-pos w-full',
+          'transition-[box-shadow,border-color] duration-control press hover:shadow-panel focus-visible:shadow-panel',
           lead ? 'border-warning-200 hover:border-warning-500' : 'border-neutral-200 hover:border-neutral-300',
         )}
       >
-        <span className={cn('absolute inset-x-0 top-0 h-1', lead ? 'bg-warning-500' : 'bg-neutral-300')} aria-hidden />
+        {/* `neutral-300` is a border value on this ramp and disappears as a 6 px rule — the
+            quiet lane uses `neutral-400`, the same rung the shared StatusDot uses. */}
+        <span className={cn('absolute inset-x-0 top-0 h-1.5', lead ? 'bg-warning-500' : 'bg-neutral-400')} aria-hidden />
 
         <div className="flex items-start justify-between gap-2">
           <span className={cn('font-bold tracking-tight text-neutral-900 truncate', lead ? 'text-xl' : 'text-lg')}>{t.name}</span>
@@ -94,24 +96,24 @@ export default function CashierTablesPage() {
 
         <div className="mt-3 flex items-end justify-between gap-2">
           <span className="min-w-0">
-            <span className={cn('block tabular-nums font-semibold text-neutral-900 leading-tight', lead ? 'text-xl' : 'text-base')}>
+            <span className={cn('block tnum font-semibold text-neutral-900 leading-tight', lead ? 'text-metric' : 'text-base')}>
               {t.activeOrderTotal != null ? money(t.activeOrderTotal) : '—'}
             </span>
             <span className="block text-caption text-neutral-500">{lead ? 'To settle, before tax' : 'Running total'}</span>
           </span>
           {mins != null && (
-            <span className={cn('inline-flex items-center gap-1 text-caption tabular-nums shrink-0', mins >= 90 ? 'text-warning-700 font-medium' : 'text-neutral-500')}>
+            <span className={cn('inline-flex items-center gap-1 text-caption tnum shrink-0', mins >= 90 ? 'text-warning-700 font-medium' : 'text-neutral-500')}>
               <Clock className="h-3 w-3" aria-hidden />{mins}m
             </span>
           )}
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-neutral-100 pt-2.5">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-neutral-200 pt-2.5">
           <span className="inline-flex items-center gap-1 text-caption text-neutral-500 min-w-0">
             <UserRound className="h-3 w-3 shrink-0" aria-hidden />
             <span className="truncate">{t.assignedWaiterName ?? 'Unassigned'}</span>
           </span>
-          <span className={cn('text-sm font-semibold shrink-0', draft ? 'text-neutral-400' : lead ? 'text-warning-700' : 'text-primary-700')}>
+          <span className={cn('text-sm font-semibold shrink-0', draft ? 'text-neutral-500' : lead ? 'text-warning-700' : 'text-primary-700')}>
             {draft ? 'Draft — not sent' : lead ? 'Open bill →' : 'Generate bill →'}
           </span>
         </div>
@@ -126,10 +128,12 @@ export default function CashierTablesPage() {
       type="button"
       onClick={() => open(t)}
       aria-label={`${t.name}, ${statusMeta('table', t.status).label}, nothing to settle, seats ${t.capacity}`}
-      className="min-h-touch inline-flex items-center gap-2 rounded-sm border border-neutral-200 bg-neutral-50 px-3 text-sm text-neutral-600 hover:bg-white hover:border-neutral-300 transition-colors"
+      /* Sunken chip: it sits BELOW the page, and hovering lifts it one rung — the inverted
+         ramp's equivalent of the old "grey → white" hover. */
+      className="min-h-touch inline-flex items-center gap-2 rounded-sm border border-neutral-200 bg-neutral-50 px-3 text-sm text-neutral-600 hover:bg-neutral-100 hover:border-neutral-400 hover:text-neutral-900 transition-colors duration-control"
     >
       <span className="font-medium text-neutral-700">{t.name}</span>
-      <span className="inline-flex items-center gap-0.5 text-caption text-neutral-400"><Users className="h-3 w-3" aria-hidden />{t.capacity}</span>
+      <span className="inline-flex items-center gap-0.5 text-caption text-neutral-500"><Users className="h-3 w-3" aria-hidden />{t.capacity}</span>
       {t.status !== 'AVAILABLE' && <StatusBadge kind="table" status={t.status} size="sm" hideIcon />}
     </button>
   );
@@ -158,13 +162,18 @@ export default function CashierTablesPage() {
                 { value: 'ALL', label: 'All', count: byLane.SETTLE.length + byLane.DINING.length + byLane.IDLE.length },
               ]}
             />
-            <FilterSelect
+            {/* Areas as counted chips rather than a select. This screen fetches the WHOLE floor
+                and lanes it client-side, so every count here is the real number of tables in
+                that area — and a chip row shows all of them at once instead of hiding the floor
+                behind a closed dropdown. */}
+            <FilterChips<string>
               ariaLabel="Filter tables by area"
-              className="sm:w-48"
               value={floor}
-              onChange={(e) => setFloor(e.target.value)}
-              placeholder="All areas"
-              options={(floors.data ?? []).map((f) => ({ value: f.id, label: f.name }))}
+              onChange={setFloor}
+              options={[
+                { value: '', label: 'All areas', count: all.length },
+                ...(floors.data ?? []).map((f) => ({ value: String(f.id), label: f.name, count: all.filter((t) => t.floorId === f.id).length })),
+              ]}
             />
           </div>
           <TableStatusLegend />
@@ -198,7 +207,7 @@ export default function CashierTablesPage() {
                 <section key={l} aria-label={LANE_META[l].title}>
                   <div className="flex flex-wrap items-baseline gap-2.5 mb-3">
                     <h2 className="text-subheading text-neutral-900 inline-flex items-center gap-2">
-                      {l === 'SETTLE' && <Receipt className="h-4 w-4 text-warning-600" aria-hidden />}
+                      {l === 'SETTLE' && <Receipt className="h-4 w-4 text-warning-500" aria-hidden />}
                       {l === 'DINING' && <PenLine className="h-4 w-4 text-neutral-400" aria-hidden />}
                       {LANE_META[l].title}
                     </h2>

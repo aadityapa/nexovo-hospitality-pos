@@ -6,7 +6,7 @@ import { useDebounce } from '@/hooks/useRealtime';
 import { cn } from '@/utils/cn';
 import { money } from '@/utils/money';
 import {
-  Button, Modal, ConfirmDialog, QuantitySelector, QuickChips, LoadingState, ErrorState, EmptyState,
+  Button, Modal, ConfirmDialog, QuantitySelector, QuickChips, FilterChips, LoadingState, ErrorState, EmptyState,
   Textarea, Badge, ItemImage, StatusBadge,
 } from '@/components/ui';
 import type { MenuItem, NewOrderItemInput, OrderItem } from '@/types';
@@ -67,13 +67,14 @@ export function OrderEntry({
   const [cartOpen, setCartOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
 
+  /** The sellable menu — the one list every count and every tile on this screen is read from. */
+  const active = useMemo(() => (items.data ?? []).filter((i) => i.isActive), [items.data]);
+
   const visible = useMemo(
-    () => (items.data ?? [])
-      .filter((i) => i.isActive)
-      .filter((i) => (dq
-        ? i.name.toLowerCase().includes(dq) || i.code.toLowerCase().includes(dq)
-        : catId === 'ALL' ? true : catId === 'POPULAR' ? i.isPopular : i.categoryId === catId)),
-    [items.data, dq, catId],
+    () => active.filter((i) => (dq
+      ? i.name.toLowerCase().includes(dq) || i.code.toLowerCase().includes(dq)
+      : catId === 'ALL' ? true : catId === 'POPULAR' ? i.isPopular : i.categoryId === catId)),
+    [active, dq, catId],
   );
 
   const qtyOf = (id: number) => lines.filter((l) => l.menuItemId === id).reduce((a, l) => a + l.qty, 0);
@@ -87,7 +88,10 @@ export function OrderEntry({
   const saveDraft = async () => { if (onSaveDraft) { await onSaveDraft(cartToItems(lines)); clear(tableId); } };
 
   const orderPanel = (
-    <div className="flex flex-col h-full bg-white">
+    /* The panel paints its own surface because it is rendered twice: inside the desktop `card`
+       rail and as a full-screen sheet on a phone. `surface-raised` keeps both readings identical,
+       so `hover:bg-neutral-100` (one rung above it) stays a visible hover in either place. */
+    <div className="flex flex-col h-full bg-surface-raised">
       <div className="px-4 py-3 border-b border-neutral-200 flex items-center gap-2 shrink-0">
         <div className="min-w-0 flex-1">
           <p className="font-bold text-lg leading-tight truncate">{tableName}</p>
@@ -100,7 +104,7 @@ export function OrderEntry({
             Clear
           </Button>
         )}
-        <button type="button" onClick={() => setCartOpen(false)} aria-label="Close order panel" className="lg:hidden h-10 w-10 flex items-center justify-center rounded-sm hover:bg-neutral-100 -mr-1">
+        <button type="button" onClick={() => setCartOpen(false)} aria-label="Close order panel" className="lg:hidden h-10 w-10 flex items-center justify-center rounded-sm text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 transition-colors duration-control -mr-1">
           <X className="h-5 w-5" />
         </button>
       </div>
@@ -108,14 +112,16 @@ export function OrderEntry({
       <div className="flex-1 overflow-y-auto overscroll-contain">
         {/* Already sent — read-only, so a waiter never re-sends what the kitchen already has. */}
         {sentItems.length > 0 && (
-          <section className="border-b-4 border-neutral-100">
+          <section className="border-b-4 border-neutral-200">
             <h3 className="px-4 pt-3 pb-1.5 text-label uppercase text-neutral-500 flex items-center gap-1.5">
-              <CheckCircle2 className="h-3.5 w-3.5 text-success-600" aria-hidden />
+              <CheckCircle2 className="h-3.5 w-3.5 text-success-500" aria-hidden />
               Already sent · {sentItems.length}
             </h3>
-            <ul className="divide-y divide-neutral-100">
+            {/* `neutral-50` is the DARKEST rung on this ramp, so a sent line reads as recessed
+                below the panel rather than highlighted — exactly the intent. */}
+            <ul className="divide-y divide-neutral-200">
               {sentItems.map((i) => (
-                <li key={i.id} className="px-4 py-2.5 flex items-start gap-2 bg-neutral-50/60">
+                <li key={i.id} className="px-4 py-2.5 flex items-start gap-2 bg-neutral-50/70">
                   <span className="tabular-nums text-neutral-500 text-sm w-6 shrink-0">{i.quantity}×</span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm text-neutral-700 truncate">{i.itemName}</span>
@@ -140,7 +146,7 @@ export function OrderEntry({
             description="Tap items on the menu to add them."
           />
         ) : (
-          <ul className="divide-y divide-neutral-100">
+          <ul className="divide-y divide-neutral-200">
             {lines.map((l) => (
               <li key={l.key} className="px-4 py-3">
                 <div className="flex items-start justify-between gap-2">
@@ -150,7 +156,7 @@ export function OrderEntry({
                       {money(l.price)} · {l.prepLocation === 'BAR' ? 'Bar' : 'Kitchen'}
                     </p>
                   </div>
-                  <p className="font-semibold tabular-nums shrink-0">{money(l.price * l.qty)}</p>
+                  <p className="font-semibold tnum text-neutral-900 shrink-0">{money(l.price * l.qty)}</p>
                 </div>
                 {l.notes && <p className="mt-1.5 text-caption font-semibold text-warning-700 uppercase tracking-wide">{l.notes}</p>}
                 <div className="mt-2.5 flex items-center gap-2">
@@ -165,7 +171,7 @@ export function OrderEntry({
         )}
       </div>
 
-      <div className="border-t border-neutral-200 p-4 space-y-3 safe-bottom bg-white shrink-0">
+      <div className="border-t border-neutral-200 p-4 space-y-3 safe-bottom bg-surface-raised shrink-0">
         <div className="flex items-baseline justify-between gap-3">
           <span className="text-neutral-600 text-sm">
             New items
@@ -173,7 +179,7 @@ export function OrderEntry({
               {count} item{count === 1 ? '' : 's'}{kitchen > 0 && bar > 0 ? ` · ${kitchen} kitchen, ${bar} bar` : ''}
             </span>
           </span>
-          <span className="text-xl font-bold tabular-nums">{money(subtotal)}</span>
+          <span className="text-xl font-bold tnum text-neutral-900">{money(subtotal)}</span>
         </div>
         <p className="text-caption text-neutral-500">Taxes and service charge are added on the bill.</p>
         <div className="grid grid-cols-2 gap-2">
@@ -192,11 +198,18 @@ export function OrderEntry({
     </div>
   );
 
-  const chips = [
-    { id: 'POPULAR' as const, name: 'Popular' },
-    { id: 'ALL' as const, name: 'All' },
-    ...(cats.data ?? []).map((c) => ({ id: c.id, name: c.name })),
-  ];
+  /**
+   * COUNTED CATEGORY CHIPS — "Popular 8 · All 46 · Starters 11 · …".
+   *
+   * Every count is a filter of `active`, the menu this component already fetched, so the number
+   * on a chip is exactly the number of tiles that appear when it is pressed. Nothing extra is
+   * queried and nothing is estimated; a category with nothing sellable in it honestly reads 0.
+   */
+  const catOptions = useMemo(() => [
+    { value: 'POPULAR', label: 'Popular', count: active.filter((i) => i.isPopular).length },
+    { value: 'ALL', label: 'All', count: active.length },
+    ...(cats.data ?? []).map((c) => ({ value: String(c.id), label: c.name, count: active.filter((i) => i.categoryId === c.id).length })),
+  ], [active, cats.data]);
 
   return (
     <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-4 lg:h-[calc(100dvh-8.5rem)]">
@@ -217,25 +230,24 @@ export function OrderEntry({
           {onCancel && <Button variant="outline" size="lg" className="hidden lg:inline-flex" onClick={onCancel}>Back</Button>}
         </div>
 
-        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 -mx-1 px-1" role="group" aria-label="Menu categories">
-          {chips.map((c) => {
-            const on = catId === c.id && !dq;
-            return (
-              <button
-                key={c.id}
-                type="button"
-                aria-pressed={on}
-                onClick={() => { setCatId(c.id); setSearch(''); }}
-                className={cn(
-                  'shrink-0 min-h-touch px-4 rounded-full border text-sm font-medium transition-colors',
-                  on ? 'bg-primary-600 text-white border-primary-600' : 'bg-white border-neutral-300 text-neutral-700 hover:border-neutral-400',
-                )}
-              >
-                {c.name}
-              </button>
-            );
-          })}
-        </div>
+        {/*
+          The shared counted chips, laid out as a RAIL rather than a wrapping row. This is the
+          only place in the product where that override is right: the chips sit directly above
+          the item grid on a POS screen, and three wrapped rows of categories would push the
+          first row of dishes off a 390 px phone. `flex-nowrap` turns the same component into a
+          single scrolling line; the chips keep their own min-content width, their gold selected
+          tint and their 44 px coarse-pointer target.
+
+          While a search is running no chip is selected — the search is the filter — so the value
+          handed in matches none of them, exactly as the old `catId === c.id && !dq` did.
+        */}
+        <FilterChips<string>
+          ariaLabel="Menu categories"
+          className="flex-nowrap overflow-x-auto no-scrollbar pb-2"
+          value={dq ? '' : String(catId)}
+          onChange={(v) => { setCatId(v === 'ALL' ? 'ALL' : v === 'POPULAR' ? 'POPULAR' : Number(v)); setSearch(''); }}
+          options={catOptions}
+        />
 
         <div className="flex-1 overflow-y-auto min-h-0 pb-28 lg:pb-2">
           {items.isLoading && <LoadingState variant="cards" rows={3} />}
@@ -254,20 +266,23 @@ export function OrderEntry({
                     onClick={() => add(tableId, it)}
                     aria-label={`Add ${it.name}, ${money(it.price)}`}
                     className={cn(
-                      'group relative text-left rounded-md border bg-white overflow-hidden flex flex-col transition-[border-color,box-shadow] press',
+                      'group relative text-left rounded-md border bg-surface-raised overflow-hidden flex flex-col transition-[border-color,box-shadow] duration-control press',
                       'disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100',
-                      q > 0 ? 'border-primary-600 ring-1 ring-primary-600/20' : 'border-neutral-200 hover:border-neutral-300 hover:shadow-card',
+                      /* Selected = a gold edge plus a gold halo; the tile itself never fills gold,
+                         so a grid of chosen items stays readable. */
+                      q > 0 ? 'border-primary-500 ring-1 ring-primary-500/30 shadow-card' : 'border-neutral-200 hover:border-neutral-300 hover:shadow-panel',
                     )}
                   >
                     <div className="relative">
                       <ItemImage src={it.imageUrl} alt="" prepLocation={it.prepLocation} rounded="" className="h-20 w-full" />
                       {q > 0 && (
-                        <span className="absolute top-1.5 right-1.5 h-6 min-w-6 px-1.5 rounded-full bg-primary-600 text-white text-xs font-bold flex items-center justify-center tabular-nums ring-2 ring-white">
+                        <span className="absolute top-1.5 right-1.5 h-6 min-w-6 px-1.5 rounded-full bg-primary-500 text-on-primary text-xs font-bold flex items-center justify-center tabular-nums ring-2 ring-surface-raised">
                           {q}
                         </span>
                       )}
                       {!it.isAvailable && (
-                        <span className="absolute inset-0 bg-white/75 flex items-center justify-center">
+                        /* App-black at 70%: a light veil is impossible on this ramp. */
+                        <span className="absolute inset-0 bg-neutral-950/70 flex items-center justify-center">
                           <Badge tone="danger" size="sm">Sold out</Badge>
                         </span>
                       )}
@@ -279,11 +294,13 @@ export function OrderEntry({
                       </span>
                       <span className="font-semibold leading-snug mt-0.5 line-clamp-2 text-neutral-900">{it.name}</span>
                       {it.isBottleService && (
-                        <span className="mt-1"><Badge tone="accent" size="sm">Bottle{it.bottleSizeMl ? ` · ${it.bottleSizeMl}ml` : ''}</Badge></span>
+                        /* `accent` is violet and means VIP classification — a bottle is a menu
+                           attribute, so it takes the gold emphasis tone instead. */
+                        <span className="mt-1"><Badge tone="primary" size="sm">Bottle{it.bottleSizeMl ? ` · ${it.bottleSizeMl}ml` : ''}</Badge></span>
                       )}
                       <span className="mt-auto pt-2 flex items-center justify-between">
-                        <span className="font-semibold tabular-nums">{money(it.price)}</span>
-                        {it.isAvailable && <Plus className="h-4 w-4 text-primary-600" aria-hidden />}
+                        <span className="font-semibold tnum text-neutral-900">{money(it.price)}</span>
+                        {it.isAvailable && <Plus className="h-4 w-4 text-primary-500" aria-hidden />}
                       </span>
                     </div>
                   </button>
@@ -303,10 +320,12 @@ export function OrderEntry({
           type="button"
           onClick={() => setCartOpen(true)}
           disabled={count === 0}
-          className="pointer-events-auto w-full min-h-pos rounded-md bg-neutral-900 text-white shadow-modal flex items-center justify-between px-4 font-semibold disabled:opacity-60 press"
+          /* The single primary action on the phone layout, so it carries the gold fill and the
+             one shadow reserved for it. Its label is `on-primary`, never white. */
+          className="pointer-events-auto w-full min-h-pos rounded-md bg-gold-sheen bg-primary-500 text-on-primary border border-primary-400 shadow-gold flex items-center justify-between px-4 font-semibold transition-colors duration-control hover:bg-primary-700 disabled:opacity-60 disabled:shadow-none press"
         >
           <span className="inline-flex items-center gap-2"><ShoppingCart className="h-5 w-5" aria-hidden />{count} item{count === 1 ? '' : 's'}</span>
-          <span className="tabular-nums">{money(subtotal)} · Review</span>
+          <span className="tnum">{money(subtotal)} · Review</span>
         </button>
       </div>
       {cartOpen && (

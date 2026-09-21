@@ -3,10 +3,12 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
-import { Plus, Pencil, Trash2, Tag, Clock, CalendarDays, CalendarClock, CalendarX2, PauseCircle, CheckCircle2, Percent, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, Tag, Clock, CalendarDays, CalendarClock, CalendarX2, PauseCircle, CheckCircle2, X } from 'lucide-react';
 import { useOffers, useOfferMutations, useCategories, useMenuItems } from '@/features/menu/hooks';
 import { usePermission } from '@/hooks/useAuth';
-import { PageHeader, Button, IconButton, Modal, ConfirmDialog, Input, Select, Textarea, Switch, Badge, LoadingState, ErrorState, EmptyState, Card, SearchInput, SegmentedControl } from '@/components/ui';
+import { useWorkspace } from '@/hooks/useSurface';
+import { PageHeader, Button, IconButton, Modal, ConfirmDialog, Input, Select, Textarea, Switch, Badge, LoadingState, ErrorState, EmptyState, Card, SearchInput, SegmentedControl, FilterChips, ItemImage } from '@/components/ui';
+import { Reveal, staggerDelay } from '@/components/motion';
 import { ApiError } from '@/services/api/client';
 import { offerLabel } from '@/utils/offers';
 import { money } from '@/utils/money';
@@ -46,11 +48,11 @@ function CheckGrid({ options, value, onChange, error }: { options: { id: number;
     <div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-48 overflow-y-auto rounded-sm border border-neutral-200 p-2">
         {options.map((o) => { const on = value.includes(o.id); return (
-          <label key={o.id} className={cn('flex items-center gap-2 rounded-sm px-2 min-h-touch text-sm cursor-pointer', on ? 'bg-primary-50 text-primary-800' : 'hover:bg-neutral-50')}>
+          <label key={o.id} className={cn('flex items-center gap-2 rounded-sm px-2 min-h-touch text-sm cursor-pointer', on ? 'bg-primary-50 text-primary-800' : 'hover:bg-neutral-200')}>
             <input type="checkbox" className="h-4 w-4 rounded-sm" checked={on} onChange={() => onChange(on ? value.filter((x) => x !== o.id) : [...value, o.id])} /><span className="truncate">{o.label}</span>
           </label>); })}
       </div>
-      {error && <p role="alert" className="text-caption text-danger-600 mt-1">{error}</p>}
+      {error && <p role="alert" className="text-caption text-danger-700 mt-1">{error}</p>}
     </div>
   );
 }
@@ -76,7 +78,7 @@ function OfferForm({ open, onClose, editing }: { open: boolean; onClose: () => v
   const valueLabel = type === 'BOGO' ? null : ['PERCENTAGE', 'HAPPY_HOUR'].includes(type) ? 'Discount (%)' : type === 'FLAT' ? 'Discount per unit (₹)' : 'Combo discount (₹)';
   return (
     <Modal open={open} onClose={onClose} size="lg" title={editing ? `Edit “${editing.name}”` : 'New offer'} footer={<><Button variant="outline" onClick={onClose}>Cancel</Button><Button onClick={handleSubmit(onSubmit)} loading={save.isPending}>{editing ? 'Save changes' : 'Create offer'}</Button></>}>
-      <form onSubmit={handleSubmit(onSubmit)} className="grid sm:grid-cols-2 gap-4" noValidate>
+      <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 sm:grid-cols-2 gap-4" noValidate>
         <Input label="Offer name" required autoFocus wrapperClassName="sm:col-span-2" error={errors.name?.message} {...register('name')} />
         <Select label="Offer type" required options={[{ value: 'PERCENTAGE', label: 'Percentage discount' }, { value: 'FLAT', label: 'Flat discount' }, { value: 'BOGO', label: 'Buy one get one' }, { value: 'COMBO', label: 'Combo offer' }, { value: 'HAPPY_HOUR', label: 'Happy hour (percentage, time-bound)' }]} {...register('offerType')} />
         {valueLabel ? <Input label={valueLabel} required type="number" step="0.01" min={0} error={errors.discountValue?.message} {...register('discountValue')} /> : <div className="text-sm text-neutral-500 self-end pb-2">Every second unit is free.</div>}
@@ -94,7 +96,7 @@ function OfferForm({ open, onClose, editing }: { open: boolean; onClose: () => v
         <Input label="End time" type="time" error={errors.endTime?.message} {...register('endTime')} />
         <div className="sm:col-span-2">
           <p className="text-label text-neutral-700 mb-1.5">Days of week <span className="font-normal text-neutral-500">(none = every day)</span></p>
-          <div className="flex flex-wrap gap-1.5">{DAYS.map((d) => { const on = days.includes(d.v); return <button key={d.v} type="button" aria-pressed={on} onClick={() => setValue('daysOfWeek', on ? days.filter((x) => x !== d.v) : [...days, d.v].sort())} className={cn('min-h-touch min-w-touch px-3 rounded-sm border text-sm font-medium', on ? 'bg-primary-800 border-primary-800 text-white' : 'bg-white border-neutral-300')}>{d.l}</button>; })}</div>
+          <div className="flex flex-wrap gap-1.5">{DAYS.map((d) => { const on = days.includes(d.v); return <button key={d.v} type="button" aria-pressed={on} onClick={() => setValue('daysOfWeek', on ? days.filter((x) => x !== d.v) : [...days, d.v].sort())} className={cn('min-h-touch min-w-touch px-3 rounded-sm border text-sm font-medium transition-colors duration-control', on ? 'bg-primary-500 border-primary-400 text-on-primary' : 'bg-surface border-neutral-300 text-neutral-800 hover:border-neutral-400')}>{d.l}</button>; })}</div>
         </div>
         <Switch checked={watch('isActive')} onChange={(v) => setValue('isActive', v)} label="Active" description="Offers only show to customers while active and within schedule." />
       </form>
@@ -115,21 +117,21 @@ function phaseOf(o: Offer, today: string): Phase {
   return o.isCurrentlyActive ? 'LIVE' : 'IDLE';
 }
 
-const PHASE_META: Record<Phase, { label: string; tone: 'success' | 'info' | 'accent' | 'warning' | 'neutral'; icon: ReactNode; tile: string }> = {
-  LIVE:      { label: 'Running now',      tone: 'success', icon: <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />,   tile: 'bg-success-50 text-success-700' },
-  IDLE:      { label: 'Outside its hours', tone: 'info',    icon: <Clock className="h-3.5 w-3.5" aria-hidden />,          tile: 'bg-info-50 text-info-700' },
-  SCHEDULED: { label: 'Scheduled',        tone: 'accent',  icon: <CalendarClock className="h-3.5 w-3.5" aria-hidden />,  tile: 'bg-accent-50 text-accent-700' },
-  PAUSED:    { label: 'Paused',           tone: 'warning', icon: <PauseCircle className="h-3.5 w-3.5" aria-hidden />,    tile: 'bg-warning-50 text-warning-700' },
-  FINISHED:  { label: 'Finished',         tone: 'neutral', icon: <CalendarX2 className="h-3.5 w-3.5" aria-hidden />,     tile: 'bg-neutral-100 text-neutral-600' },
+const PHASE_META: Record<Phase, { label: string; tone: 'success' | 'info' | 'primary' | 'warning' | 'neutral'; icon: ReactNode }> = {
+  LIVE:      { label: 'Running now',       tone: 'success', icon: <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> },
+  IDLE:      { label: 'Outside its hours', tone: 'info',    icon: <Clock className="h-3.5 w-3.5" aria-hidden /> },
+  SCHEDULED: { label: 'Scheduled',         tone: 'primary', icon: <CalendarClock className="h-3.5 w-3.5" aria-hidden /> },
+  PAUSED:    { label: 'Paused',            tone: 'warning', icon: <PauseCircle className="h-3.5 w-3.5" aria-hidden /> },
+  FINISHED:  { label: 'Finished',          tone: 'neutral', icon: <CalendarX2 className="h-3.5 w-3.5" aria-hidden /> },
 };
 
 type GroupKey = 'LIVE' | 'UPCOMING' | 'OFF' | 'ENDED';
 
-const GROUPS: { key: GroupKey; title: string; hint: string; phases: Phase[] }[] = [
-  { key: 'LIVE',     title: 'Running now', hint: 'Applied automatically to bills being created right now', phases: ['LIVE'] },
-  { key: 'UPCOMING', title: 'Scheduled',   hint: 'Starts on a future date',                                 phases: ['SCHEDULED'] },
-  { key: 'OFF',      title: 'Not running', hint: 'Inside its dates but paused, or outside today’s hours',   phases: ['IDLE', 'PAUSED'] },
-  { key: 'ENDED',    title: 'Finished',    hint: 'The end date has passed',                                 phases: ['FINISHED'] },
+const GROUPS: { key: GroupKey; title: string; phases: Phase[] }[] = [
+  { key: 'LIVE',     title: 'Running now', phases: ['LIVE'] },
+  { key: 'UPCOMING', title: 'Scheduled',   phases: ['SCHEDULED'] },
+  { key: 'OFF',      title: 'Not running', phases: ['IDLE', 'PAUSED'] },
+  { key: 'ENDED',    title: 'Finished',    phases: ['FINISHED'] },
 ];
 
 /** 'YYYY-MM-DD' rendered in the venue's own calendar — parsed as a local date, never as UTC. */
@@ -140,10 +142,11 @@ function fmtDay(d: string): string {
 }
 
 export default function OffersPage() {
+  const ws = useWorkspace();
   const canManage = usePermission('offers:manage');
   const offers = useOffers(true);
   const cats = useCategories(true);
-  const { remove } = useOfferMutations();
+  const { remove, save } = useOfferMutations();
   const [editing, setEditing] = useState<Offer | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [toDelete, setToDelete] = useState<Offer | null>(null);
@@ -173,8 +176,13 @@ export default function OffersPage() {
     });
   };
 
-  const visibleGroups = GROUPS.filter((g) => group === 'ALL' || g.key === group);
-  const shownCount = visibleGroups.reduce((n, g) => n + sectionRows(g.key).length, 0);
+  /* One list, in life-cycle order: what is running now, then what is coming, then what is off and
+     what has ended. Each group keeps the sort it was always given. */
+  const rows = group === 'ALL' ? GROUPS.flatMap((g) => sectionRows(g.key)) : sectionRows(group);
+  const groupOptions: { value: 'ALL' | GroupKey; label: string; count: number }[] = [
+    { value: 'ALL', label: 'All offers', count: all.length },
+    ...GROUPS.map((g) => ({ value: g.key, label: g.title, count: countFor(g.key) })),
+  ];
   const filtered = group !== 'ALL' || !!search.trim();
   const clearFilters = () => { setGroup('ALL'); setSearch(''); };
 
@@ -188,60 +196,152 @@ export default function OffersPage() {
   const daysLabel = (o: Offer) => (o.daysOfWeek.length ? [...o.daysOfWeek].sort((a, b) => a - b).map((d) => DAYS[d - 1]?.l).filter(Boolean).join(', ') : 'Every day');
   const hoursLabel = (o: Offer) => (o.startTime || o.endTime ? `${o.startTime ?? '00:00'} – ${o.endTime ?? '23:59'}` : 'All day');
 
-  const offerCard = (o: Offer) => {
+  /*
+   * Pausing an offer from the list is the same save the dialog performs, with exactly the payload
+   * shape it sends and only `isActive` different — no second endpoint, no partial write.
+   */
+  const toggleActive = (o: Offer, isActive: boolean) => {
+    const body: OfferInput = {
+      name: o.name, description: o.description ?? undefined, offerType: o.offerType, discountValue: o.discountValue,
+      maxDiscountAmount: o.maxDiscountAmount ?? null, appliesTo: o.appliesTo, categoryIds: o.categoryIds, itemIds: o.itemIds,
+      startDate: o.startDate, endDate: o.endDate, startTime: o.startTime ?? null, endTime: o.endTime ?? null,
+      daysOfWeek: o.daysOfWeek, isActive,
+    };
+    save.mutate({ id: o.id, body });
+  };
+  const savingId = save.isPending ? save.variables?.id : undefined;
+
+  const openNew = () => { setEditing(null); setFormOpen(true); };
+
+  /** One compact, image-led row — the reference's offers list. */
+  const offerRow = (o: Offer) => {
     const phase = phases.get(o.id)!;
     const meta = PHASE_META[phase];
+    const schedule = (
+      <>
+        <span className="flex items-center gap-1.5">
+          <CalendarDays className="h-3.5 w-3.5 shrink-0" aria-hidden /><span className="sr-only">Dates: </span>
+          {fmtDay(o.startDate)} → {fmtDay(o.endDate)}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden /><span className="sr-only">Hours: </span>
+          {hoursLabel(o)} · {daysLabel(o)}
+        </span>
+      </>
+    );
     return (
-      <li key={o.id}>
-        <Card padded={false} className={cn('h-full flex flex-col', phase === 'FINISHED' && 'bg-neutral-50')}>
-          <div className="p-4 flex-1 flex flex-col">
-            <div className="flex items-start gap-3">
-              <span className={cn('h-10 w-10 rounded-md flex items-center justify-center shrink-0', meta.tile)} aria-hidden><Tag className="h-5 w-5" /></span>
-              <div className="min-w-0 flex-1">
-                <h3 className="font-semibold text-neutral-900 leading-snug break-words">{o.name}</h3>
-                <p className="mt-1"><Badge tone={meta.tone} size="sm" icon={meta.icon}>{meta.label}</Badge></p>
-              </div>
-              {canManage && (
-                <div className="flex gap-1 shrink-0">
-                  <IconButton label={`Edit ${o.name}`} size="sm" onClick={() => { setEditing(o); setFormOpen(true); }}><Pencil className="h-4 w-4" /></IconButton>
-                  <IconButton label={`Delete ${o.name}`} size="sm" className="text-danger-600" onClick={() => setToDelete(o)}><Trash2 className="h-4 w-4" /></IconButton>
-                </div>
-              )}
-            </div>
+      <li key={o.id} className={cn('flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3', phase === 'FINISHED' && 'bg-neutral-50')}>
+        {/* The venue has no offer photography, so the tile is this offer's own drawing — the same
+            picture wherever the offer appears, and unmistakably an illustration. */}
+        <ItemImage src={null} alt={o.name} className="h-14 w-14 shrink-0" rounded="rounded-md" />
 
-            {/* What the offer actually does — readable without opening the dialog. */}
-            <div className="mt-3 rounded-sm border border-neutral-200 bg-neutral-50 px-3 py-2.5">
-              <p className="flex items-start gap-2 text-neutral-900">
-                <Percent className="h-4 w-4 mt-0.5 shrink-0 text-neutral-500" aria-hidden />
-                <span className="min-w-0">
-                  <span className="font-semibold">{offerLabel(o)}</span>
-                  <span className="text-neutral-600"> on {appliesLabel(o)}</span>
-                </span>
-              </p>
-              {o.maxDiscountAmount ? (
-                <p className="text-caption text-neutral-600 mt-1 pl-6">Capped at {money(o.maxDiscountAmount)} per line</p>
-              ) : null}
-            </div>
+        <div className="min-w-0 flex-1 basis-44">
+          <p className="text-sm font-semibold text-neutral-900 truncate">{o.name}</p>
+          <p className="text-caption text-neutral-500 truncate">
+            <span className="text-neutral-700 font-medium">{offerLabel(o)}</span> on {appliesLabel(o)}
+            {o.maxDiscountAmount ? ` · capped at ${money(o.maxDiscountAmount)} per line` : ''}
+          </p>
+        </div>
 
-            {o.description && <p className="mt-3 text-sm text-neutral-600 leading-snug line-clamp-2">{o.description}</p>}
+        <div className="hidden lg:flex lg:w-60 shrink-0 flex-col gap-0.5 text-caption text-neutral-600 min-w-0">{schedule}</div>
 
-            <dl className="mt-3 pt-3 border-t border-neutral-100 text-caption text-neutral-600 space-y-1.5">
-              <div className="flex items-start gap-2">
-                <dt className="shrink-0 mt-px"><CalendarDays className="h-3.5 w-3.5" aria-hidden /><span className="sr-only">Dates</span></dt>
-                <dd className="min-w-0">
-                  {fmtDay(o.startDate)} → {fmtDay(o.endDate)}
-                  {phase === 'SCHEDULED' && <span className="text-accent-700 font-medium"> · starts {fmtDay(o.startDate)}</span>}
-                  {phase === 'FINISHED' && <span className="text-neutral-500"> · ended {fmtDay(o.endDate)}</span>}
-                </dd>
-              </div>
-              <div className="flex items-start gap-2">
-                <dt className="shrink-0 mt-px"><Clock className="h-3.5 w-3.5" aria-hidden /><span className="sr-only">Hours</span></dt>
-                <dd className="min-w-0">{hoursLabel(o)} · {daysLabel(o)}</dd>
-              </div>
-            </dl>
-          </div>
-        </Card>
+        <div className="flex items-center gap-2 shrink-0 ml-auto">
+          <Badge tone={meta.tone} size="sm" icon={meta.icon}>{meta.label}</Badge>
+          {canManage && (
+            <>
+              <Switch
+                size="sm"
+                checked={o.isActive}
+                disabled={savingId === o.id}
+                ariaLabel={`${o.name} — active`}
+                onChange={(v) => toggleActive(o, v)}
+              />
+              <IconButton label={`Edit ${o.name}`} size="sm" onClick={() => { setEditing(o); setFormOpen(true); }}><Pencil className="h-4 w-4" /></IconButton>
+              <IconButton label={`Delete ${o.name}`} size="sm" className="text-danger-700" onClick={() => setToDelete(o)}><Trash2 className="h-4 w-4" /></IconButton>
+            </>
+          )}
+        </div>
+
+        {/* Below `lg` the schedule takes its own line rather than squeezing the row. */}
+        <div className="basis-full lg:hidden flex flex-col gap-0.5 text-caption text-neutral-600 min-w-0">{schedule}</div>
       </li>
+    );
+  };
+
+  /**
+   * THE MANAGER BOARD (panel 14) — the same offers as image-led lifecycle CARDS, two up.
+   *
+   * WHAT IS DRAWN AND WHY.
+   *  · The picture is the offer's own deterministic drawing. The venue has no offer photography
+   *    and none was invented.
+   *  · The "channel chips" the board paints are the offer's REACH, because that is the facet this
+   *    product records. `Offer` has no channel field — no dine-in / takeaway / delivery split
+   *    exists anywhere in the schema — so the chips carry what the record actually holds: the
+   *    scope it applies to, its hours and the days of the week it runs. Inventing three marketing
+   *    channels would have been a claim about the business.
+   *  · The board finishes each card with two figures, total sales and redemptions. **The offers
+   *    API returns neither** (`Offer` carries no usage, redemption or revenue field, and no
+   *    endpoint reports one), so the figures are dropped rather than fabricated. The card ends on
+   *    the real terms instead.
+   */
+  const offerCard = (o: Offer, i: number) => {
+    const phase = phases.get(o.id)!;
+    const meta = PHASE_META[phase];
+    const chips = [
+      o.appliesTo === 'ALL' ? 'Whole menu' : o.appliesTo === 'ITEMS' ? `${o.itemIds.length} item${o.itemIds.length === 1 ? '' : 's'}` : `${o.categoryIds.length} categor${o.categoryIds.length === 1 ? 'y' : 'ies'}`,
+      hoursLabel(o),
+      daysLabel(o),
+    ];
+    return (
+      <Reveal as="li" key={o.id} delay={staggerDelay(i)} className="min-w-0">
+        <Card padded={false} className={cn('h-full flex flex-col overflow-hidden', phase === 'FINISHED' && 'bg-neutral-50')}>
+          <div className="flex gap-4 p-4 min-w-0">
+            {/* Photo left, exactly as the board lays the card out. */}
+            <ItemImage src={null} alt={o.name} className="h-24 w-24 sm:h-28 sm:w-28 shrink-0" rounded="rounded-md" />
+
+            <div className="min-w-0 flex-1 flex flex-col">
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="text-subheading text-neutral-900 leading-snug break-words min-w-0">{o.name}</h3>
+                <Badge tone={meta.tone} size="sm" icon={meta.icon} className="shrink-0">{meta.label}</Badge>
+              </div>
+
+              {/* One line of real terms, from the offer's own type, value, scope and cap. */}
+              <p className="text-sm text-neutral-600 mt-1.5 leading-snug break-words">
+                <span className="font-medium text-neutral-900">{offerLabel(o)}</span> on {appliesLabel(o)}
+                {o.maxDiscountAmount ? ` · capped at ${money(o.maxDiscountAmount)} per line` : ''}
+              </p>
+
+              <p className="mt-2 flex items-center gap-1.5 text-caption text-neutral-700 tabular-nums">
+                <CalendarDays className="h-3.5 w-3.5 shrink-0 text-neutral-400" aria-hidden />
+                <span className="sr-only">Runs from </span>{fmtDay(o.startDate)}
+                <span aria-hidden>→</span><span className="sr-only"> to </span>{fmtDay(o.endDate)}
+              </p>
+
+              <ul className="mt-2.5 flex flex-wrap gap-1.5">
+                {chips.map((c, ci) => (
+                  <li key={`${ci}-${c}`}><Badge size="sm" tone="neutral">{c}</Badge></li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {canManage && (
+            <div className="mt-auto border-t border-neutral-200 px-3 py-2 flex items-center justify-between gap-2">
+              <Switch
+                size="sm"
+                checked={o.isActive}
+                disabled={savingId === o.id}
+                ariaLabel={`${o.name} — active`}
+                onChange={(v) => toggleActive(o, v)}
+              />
+              <span className="flex items-center gap-1">
+                <IconButton label={`Edit ${o.name}`} size="sm" onClick={() => { setEditing(o); setFormOpen(true); }}><Pencil className="h-4 w-4" /></IconButton>
+                <IconButton label={`Delete ${o.name}`} size="sm" className="text-danger-700" onClick={() => setToDelete(o)}><Trash2 className="h-4 w-4" /></IconButton>
+              </span>
+            </div>
+          )}
+        </Card>
+      </Reveal>
     );
   };
 
@@ -249,27 +349,22 @@ export default function OffersPage() {
     <div>
       <PageHeader
         title="Offers"
-        subtitle="Discounts, happy hours and combos, grouped by where they sit in their life cycle — the best applicable offer is applied per item on the bill"
-        actions={canManage && <Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => { setEditing(null); setFormOpen(true); }}>New offer</Button>}
+        subtitle="Discounts, happy hours and combos — the best applicable offer is applied per item on the bill"
+        actions={canManage && <Button leftIcon={<Plus className="h-4 w-4" />} onClick={openNew}>Create offer</Button>}
       >
         {all.length > 0 && (
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-            <SegmentedControl
-              size="sm" value={group} onChange={setGroup} ariaLabel="Filter offers by life cycle"
-              options={[
-                { value: 'ALL', label: 'All', count: all.length },
-                { value: 'LIVE', label: 'Running now', count: countFor('LIVE') },
-                { value: 'UPCOMING', label: 'Scheduled', count: countFor('UPCOMING') },
-                { value: 'OFF', label: 'Not running', count: countFor('OFF') },
-                { value: 'ENDED', label: 'Finished', count: countFor('ENDED') },
-              ]}
+            <FilterChips
+              ariaLabel="Filter offers by where they are in their life cycle"
+              value={group} onChange={setGroup}
+              options={groupOptions}
             />
             <SearchInput value={search} onChange={setSearch} placeholder="Offer name or description" className="sm:ml-auto sm:w-64" />
           </div>
         )}
       </PageHeader>
 
-      {offers.isLoading && <LoadingState variant="cards" rows={2} />}
+      {offers.isLoading && <LoadingState variant="list" rows={6} />}
       {offers.isError && <ErrorState error={offers.error} onRetry={() => void offers.refetch()} />}
 
       {offers.data && (all.length === 0 ? (
@@ -278,10 +373,10 @@ export default function OffersPage() {
             icon={<Tag className="h-6 w-6" />}
             title="No offers yet"
             description="Create a happy hour, a BOGO deal or a percentage discount. Offers apply themselves to bills while they are running."
-            action={canManage ? <Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => { setEditing(null); setFormOpen(true); }}>New offer</Button> : undefined}
+            action={canManage ? <Button leftIcon={<Plus className="h-4 w-4" />} onClick={openNew}>Create offer</Button> : undefined}
           />
         </Card>
-      ) : shownCount === 0 ? (
+      ) : rows.length === 0 ? (
         <Card padded={false}>
           <EmptyState
             compact icon={<Tag className="h-6 w-6" />}
@@ -290,30 +385,32 @@ export default function OffersPage() {
             action={<Button variant="outline" leftIcon={<X className="h-4 w-4" />} onClick={clearFilters}>Show all offers</Button>}
           />
         </Card>
-      ) : (
-        <div className="space-y-6">
-          {filtered && (
-            <p className="flex flex-wrap items-center gap-2 text-sm text-neutral-600">
-              <span><span className="font-semibold text-neutral-900 tabular-nums">{shownCount}</span> of {all.length} offers shown</span>
-              <Button size="sm" variant="ghost" leftIcon={<X className="h-4 w-4" />} onClick={clearFilters}>Clear filters</Button>
+      ) : ws === 'manager' ? (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <p className="text-sm text-neutral-600">
+              <span className="font-semibold text-neutral-900 tabular-nums">{rows.length}</span>
+              {filtered ? <> of {all.length}</> : null} offer{rows.length === 1 ? '' : 's'}
+              {group === 'ALL' ? <span className="text-neutral-500"> · running now first</span> : null}
             </p>
-          )}
-          {visibleGroups.map((g) => {
-            const rows = sectionRows(g.key);
-            if (rows.length === 0) return null;
-            return (
-              <section key={g.key} aria-labelledby={`offers-${g.key}`}>
-                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 mb-3">
-                  <h2 id={`offers-${g.key}`} className="text-subheading text-neutral-900">
-                    {g.title} <span className="tabular-nums text-neutral-500 font-normal">({rows.length})</span>
-                  </h2>
-                  <p className="text-caption text-neutral-500">{g.hint}</p>
-                </div>
-                <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{rows.map(offerCard)}</ul>
-              </section>
-            );
-          })}
-        </div>
+            {filtered && <Button size="sm" variant="ghost" leftIcon={<X className="h-4 w-4" />} onClick={clearFilters}>Clear filters</Button>}
+          </div>
+          {/* Two up, with a base `grid-cols-1` and a `minmax(0,1fr)` track — a bare `1fr` floors
+              at the widest offer name and drags the grid past a 360 px viewport. */}
+          <ul className="grid grid-cols-1 lg:grid-cols-[repeat(2,minmax(0,1fr))] gap-4">{rows.map(offerCard)}</ul>
+        </>
+      ) : (
+        <Card padded={false}>
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-neutral-200">
+            <p className="text-sm text-neutral-600">
+              <span className="font-semibold text-neutral-900 tabular-nums">{rows.length}</span>
+              {filtered ? <> of {all.length}</> : null} offer{rows.length === 1 ? '' : 's'}
+              {group === 'ALL' ? <span className="text-neutral-500"> · running now first</span> : null}
+            </p>
+            {filtered && <Button size="sm" variant="ghost" leftIcon={<X className="h-4 w-4" />} onClick={clearFilters}>Clear filters</Button>}
+          </div>
+          <ul className="divide-y divide-neutral-200">{rows.map(offerRow)}</ul>
+        </Card>
       ))}
 
       {formOpen && <OfferForm open onClose={() => { setFormOpen(false); setEditing(null); }} editing={editing} />}

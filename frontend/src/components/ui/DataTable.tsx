@@ -12,7 +12,7 @@ export interface Column<T> {
   className?: string;
   headerClassName?: string;
   /** hide on small screens (card view shows it in the body) */
-  hideBelow?: 'sm' | 'md' | 'lg';
+  hideBelow?: 'sm' | 'md' | 'lg' | 'xl';
   align?: 'left' | 'right' | 'center';
 }
 
@@ -35,15 +35,24 @@ export interface DataTableProps<T> {
   stickyHeader?: boolean;
   /** Accessible description of the table for screen readers. */
   caption?: string;
+  /**
+   * Extra classes for a single row, in both the desktop table and the mobile card list.
+   * Optional and purely additive — its intended use is a one-shot emphasis such as
+   * `animate-row-flash` on a row a live update has just changed. Never use it to encode meaning
+   * that is not also in the row's text.
+   */
+  rowClassName?: (row: T) => string | undefined;
 }
 
-const hideCls = { sm: 'hidden sm:table-cell', md: 'hidden md:table-cell', lg: 'hidden lg:table-cell' };
+/* `xl` exists for wide directories — a ten-column supplier ledger has nothing to drop between
+   `lg` and always-visible, so its least-used columns waited until 1024 and then all arrived. */
+const hideCls = { sm: 'hidden sm:table-cell', md: 'hidden md:table-cell', lg: 'hidden lg:table-cell', xl: 'hidden xl:table-cell' };
 const alignCls = (a?: Column<unknown>['align']) => (a === 'right' ? 'text-right' : a === 'center' ? 'text-center' : 'text-left');
 
 /** Sortable, paginated table with a responsive card fallback below `md`. */
 export function DataTable<T>({
   columns, rows, rowKey, onRowClick, pageSize = 20, emptyTitle = 'Nothing here yet', emptyDescription, emptyAction,
-  mobileCard, className, dense, toolbar, initialSort, stickyHeader = true, caption,
+  mobileCard, className, dense, toolbar, initialSort, stickyHeader = true, caption, rowClassName,
 }: DataTableProps<T>) {
   const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(initialSort ?? null);
   const [page, setPage] = useState(1);
@@ -97,7 +106,7 @@ export function DataTable<T>({
       {toolbar && <div className="p-3 border-b border-neutral-200">{toolbar}</div>}
 
       {/* Mobile: stacked cards */}
-      <ul className="md:hidden divide-y divide-neutral-100">
+      <ul className="md:hidden divide-y divide-neutral-200">
         {pageRows.map((row) => (
           <li
             key={rowKey(row)}
@@ -105,7 +114,7 @@ export function DataTable<T>({
             onKeyDown={rowKeyDown(row)}
             tabIndex={onRowClick ? 0 : undefined}
             role={onRowClick ? 'button' : undefined}
-            className={cn('p-4', onRowClick && 'cursor-pointer active:bg-neutral-50 transition-colors')}
+            className={cn('p-4', onRowClick && 'cursor-pointer active:bg-neutral-100 transition-colors duration-fast', rowClassName?.(row))}
           >
             {mobileCard ? mobileCard(row) : (
               <div className="space-y-1.5">
@@ -128,7 +137,14 @@ export function DataTable<T>({
       <div className="hidden md:block table-scroll max-h-[70vh] overflow-y-auto">
         <table className="w-full text-sm border-collapse">
           {caption && <caption className="sr-only">{caption}</caption>}
-          <thead className={cn('bg-neutral-50', stickyHeader && 'sticky top-0 z-10')}>
+          {/*
+            The header band is `surface` — one step *below* the card it sits in — so it reads as a
+            fixed rule the rows scroll under. The background and the stickiness both live on the
+            `th`, not the `thead`: with `border-collapse: collapse` a background painted on the
+            row group is not guaranteed to render, which on a dark table meant rows showing
+            through the sticky header as they scrolled past.
+          */}
+          <thead>
             <tr>
               {columns.map((c) => {
                 const active = sort?.key === c.key;
@@ -138,7 +154,8 @@ export function DataTable<T>({
                     scope="col"
                     aria-sort={c.sortValue ? (active ? (sort!.dir === 'asc' ? 'ascending' : 'descending') : 'none') : undefined}
                     className={cn(
-                      'px-4 py-3 text-label uppercase text-neutral-500 font-semibold whitespace-nowrap border-b border-neutral-200',
+                      'px-4 py-3 text-label uppercase text-neutral-500 font-semibold whitespace-nowrap bg-surface border-b border-neutral-200',
+                      stickyHeader && 'sticky top-0 z-10',
                       alignCls(c.align), c.hideBelow && hideCls[c.hideBelow], c.headerClassName,
                     )}
                   >
@@ -146,7 +163,7 @@ export function DataTable<T>({
                       <button
                         type="button"
                         onClick={() => toggleSort(c.key)}
-                        className={cn('inline-flex items-center gap-1.5 rounded-sm transition-colors hover:text-neutral-900 touch-target', active && 'text-neutral-900')}
+                        className={cn('inline-flex items-center gap-1.5 rounded-sm transition-colors duration-fast hover:text-neutral-900 touch-target', active && 'text-primary-500')}
                       >
                         {c.header}
                         {active
@@ -167,8 +184,13 @@ export function DataTable<T>({
                 onKeyDown={rowKeyDown(row)}
                 tabIndex={onRowClick ? 0 : undefined}
                 className={cn(
-                  'border-b border-neutral-100 last:border-b-0 transition-colors',
-                  onRowClick && 'cursor-pointer hover:bg-neutral-50 focus-visible:bg-neutral-50',
+                  /* `neutral-200/70` is the same hairline `.table-base` uses, so a DataTable and a
+                     hand-rolled table on the same screen rule their rows identically. Hover lifts
+                     to `neutral-100`, which is *above* the card — on dark a row must get lighter
+                     on hover, never darker. */
+                  'border-b border-neutral-200/70 last:border-b-0 transition-colors duration-fast',
+                  onRowClick && 'cursor-pointer hover:bg-neutral-100 focus-visible:bg-neutral-100',
+                  rowClassName?.(row),
                 )}
               >
                 {columns.map((c) => (

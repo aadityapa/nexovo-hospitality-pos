@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronRight, Bell, Clock, Users, ClipboardList } from 'lucide-react';
 import { useOrders } from '@/features/orders/hooks';
 import { useDebounce, useNow } from '@/hooks/useRealtime';
-import { PageHeader, SearchInput, SegmentedControl, StatusBadge, LoadingState, ErrorState, EmptyState, Card, Button, Badge } from '@/components/ui';
+import { PageHeader, SearchInput, FilterChips, CardHeader, StatusBadge, LoadingState, ErrorState, EmptyState, Card, Button, Badge } from '@/components/ui';
+import { EmptyPlate } from '@/components/graphics';
 import { money } from '@/utils/money';
 import { elapsedMinutes } from '@/utils/date';
 import { DELAY_THRESHOLDS } from '@/config/statuses';
@@ -60,7 +61,13 @@ export default function WaiterOrdersPage() {
     <div className="max-w-4xl mx-auto">
       <PageHeader title="My orders" subtitle="Longest wait first — plates already standing ready come before everything else.">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <SegmentedControl
+          {/* Five facets, each with its real size — a counted chip row, not a segmented track.
+              Chips wrap onto a second line at 360 px instead of hiding options behind a
+              sideways scroll, which on a queue screen is the difference between seeing that
+              four plates are ready and not knowing the filter exists.
+              "All" stays uncounted on purpose: it switches the fetch from active-only to
+              everything, so a number printed on it would describe a list nobody has yet. */}
+          <FilterChips<Filter>
             ariaLabel="Filter orders by state"
             value={filter}
             onChange={setFilter}
@@ -82,7 +89,7 @@ export default function WaiterOrdersPage() {
       {q.data && (list.length === 0 ? (
         <Card padded={false}>
           <EmptyState
-            icon={<ClipboardList className="h-6 w-6" />}
+            icon={<EmptyPlate />}
             title={filter === 'ACTIVE' ? 'No open orders' : filter === 'READY' ? 'Nothing waiting to be served' : 'No orders match this filter'}
             description={dq ? `Nothing matches “${search}”.` : 'Orders you create, and orders on your tables, show up here.'}
             action={
@@ -96,25 +103,36 @@ export default function WaiterOrdersPage() {
           />
         </Card>
       ) : (
-        <>
-          <p className="mb-2 text-sm text-neutral-600 flex flex-wrap items-center gap-x-2 gap-y-1" aria-live="polite">
-            <span className="tabular-nums">{list.length} order{list.length === 1 ? '' : 's'}</span>
-            {readyTables > 0 && (
-              <Badge tone="success" size="sm" icon={<Bell className="h-3 w-3" aria-hidden />}>
-                {readyTables} table{readyTables === 1 ? '' : 's'} waiting to be served
-              </Badge>
-            )}
-          </p>
-
-          <ul className="space-y-2">
+        /*
+          ONE CARD, HAIRLINE SEPARATORS — the product's dense-list language, rather than a stack
+          of individual cards. At 360 px a column of cards costs 8 px of gap and two borders per
+          row and shows four orders where this shows six; the row still carries a full-width
+          touch target and its own status edge, so nothing was traded for the density.
+        */
+        <Card padded={false}>
+          <CardHeader
+            className="p-4 pb-3 mb-0 border-b border-neutral-200"
+            title={<span className="flex items-center gap-2 min-w-0"><ClipboardList className="h-4 w-4 text-primary-700 shrink-0" aria-hidden /><span className="truncate">{list.length} order{list.length === 1 ? '' : 's'}</span></span>}
+            subtitle={<span aria-live="polite">{readyTables > 0 ? `${readyTables} table${readyTables === 1 ? '' : 's'} waiting to be served` : 'Nothing standing on the pass'}</span>}
+            action={readyTables > 0 ? (
+              <Badge tone="success" size="sm" icon={<Bell className="h-3 w-3" aria-hidden />}>{readyTables} to serve</Badge>
+            ) : undefined}
+          />
+          <ul className="divide-y divide-neutral-200">
             {list.map(({ o, age }) => (
               <li key={o.id}>
                 <button
                   type="button"
                   onClick={() => navigate(`/waiter/orders/${o.id}`)}
                   className={cn(
-                    'w-full card text-left px-3.5 py-3 flex items-start gap-3 min-h-touch transition-[border-color,box-shadow] hover:border-neutral-300 hover:shadow-panel press',
-                    age.ready && age.mins >= DELAY_THRESHOLDS.late && 'border-danger-200',
+                    /* No `press` here: a full-bleed row inside a divided list must not scale, or
+                       it lifts off its own separators under a thumb. Colour is the feedback. */
+                    'w-full text-left border-l-4 pr-3.5 py-3 flex items-start gap-3 min-h-touch transition-colors duration-control hover:bg-neutral-100',
+                    age.ready && age.mins >= DELAY_THRESHOLDS.late
+                      ? 'border-l-danger-500 pl-3'
+                      : age.ready
+                        ? 'border-l-success-500 pl-3'
+                        : 'border-l-transparent pl-3.5',
                   )}
                 >
                   <span className="shrink-0 w-14 sm:w-20 min-w-0">
@@ -140,14 +158,15 @@ export default function WaiterOrdersPage() {
                   </span>
 
                   <span className="shrink-0 flex items-center gap-1">
-                    <span className="font-semibold tabular-nums text-neutral-900">{money(o.subtotal)}</span>
+                    {/* Money right-aligned and tabular, as everywhere a figure is compared. */}
+                    <span className="font-semibold tnum text-neutral-900">{money(o.subtotal)}</span>
                     <ChevronRight className="h-4 w-4 text-neutral-400" aria-hidden />
                   </span>
                 </button>
               </li>
             ))}
           </ul>
-        </>
+        </Card>
       ))}
     </div>
   );

@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, ArrowRight, User as UserIcon, Cpu, X, ScrollText, SearchX } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowRight, Cpu, X, ScrollText, SearchX } from 'lucide-react';
 import { auditApi } from '@/services/api/endpoints';
 import { useDateRange, DateRangeFilter } from '@/features/shared/DateRangeFilter';
-import { PageHeader, Card, LoadingState, ErrorState, EmptyState, Badge, Button, FilterSelect, SearchInput } from '@/components/ui';
+import { HeaderSearch } from '@/components/layout/Shell';
+import { PageHeader, Card, LoadingState, ErrorState, EmptyState, Badge, Button, Avatar, FilterSelect, SearchInput } from '@/components/ui';
 import { fmtDateTime, fmtRelative } from '@/utils/date';
 import { cn } from '@/utils/cn';
 import type { AuditLog } from '@/types';
@@ -33,7 +34,7 @@ function ValueChange({ entry }: { entry: AuditLog }) {
     return (
       <div className="mt-1.5 flex flex-col sm:flex-row sm:items-stretch gap-1.5 min-w-0">
         <div className={cn(box, 'flex-1 border-neutral-200 bg-neutral-50 text-neutral-600')}>
-          <span className="block text-label uppercase text-neutral-400 font-sans mb-0.5">Before</span>
+          <span className="block text-label uppercase text-neutral-500 font-sans mb-0.5">Before</span>
           {oldValue}
         </div>
         <span className="hidden sm:flex items-center text-neutral-400 shrink-0" aria-hidden><ArrowRight className="h-4 w-4" /></span>
@@ -47,7 +48,7 @@ function ValueChange({ entry }: { entry: AuditLog }) {
   return (
     <div className="mt-1.5 min-w-0">
       <div className={cn(box, newValue ? 'border-primary-200 bg-primary-50 text-primary-900' : 'border-neutral-200 bg-neutral-50 text-neutral-600')}>
-        <span className="block text-label uppercase font-sans mb-0.5 text-neutral-400">{newValue ? 'Set to' : 'Previous value'}</span>
+        <span className="block text-label uppercase font-sans mb-0.5 text-neutral-500">{newValue ? 'Set to' : 'Previous value'}</span>
         {newValue ?? oldValue}
       </div>
     </div>
@@ -86,11 +87,26 @@ export default function AuditPage() {
 
   return (
     <div>
+      {/* The log's own filter, hoisted into the application header — which is where the reference
+          puts it. It narrows the page already loaded and its placeholder says exactly that. */}
+      <HeaderSearch>
+        <SearchInput
+          value={text}
+          onChange={setText}
+          placeholder="Filter this page: user, action, value"
+          aria-label="Filter the audit entries loaded on this page"
+          className="w-full max-w-md"
+        />
+      </HeaderSearch>
+
       <PageHeader
         title="Audit log"
         subtitle="Every critical action — who did it, what it touched, and the value before and after. The log is written by the server and cannot be edited or deleted from this app."
       >
-        <div className="flex flex-col lg:flex-row gap-2 lg:items-center">
+        {/* ONE FILTER ROW. Only the date range and the entity reach the server — `GET /audit-logs`
+            accepts `entity`, `from`, `to`, `page`, `pageSize` and nothing else — so the user and
+            action controls are labelled as what they are: narrowing of the page already loaded. */}
+        <div className="flex flex-col lg:flex-row lg:flex-wrap gap-2 lg:items-center min-w-0">
           <DateRangeFilter state={dr} />
           <FilterSelect
             ariaLabel="Filter by entity (fetches that entity)"
@@ -99,6 +115,23 @@ export default function AuditPage() {
             onChange={(e) => { setEntity(e.target.value); resetPaging(); }}
             options={ENTITIES.map((e) => ({ value: e, label: e ? prettyEntity(e).replace(/^./, (c) => c.toUpperCase()) : 'All entities' }))}
           />
+          <FilterSelect
+            ariaLabel="Filter by who did it, within this page"
+            className="lg:w-44"
+            value={actor}
+            onChange={(e) => setActor(e.target.value)}
+            placeholder={`Anyone (${actors.length})`}
+            options={actors.map((a) => ({ value: a, label: a }))}
+          />
+          <FilterSelect
+            ariaLabel="Filter by action, within this page"
+            className="lg:w-52"
+            value={action}
+            onChange={(e) => setAction(e.target.value)}
+            placeholder={`Any action (${actions.length})`}
+            options={actions.map((a) => ({ value: a, label: a.replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase()) }))}
+          />
+          {narrowed && <Button size="sm" variant="ghost" className="min-h-touch self-start lg:self-auto" leftIcon={<X className="h-4 w-4" />} onClick={clearNarrowing}>Clear</Button>}
         </div>
       </PageHeader>
 
@@ -107,29 +140,12 @@ export default function AuditPage() {
 
       {q.data && (
         <Card padded={false}>
-          {/* Narrowing works on the page already loaded — it never issues another request. */}
-          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 p-3 border-b border-neutral-200">
-            <SearchInput value={text} onChange={setText} placeholder="Filter this page: user, action, value" className="sm:w-64" aria-label="Filter the entries on this page" />
-            <FilterSelect
-              ariaLabel="Filter by who did it, within this page"
-              className="sm:w-44"
-              value={actor}
-              onChange={(e) => setActor(e.target.value)}
-              placeholder={`Anyone (${actors.length})`}
-              options={actors.map((a) => ({ value: a, label: a }))}
-            />
-            <FilterSelect
-              ariaLabel="Filter by action, within this page"
-              className="sm:w-52"
-              value={action}
-              onChange={(e) => setAction(e.target.value)}
-              placeholder={`Any action (${actions.length})`}
-              options={actions.map((a) => ({ value: a, label: a.replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase()) }))}
-            />
-            <p className="text-caption text-neutral-500 sm:ml-auto tabular-nums" aria-live="polite">
+          {/* The user and action filters work on the page already loaded — they never issue
+              another request, and this line says exactly how much of it is showing. */}
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-b border-neutral-200">
+            <p className="text-caption text-neutral-500 tabular-nums min-w-0" aria-live="polite">
               {narrowed ? `${rows.length} of ${items.length} on this page` : `${items.length} on this page`} · {q.data.total} in range
             </p>
-            {narrowed && <Button size="sm" variant="ghost" className="min-h-touch self-start sm:self-auto" leftIcon={<X className="h-4 w-4" />} onClick={clearNarrowing}>Clear</Button>}
           </div>
 
           {items.length === 0 ? (
@@ -150,45 +166,54 @@ export default function AuditPage() {
           ) : (
             <>
               {/*
-                A forensic list reads in columns: WHO did WHAT to WHICH record, WHEN.
-                The header row makes that contract explicit from md up; below md each entry
-                stacks in the same order, so the reading sequence never changes.
+                A forensic list reads in columns: WHEN, WHO, WHAT they did, and to WHICH record.
+                The header row makes that contract explicit from md up; below md each entry stacks
+                in the same order, so the reading sequence never changes. Every track is an explicit
+                `minmax(0,…)` and the base is one column — an implicit `auto` track sizes to
+                min-content and would push the card past a 360 px viewport.
               */}
               <div
-                className="hidden md:grid md:grid-cols-[minmax(0,150px)_minmax(0,160px)_minmax(0,1fr)] gap-4 px-4 py-2 bg-neutral-50 border-b border-neutral-200 text-label uppercase text-neutral-500"
+                className="hidden md:grid md:grid-cols-[minmax(0,150px)_minmax(0,170px)_minmax(0,150px)_minmax(0,1fr)] gap-4 px-4 py-2 bg-neutral-50 border-b border-neutral-200 text-label uppercase text-neutral-500"
                 aria-hidden
               >
-                <span>When</span>
-                <span>Who</span>
-                <span>What changed</span>
+                <span>Time</span>
+                <span>User</span>
+                <span>Action</span>
+                <span>Details</span>
               </div>
-              <ul className="divide-y divide-neutral-100">
+              <ul className="divide-y divide-neutral-200">
                 {rows.map((a) => (
-                  <li key={a.id} className="px-4 py-3 text-sm grid gap-1.5 md:grid-cols-[minmax(0,150px)_minmax(0,160px)_minmax(0,1fr)] md:gap-4 md:items-start">
+                  <li key={a.id} className="px-4 py-3 text-sm grid grid-cols-1 gap-1.5 md:grid-cols-[minmax(0,150px)_minmax(0,170px)_minmax(0,150px)_minmax(0,1fr)] md:gap-4 md:items-start">
+                    {/* TIME — the moment first, the human reading of it underneath. */}
                     <div className="min-w-0 md:order-1">
                       <time className="block text-neutral-800 tabular-nums" dateTime={a.createdAt}>{fmtDateTime(a.createdAt)}</time>
-                      <span className="block text-caption text-neutral-400">{fmtRelative(a.createdAt)}</span>
+                      <span className="block text-caption text-neutral-500">{fmtRelative(a.createdAt)}</span>
                     </div>
 
-                    {/* Actor is its own column: "system" and "a named person" must never look alike. */}
+                    {/* USER — its own column: "system" and "a named person" must never look alike. */}
                     <div className="min-w-0 md:order-2">
-                      <span className={cn(
-                        'inline-flex items-center gap-1.5 min-w-0 max-w-full rounded-full border px-2 py-0.5 text-caption',
-                        a.userName ? 'bg-neutral-50 border-neutral-200 text-neutral-700' : 'bg-info-50 border-info-100 text-info-700',
-                      )}>
-                        {a.userName
-                          ? <><UserIcon className="h-3.5 w-3.5 shrink-0 text-neutral-400" aria-hidden /><span className="truncate">{a.userName}</span></>
-                          : <><Cpu className="h-3.5 w-3.5 shrink-0" aria-hidden /><span className="truncate">System</span></>}
-                      </span>
+                      {a.userName ? (
+                        <span className="flex items-center gap-2 min-w-0">
+                          <Avatar name={a.userName} variant="record" size="sm" />
+                          <span className="min-w-0 truncate text-neutral-800">{a.userName}</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 min-w-0 max-w-full rounded-full border px-2 py-0.5 text-caption bg-info-50 border-info-200 text-info-700">
+                          <Cpu className="h-3.5 w-3.5 shrink-0" aria-hidden /><span className="truncate">System</span>
+                        </span>
+                      )}
                     </div>
 
+                    {/* ACTION — colour AND the word, never colour alone. */}
                     <div className="min-w-0 md:order-3">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <Badge tone={actionTone(a.action)} size="sm">{a.action.replace(/_/g, ' ')}</Badge>
-                        <span className="text-neutral-700 min-w-0 truncate">
-                          {prettyEntity(a.entity)}{a.entityId != null ? <span className="text-neutral-500 tabular-nums"> #{a.entityId}</span> : null}
-                        </span>
-                      </div>
+                      <Badge tone={actionTone(a.action)} size="sm">{a.action.replace(/_/g, ' ')}</Badge>
+                    </div>
+
+                    {/* DETAILS — what was touched, then the values exactly as the log recorded them. */}
+                    <div className="min-w-0 md:order-4">
+                      <p className="text-neutral-700 line-clamp-2 break-words">
+                        {prettyEntity(a.entity)}{a.entityId != null ? <span className="text-neutral-500 tabular-nums"> #{a.entityId}</span> : null}
+                      </p>
                       <ValueChange entry={a} />
                     </div>
                   </li>

@@ -5,12 +5,18 @@ import { Download, Printer, RefreshCw, ExternalLink, Copy, TriangleAlert } from 
 import { useFloors, useTables, useTableMutations } from './hooks';
 import { usePermission } from '@/hooks/useAuth';
 import { useBranch } from '@/components/layout/Shell';
-import { PageHeader, Button, ConfirmDialog, LoadingState, ErrorState, Card, SearchInput, SegmentedControl, Badge } from '@/components/ui';
+import { PageHeader, Button, IconButton, ConfirmDialog, LoadingState, ErrorState, EmptyState, Card, SearchInput, SegmentedControl, Badge } from '@/components/ui';
 import { env } from '@/config/env';
 import { toast } from '@/store/uiStore';
 import type { DiningTable } from '@/types';
 
-/** Public menu URL — uses the opaque publicCode, never the DB id (Section 12). */
+/**
+ * Public menu URL — uses the opaque publicCode, never the DB id (Section 12).
+ *
+ * This is the value every QR on this page encodes, unchanged: the configured public application
+ * address, the REAL branch code from `useBranch()`, and the table's own real `publicCode`. Nothing
+ * on this screen draws a decorative pattern, and nothing shortens or rewrites this URL.
+ */
 export const menuUrlFor = (branchCode: string, t: DiningTable) => `${env.publicAppUrl}/menu/${branchCode}/${t.publicCode}`;
 
 /** A phone on the venue's Wi-Fi cannot resolve localhost / 127.0.0.1 — it would hit the phone itself. */
@@ -19,7 +25,7 @@ const isLoopback = (url: string) => /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\]
 function ReachabilityNotice() {
   if (!isLoopback(env.publicAppUrl)) return null;
   return (
-    <div className="mb-4 flex items-start gap-3 rounded-md border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-800">
+    <div className="mb-4 flex items-start gap-3 rounded-md border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700">
       <TriangleAlert className="h-5 w-5 shrink-0 mt-0.5" />
       <div>
         <p className="font-semibold">These QR codes only work on this computer</p>
@@ -46,6 +52,9 @@ function QrCard({ table, branchCode, businessName, canManage, onRegenerate }: { 
     const w = window.open('', '_blank', 'width=480,height=640'); if (!w) return;
     const svg = canvasRef.current?.querySelector('svg')?.outerHTML ?? '';
     // Standalone print document — it cannot reach the app's stylesheet, so the tokens are inlined.
+    // These hex values are DELIBERATELY light-theme: this window goes to a printer and ends up
+    // as a card on a table, so it must stay dark ink on white paper regardless of the screen
+    // theme. Do not "fix" them to the dark palette — that would print a black rectangle.
     w.document.write(`<html><head><title>QR ${table.name}</title><style>
       body{font-family:Inter,system-ui,Arial,sans-serif;text-align:center;padding:28px;color:#182230}
       h1{font-size:30px;margin:10px 0;letter-spacing:-0.02em}
@@ -58,21 +67,52 @@ function QrCard({ table, branchCode, businessName, canManage, onRegenerate }: { 
     w.document.close();
   };
   return (
-    <Card className="flex flex-col items-center text-center">
-      <p className="text-caption text-neutral-500">{table.floorName}</p>
-      <h3 className="text-subheading">{table.name}</h3>
-      <div ref={canvasRef} className="mt-3 p-3 bg-white rounded-md border border-neutral-200">
-        <QRCodeSVG value={url} size={160} level="M" includeMargin={false} />
+    /* A printable card: the code, the table it belongs to, and the one instruction a guest needs. */
+    <Card padded={false} className="h-full flex flex-col p-3 text-center min-w-0">
+      {/*
+        A QR code is dark-on-light or it does not scan, so the swatch behind it is the fixed
+        `paper` token rather than a theme surface — stated explicitly so a future palette change
+        cannot quietly break every printed code in the venue. This page is ivory, but the tile
+        would be white on charcoal too.
+      */}
+      <div ref={canvasRef} className="w-full bg-paper rounded-md border border-neutral-200 p-2">
+        <QRCodeSVG value={url} size={128} level="M" includeMargin={false} className="block h-auto w-full" />
         <div className="hidden"><QRCodeCanvas value={url} size={640} level="M" includeMargin /></div>
       </div>
-      <p className="mt-2 text-caption text-neutral-500 break-all max-w-[220px]">{url}</p>
-      <Badge size="sm" className="mt-1">v{table.qrVersion}</Badge>
-      <div className="mt-3 flex flex-wrap justify-center gap-1.5">
-        <Button size="sm" variant="outline" leftIcon={<Download className="h-4 w-4" />} onClick={download}>PNG</Button>
-        <Button size="sm" variant="outline" leftIcon={<Printer className="h-4 w-4" />} onClick={print}>Print</Button>
-        <Button size="sm" variant="outline" leftIcon={<Copy className="h-4 w-4" />} onClick={() => { void navigator.clipboard?.writeText(url); toast.info('Link copied'); }}>Copy</Button>
-        <a href={url} target="_blank" rel="noreferrer"><Button size="sm" variant="ghost" leftIcon={<ExternalLink className="h-4 w-4" />}>Open</Button></a>
-        {canManage && <Button size="sm" variant="ghost" className="text-warning-700" leftIcon={<RefreshCw className="h-4 w-4" />} onClick={onRegenerate}>Regenerate</Button>}
+
+      <h3 className="mt-2.5 font-semibold text-neutral-900 leading-tight break-words">{table.name}</h3>
+      <p className="text-caption text-neutral-500">Scan to view menu</p>
+      <p className="text-caption text-neutral-400 truncate">{table.floorName}</p>
+
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-0.5">
+        <IconButton size="sm" label={`Download the QR code for ${table.name} as a PNG`} onClick={download}>
+          <Download className="h-4 w-4" />
+        </IconButton>
+        <IconButton size="sm" label={`Print the QR card for ${table.name}`} onClick={print}>
+          <Printer className="h-4 w-4" />
+        </IconButton>
+        <IconButton size="sm" label={`Copy the menu link for ${table.name}`} onClick={() => { void navigator.clipboard?.writeText(url); toast.info('Link copied'); }}>
+          <Copy className="h-4 w-4" />
+        </IconButton>
+        <a
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`Open the public menu for ${table.name} in a new tab`}
+          className="relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900 transition-colors duration-control touch-target"
+        >
+          <ExternalLink className="h-4 w-4" aria-hidden />
+        </a>
+        {canManage && (
+          <IconButton size="sm" className="text-warning-700" label={`Regenerate the QR code for ${table.name}`} onClick={onRegenerate}>
+            <RefreshCw className="h-4 w-4" />
+          </IconButton>
+        )}
+      </div>
+
+      <div className="mt-2 pt-2 border-t border-neutral-200">
+        <Badge size="sm">v{table.qrVersion}</Badge>
+        <p className="mt-1 text-[11px] leading-tight text-neutral-500 break-all">{url}</p>
       </div>
     </Card>
   );
@@ -94,20 +134,56 @@ export default function QrPage() {
 
   return (
     <div>
-      <PageHeader title="QR codes" subtitle="One unique code per table opens the public menu with the table pre-selected" actions={<Button variant="outline" leftIcon={<Printer className="h-4 w-4" />} onClick={printAll}>Print page</Button>}>
-        <div className="flex flex-col lg:flex-row gap-3">
-          <SegmentedControl size="sm" value={String(floorId)} onChange={(v) => setFloorId(v === 'ALL' ? 'ALL' : Number(v))} options={[{ value: 'ALL', label: 'All areas' }, ...(floors.data ?? []).map((f) => ({ value: String(f.id), label: f.name }))]} />
+      <PageHeader
+        title="QR codes"
+        subtitle="One unique code per table opens the public menu with the table pre-selected"
+        actions={<Button variant="outline" leftIcon={<Printer className="h-4 w-4" />} onClick={printAll}>Print page</Button>}
+      >
+        <div className="flex flex-col lg:flex-row gap-3 lg:items-center">
+          {/* Area tabs, counted from the branch's real area sizes. */}
+          <SegmentedControl
+            size="sm"
+            ariaLabel="Filter QR codes by area"
+            value={String(floorId)}
+            onChange={(v) => setFloorId(v === 'ALL' ? 'ALL' : Number(v))}
+            options={[
+              { value: 'ALL', label: 'All areas', count: (floors.data ?? []).reduce((n, f) => n + (f.tableCount ?? 0), 0) || undefined },
+              ...(floors.data ?? []).map((f) => ({ value: String(f.id), label: f.name, count: f.tableCount })),
+            ]}
+          />
           <SearchInput value={search} onChange={setSearch} placeholder="Find table" className="lg:w-56" />
         </div>
       </PageHeader>
+
       <ReachabilityNotice />
+
       {tables.isLoading && <LoadingState variant="cards" rows={3} />}
       {tables.isError && <ErrorState error={tables.error} onRetry={() => void tables.refetch()} />}
-      {tables.data && branch && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {list.map((t) => <QrCard key={t.id} table={t} branchCode={branch.code} businessName={branch.businessName} canManage={canManage} onRegenerate={() => setRegen(t)} />)}
-        </div>
-      )}
+
+      {tables.data && branch && (list.length === 0 ? (
+        <Card padded={false}>
+          <EmptyState
+            compact
+            title={search ? 'No tables match' : 'No tables in this area'}
+            description="Every active table gets its own code as soon as it is created."
+            action={search ? <Button variant="outline" onClick={() => setSearch('')}>Clear search</Button> : undefined}
+          />
+        </Card>
+      ) : (
+        <>
+          <p className="mb-3 text-sm text-neutral-600">
+            <span className="font-semibold text-neutral-900 tabular-nums">{list.length}</span> printable code{list.length === 1 ? '' : 's'}
+          </p>
+          {/* The reference sheet: two across on a phone, six on a wide screen. Every track is an
+              explicit `grid-cols-N`, which Tailwind compiles to `repeat(N, minmax(0,1fr))`. */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+            {list.map((t) => (
+              <QrCard key={t.id} table={t} branchCode={branch.code} businessName={branch.businessName} canManage={canManage} onRegenerate={() => setRegen(t)} />
+            ))}
+          </div>
+        </>
+      ))}
+
       <ConfirmDialog open={!!regen} onClose={() => setRegen(null)} variant="warning" title={`Regenerate QR for ${regen?.name}?`} message="A new public code is issued. Previously printed QR codes for this table will stop working immediately." confirmLabel="Regenerate" loading={regenerateQr.isPending} onConfirm={async () => { if (regen) { try { await regenerateQr.mutateAsync(regen.id); } finally { setRegen(null); } } }} />
     </div>
   );

@@ -1,0 +1,54 @@
+# Line endings, decided deliberately rather than left to each developer's git config.
+#
+# The repository is developed on Windows and checked out by CI on Linux. Without these rules the
+# same file arrives with different endings on different machines, which turns a whitespace-only
+# checkout into a diff and makes `git blame` useless.
+
+# Default: git stores text with LF, and normalises on commit.
+* text=auto eol=lf
+
+# Windows scripts must have CRLF on disk. cmd.exe mis-parses LF-terminated batch files in ways
+# that are hard to diagnose — a `goto` label or a line continuation can silently do the wrong
+# thing — so these are forced regardless of platform.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Shell scripts must have LF on disk, or the interpreter line fails on Unix.
+*.sh text eol=lf
+
+# Explicit text declarations for the file types in this repository, so `text=auto` never has to
+# guess and a file with unusual bytes is not mistaken for binary.
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.js    text eol=lf
+*.mjs   text eol=lf
+*.cjs   text eol=lf
+*.json  text eol=lf
+*.css   text eol=lf
+*.html  text eol=lf
+*.md    text eol=lf
+*.sql   text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.svg   text eol=lf
+.env.example    text eol=lf
+.gitignore      text eol=lf
+.gitattributes  text eol=lf
+.editorconfig   text eol=lf
+
+# Binary: never normalise, never diff as text.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.zip binary
+
+# Lockfile: text, but not worth reviewing line by line in a pull request.
+frontend/package-lock.json text eol=lf linguist-generated=true

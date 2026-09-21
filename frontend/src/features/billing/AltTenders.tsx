@@ -23,10 +23,10 @@ type CheckState = 'ok' | 'fail' | 'todo' | 'busy';
 interface Check { label: string; state: CheckState; detail?: ReactNode }
 
 const CHECK_ICON: Record<CheckState, ReactNode> = {
-  ok: <CheckCircle2 className="h-4 w-4 text-success-600" aria-hidden />,
-  fail: <XCircle className="h-4 w-4 text-danger-600" aria-hidden />,
-  todo: <Circle className="h-4 w-4 text-neutral-300" aria-hidden />,
-  busy: <Loader2 className="h-4 w-4 text-primary-600 animate-spin" aria-hidden />,
+  ok: <CheckCircle2 className="h-4 w-4 text-success-500" aria-hidden />,
+  fail: <XCircle className="h-4 w-4 text-danger-500" aria-hidden />,
+  todo: <Circle className="h-4 w-4 text-neutral-400" aria-hidden />,
+  busy: <Loader2 className="h-4 w-4 text-primary-500 animate-spin" aria-hidden />,
 };
 const CHECK_WORD: Record<CheckState, string> = { ok: 'Passed', fail: 'Failed', todo: 'Not checked yet', busy: 'Checking…' };
 
@@ -36,7 +36,9 @@ const CHECK_WORD: Record<CheckState, string> = { ok: 'Passed', fail: 'Failed', t
  */
 function Verification({ title, checks, className }: { title: string; checks: Check[]; className?: string }) {
   return (
-    <section className={cn('rounded-md border border-neutral-200 bg-neutral-50 p-3', className)} aria-label={title}>
+    /* `.well` is the system's sunken block — the same three declarations this hand-rolled
+       border/surface pair was repeating, named once. */
+    <section className={cn('well p-3', className)} aria-label={title}>
       <p className="text-label text-neutral-700 uppercase mb-2 inline-flex items-center gap-1.5">
         <ShieldCheck className="h-3.5 w-3.5 text-neutral-500" aria-hidden />{title}
       </p>
@@ -62,15 +64,15 @@ function Verification({ title, checks, className }: { title: string; checks: Che
 function Effect({ amount, balance, label }: { amount: number; balance: number; label: string }) {
   const remaining = round2(Math.max(0, balance - amount));
   return (
-    <div className="rounded-md border border-neutral-200 bg-white p-3">
+    <div className="well p-3">
       <KeyValue
         items={[
-          { label: 'Balance due now', value: <span className="tabular-nums font-medium">{money(balance, { decimals: true })}</span> },
-          { label, value: <span className="tabular-nums font-semibold text-primary-700">− {money(amount, { decimals: true })}</span> },
+          { label: 'Balance due now', value: <span className="tnum font-medium text-neutral-900">{money(balance, { decimals: true })}</span> },
+          { label, value: <span className="tnum font-semibold text-primary-700">− {money(amount, { decimals: true })}</span> },
           {
             label: 'If the server accepts it',
             value: (
-              <span className="tabular-nums font-semibold">
+              <span className="tnum font-semibold text-neutral-900">
                 {remaining <= 0 ? 'Bill settled in full' : `${money(remaining, { decimals: true })} left to collect`}
               </span>
             ),
@@ -85,7 +87,7 @@ function Effect({ amount, balance, label }: { amount: number; balance: number; l
 function AwaitingServer({ children }: { children: ReactNode }) {
   return (
     <p role="status" className="mt-3 inline-flex items-start gap-2 text-sm text-neutral-600">
-      <Loader2 className="h-4 w-4 mt-0.5 shrink-0 animate-spin text-primary-600" aria-hidden />
+      <Loader2 className="h-4 w-4 mt-0.5 shrink-0 animate-spin text-primary-500" aria-hidden />
       <span>{children}</span>
     </p>
   );
@@ -152,7 +154,7 @@ export function LoyaltyPanel({ bill, onDone }: { bill: Bill; onDone: (b: Bill) =
     <div className="space-y-4">
       <Verification title="Redemption rules checked" checks={checks} />
 
-      <div className="grid sm:grid-cols-[1fr_auto] gap-3 items-end max-w-md">
+      <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] gap-3 items-end max-w-md">
         <Input
           label="Points to redeem"
           type="number"
@@ -165,7 +167,7 @@ export function LoyaltyPanel({ bill, onDone }: { bill: Bill; onDone: (b: Bill) =
         />
         <Button variant="outline" className="min-h-touch" onClick={() => setPoints(String(maxPoints))}>Max</Button>
       </div>
-      {problem && pts > 0 && <p role="alert" className="text-sm text-danger-600 font-medium">{problem}</p>}
+      {problem && pts > 0 && <p role="alert" className="text-sm text-danger-700 font-medium">{problem}</p>}
 
       {pts > 0 && !problem && <Effect amount={value} balance={balance} label={`${pts} points`} />}
 
@@ -265,7 +267,7 @@ export function CoverCreditPanel({ bill, onDone }: { bill: Bill; onDone: (b: Bil
       <Verification title="Cover credit checked" checks={checks} />
 
       {entry && (
-        <div className="grid sm:grid-cols-[1fr_auto] gap-3 items-end max-w-md">
+        <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] gap-3 items-end max-w-md">
           <Input
             label="Credit to apply"
             type="number"
@@ -279,7 +281,7 @@ export function CoverCreditPanel({ bill, onDone }: { bill: Bill; onDone: (b: Bil
           <Button variant="outline" className="min-h-touch" onClick={() => setAmount('')}>Max</Button>
         </div>
       )}
-      {entry && bad && amount !== '' && <p role="alert" className="text-sm text-danger-600 font-medium">{bad}</p>}
+      {entry && bad && amount !== '' && <p role="alert" className="text-sm text-danger-700 font-medium">{bad}</p>}
 
       {entry && !bad && <Effect amount={amt} balance={balance} label={`Cover credit from ${entry.entryNumber}`} />}
 
@@ -347,10 +349,10 @@ export function RoomChargePanel({ bill, onDone }: { bill: Bill; onDone: (b: Bill
         </Alert>
         <KeyValue
           items={[
-            { label: 'Room', value: <span className="font-semibold tabular-nums">{posted.roomNo}</span> },
+            { label: 'Room', value: <span className="font-semibold tnum">{posted.roomNo}</span> },
             { label: 'Folio guest', value: guestName.trim() || '—' },
-            { label: 'Amount charged', value: <span className="tabular-nums font-semibold">{money(posted.amount, { decimals: true })}</span> },
-            { label: 'Bill balance now', value: <span className="tabular-nums font-semibold">{money(posted.bill.balanceDue, { decimals: true })}</span> },
+            { label: 'Amount charged', value: <span className="tnum font-semibold">{money(posted.amount, { decimals: true })}</span> },
+            { label: 'Bill balance now', value: <span className="tnum font-semibold">{money(posted.bill.balanceDue, { decimals: true })}</span> },
             { label: 'Bill status', value: <StatusBadge kind="payment" status={posted.bill.paymentStatus} size="sm" /> },
           ]}
         />
@@ -393,9 +395,9 @@ export function RoomChargePanel({ bill, onDone }: { bill: Bill; onDone: (b: Bill
       </p>
 
       {/* Step 1 ------------------------------------------------------------------ */}
-      <section aria-label="Step 1: verify the room" className="rounded-md border border-neutral-200 p-3 space-y-3">
+      <section aria-label="Step 1: verify the room" className="well p-3 space-y-3">
         <p className="text-label text-neutral-700 uppercase">Step 1 · Verify the room</p>
-        <div className="grid sm:grid-cols-[1fr_auto] gap-3 items-end max-w-md">
+        <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] gap-3 items-end max-w-md">
           <Input
             label="Room number"
             required
@@ -418,7 +420,9 @@ export function RoomChargePanel({ bill, onDone }: { bill: Bill; onDone: (b: Bill
       </section>
 
       {/* Step 2 ------------------------------------------------------------------ */}
-      <section aria-label="Step 2: post the charge" className={cn('rounded-md border p-3 space-y-3', step1Done ? 'border-neutral-200' : 'border-neutral-200 bg-neutral-50')}>
+      {/* Both steps sit on the same sunken block; what says the second one is closed is the
+          "Locked until the room verifies" badge and the disabled action, not a shade. */}
+      <section aria-label="Step 2: post the charge" className="well p-3 space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-label text-neutral-700 uppercase">Step 2 · Post the charge</p>
           {!step1Done && <Badge tone="neutral" size="sm">Locked until the room verifies</Badge>}
@@ -426,11 +430,11 @@ export function RoomChargePanel({ bill, onDone }: { bill: Bill; onDone: (b: Bill
 
         {step1Done ? (
           <>
-            <div className="grid sm:grid-cols-2 gap-3 max-w-md">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md">
               <Input label="Guest name (as on folio)" required value={guestName} onChange={(e) => setGuestName(e.target.value)} />
               <Input label="Amount" type="number" inputMode="decimal" min={0} value={amount} placeholder={String(balance)} onChange={(e) => setAmount(e.target.value)} hint={`Balance due ${money(balance)}`} />
             </div>
-            {bad && amount !== '' && <p role="alert" className="text-sm text-danger-600 font-medium">{bad}</p>}
+            {bad && amount !== '' && <p role="alert" className="text-sm text-danger-700 font-medium">{bad}</p>}
             {!bad && <Effect amount={amt} balance={balance} label={`Charge to room ${roomNo.trim().toUpperCase()}`} />}
           </>
         ) : (

@@ -4,7 +4,7 @@ import { AlertTriangle, Clock, Printer, Wallet, CheckCircle2, Undo2, FileText } 
 import { useBills } from '@/features/billing/hooks';
 import { useDateRange, DateRangeFilter } from '@/features/shared/DateRangeFilter';
 import { useDebounce, useNow } from '@/hooks/useRealtime';
-import { PageHeader, DataTable, StatusBadge, LoadingState, ErrorState, SearchInput, SegmentedControl, FilterSelect, Badge, Button, Alert, type Column } from '@/components/ui';
+import { PageHeader, DataTable, StatusBadge, LoadingState, ErrorState, SearchInput, FilterChips, Badge, Button, Alert, type Column } from '@/components/ui';
 import { money } from '@/utils/money';
 import { fmtDateTime, fmtRelative, fmtTime, elapsedMinutes } from '@/utils/date';
 import { PAYMENT_METHOD_LABELS, DELAY_THRESHOLDS } from '@/config/statuses';
@@ -118,12 +118,14 @@ export default function BillsListPage({ mode }: { mode: 'unpaid' | 'paid' }) {
       sortValue: (b) => b.balanceDue,
       render: (b) => (
         <span>
-          <span className="block tabular-nums font-semibold text-base text-danger-700">{money(b.balanceDue)}</span>
-          {b.paidAmount > 0 && <span className="block text-caption text-neutral-500 tabular-nums">{money(b.paidAmount)} of {money(b.grandTotal)} taken</span>}
+          {/* Balance due is the figure this worklist exists for, so it carries the weight —
+              colour marks it as owed, never a gold fill. */}
+          <span className="block tnum font-semibold text-base text-danger-700">{money(b.balanceDue)}</span>
+          {b.paidAmount > 0 && <span className="block text-caption text-neutral-500 tnum">{money(b.paidAmount)} of {money(b.grandTotal)} taken</span>}
         </span>
       ),
     },
-    { key: 'total', header: 'Bill total', align: 'right', hideBelow: 'lg', sortValue: (b) => b.grandTotal, render: (b) => <span className="tabular-nums text-neutral-600">{money(b.grandTotal)}</span> },
+    { key: 'total', header: 'Bill total', align: 'right', hideBelow: 'lg', sortValue: (b) => b.grandTotal, render: (b) => <span className="tnum text-neutral-600">{money(b.grandTotal)}</span> },
     {
       key: 'status',
       header: 'Status',
@@ -175,8 +177,10 @@ export default function BillsListPage({ mode }: { mode: 'unpaid' | 'paid' }) {
       render: (b) => {
         const ms = successMethods(b);
         return ms.length === 0
-          ? <span className="text-neutral-400">—</span>
-          : <div className="flex flex-wrap gap-1">{ms.map((mm) => <Badge key={mm} size="sm" tone={mm === 'COMPLIMENTARY' ? 'accent' : 'neutral'}>{PAYMENT_METHOD_LABELS[mm]}</Badge>)}</div>;
+          ? <span className="text-neutral-500">—</span>
+          /* Violet is VIP classification only — a complimentary tender is an exception a
+             manager signed off, so it takes the `warning` tone. */
+          : <div className="flex flex-wrap gap-1">{ms.map((mm) => <Badge key={mm} size="sm" tone={mm === 'COMPLIMENTARY' ? 'warning' : 'neutral'}>{PAYMENT_METHOD_LABELS[mm]}</Badge>)}</div>;
       },
     },
     { key: 'cashier', header: 'Cashier', hideBelow: 'lg', sortValue: (b) => b.cashierName, render: (b) => b.cashierName },
@@ -187,8 +191,8 @@ export default function BillsListPage({ mode }: { mode: 'unpaid' | 'paid' }) {
       sortValue: (b) => b.grandTotal,
       render: (b) => (
         <span>
-          <span className={cn('block tabular-nums font-semibold', b.paymentStatus === 'REFUNDED' && 'text-neutral-400 line-through')}>{money(b.grandTotal)}</span>
-          {b.discountTotal > 0 && <span className="block text-caption text-neutral-500 tabular-nums">incl. {money(b.discountTotal)} discount</span>}
+          <span className={cn('block tnum font-semibold text-neutral-900', b.paymentStatus === 'REFUNDED' && 'text-neutral-500 line-through')}>{money(b.grandTotal)}</span>
+          {b.discountTotal > 0 && <span className="block text-caption text-neutral-500 tnum">incl. {money(b.discountTotal)} discount</span>}
         </span>
       ),
     },
@@ -227,7 +231,7 @@ export default function BillsListPage({ mode }: { mode: 'unpaid' | 'paid' }) {
           <p className="text-caption text-neutral-500 truncate">{b.billNumber} · {b.waiterName}</p>
         </div>
         <span className="text-right shrink-0">
-          <span className="block tabular-nums font-semibold text-danger-700">{money(b.balanceDue)}</span>
+          <span className="block tnum text-lg font-semibold text-danger-700 leading-tight">{money(b.balanceDue)}</span>
           <span className="block text-caption text-neutral-500">balance due</span>
         </span>
       </div>
@@ -255,7 +259,7 @@ export default function BillsListPage({ mode }: { mode: 'unpaid' | 'paid' }) {
           <p className="font-semibold text-neutral-900">{b.tableName}</p>
           <p className="text-caption text-neutral-500 truncate">{b.billNumber} · {fmtDateTime(b.paidAt)}</p>
         </div>
-        <span className={cn('tabular-nums font-semibold shrink-0', b.paymentStatus === 'REFUNDED' && 'text-neutral-400 line-through')}>{money(b.grandTotal)}</span>
+        <span className={cn('tnum font-semibold shrink-0 text-neutral-900', b.paymentStatus === 'REFUNDED' && 'text-neutral-500 line-through')}>{money(b.grandTotal)}</span>
       </div>
       <div className="flex flex-wrap items-center gap-1">
         {b.paymentStatus === 'REFUNDED'
@@ -280,22 +284,33 @@ export default function BillsListPage({ mode }: { mode: 'unpaid' | 'paid' }) {
           ? 'Settled bills with their tender, time and receipt'
           : 'Everything still owed, oldest first'}
       >
+        {/*
+          Both facets are counted chip rows. A tender or a payment state is a FACET of the
+          period on screen, not a two-way switch, and the sizes are the point: "Nothing taken 4 ·
+          Part paid 2" tells a cashier where the work is before they press anything. Every count
+          is a filter of `scope`, the bills this screen already fetched — the tender row only ever
+          offers the tenders that actually appear in the period, so a chip never reads 0.
+        */}
         <div className="flex flex-col lg:flex-row gap-2 lg:items-center">
           {mode === 'paid' ? (
             <>
               <DateRangeFilter state={dr} />
-              <FilterSelect
+              <FilterChips<'' | PaymentMethod>
                 ariaLabel="Filter paid bills by tender"
-                className="lg:w-48"
                 value={method}
-                onChange={(e) => setMethod(e.target.value as '' | PaymentMethod)}
-                placeholder="Any tender"
-                options={methodsPresent.map((mm) => ({ value: mm, label: PAYMENT_METHOD_LABELS[mm] }))}
+                onChange={setMethod}
+                options={[
+                  { value: '', label: 'Any tender', count: scope.length },
+                  ...methodsPresent.map((mm) => ({
+                    value: mm,
+                    label: PAYMENT_METHOD_LABELS[mm],
+                    count: scope.filter((b) => successMethods(b).includes(mm)).length,
+                  })),
+                ]}
               />
             </>
           ) : (
-            <SegmentedControl
-              size="sm"
+            <FilterChips<'ALL' | PaymentStatus>
               ariaLabel="Filter unpaid bills by payment status"
               value={ps}
               onChange={setPs}
@@ -327,16 +342,16 @@ export default function BillsListPage({ mode }: { mode: 'unpaid' | 'paid' }) {
           )}
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-3 text-sm text-neutral-600">
-            <span className="tabular-nums">{rows.length} of {scope.length} bill{scope.length === 1 ? '' : 's'}</span>
+            <span className="tnum">{rows.length} of {scope.length} bill{scope.length === 1 ? '' : 's'}</span>
             {mode === 'unpaid' ? (
               <>
-                <span className="tabular-nums font-semibold text-danger-700">{money(outstanding)} outstanding</span>
-                {scope.length > 0 && <span className="tabular-nums">oldest waiting {ageLabel(Math.max(...scope.map((b) => elapsedMinutes(waitFrom(b), now))))}</span>}
+                <span className="tnum font-semibold text-danger-700">{money(outstanding)} outstanding</span>
+                {scope.length > 0 && <span className="tnum">oldest waiting {ageLabel(Math.max(...scope.map((b) => elapsedMinutes(waitFrom(b), now))))}</span>}
               </>
             ) : (
               <>
-                <span className="tabular-nums font-semibold text-success-700">{money(taken)} taken across {settled.length} paid bill{settled.length === 1 ? '' : 's'}</span>
-                {refunded.length > 0 && <span className="tabular-nums">{refunded.length} refunded</span>}
+                <span className="tnum font-semibold text-success-700">{money(taken)} taken across {settled.length} paid bill{settled.length === 1 ? '' : 's'}</span>
+                {refunded.length > 0 && <span className="tnum">{refunded.length} refunded</span>}
               </>
             )}
             {filtered && <Badge tone="primary" size="sm">Filtered</Badge>}

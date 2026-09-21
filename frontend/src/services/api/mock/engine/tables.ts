@@ -93,7 +93,8 @@ export function listTables(ctx: Ctx, q: { floorId?: number; status?: TableStatus
 
 export function getTable(ctx: Ctx, id: number): DiningTable {
   assertPermission(ctx, 'tables:view');
-  const t = ctx.db.tables.find((x) => x.id === id && !x.isDeleted);
+  // Branch-scoped, like every list path — a table id from another branch is Not Found here.
+  const t = ctx.db.tables.find((x) => x.id === id && !x.isDeleted && x.branchId === ctx.branchId);
   if (!t) throw errors.notFound('Table not found');
   return hydrateTable(ctx, t);
 }

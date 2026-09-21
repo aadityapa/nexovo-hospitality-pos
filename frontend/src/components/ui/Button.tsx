@@ -17,26 +17,29 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 /**
- * Solid variants carry a hairline of their own colour so they keep their shape on both
- * white cards and the off-white canvas. Focus is handled globally by the outline token.
+ * On a dark ground the gold fill is the loudest thing on the screen, so `primary` is reserved
+ * for the single most important action per view. Its label is near-black (`on-primary`,
+ * 12:1 on the gold) — white text on gold reads at 1.9:1 and is never used.
+ *
+ * Semantic fills (danger/success/warning) are bright on dark, so they also take a dark label.
  */
 const variants: Record<ButtonVariant, string> = {
-  primary:   'bg-primary-600 text-white border border-primary-600 hover:bg-primary-700 hover:border-primary-700 active:bg-primary-800 shadow-card',
-  secondary: 'bg-neutral-100 text-neutral-800 border border-neutral-200 hover:bg-neutral-200 hover:border-neutral-300 active:bg-neutral-300',
-  outline:   'bg-white text-neutral-800 border border-neutral-300 hover:bg-neutral-50 hover:border-neutral-400 active:bg-neutral-100',
-  ghost:     'bg-transparent text-neutral-700 border border-transparent hover:bg-neutral-100 active:bg-neutral-200',
-  danger:    'bg-danger-600 text-white border border-danger-600 hover:bg-danger-700 hover:border-danger-700 active:bg-danger-700 shadow-card',
-  success:   'bg-success-600 text-white border border-success-600 hover:bg-success-700 hover:border-success-700 active:bg-success-700 shadow-card',
-  warning:   'bg-warning-600 text-white border border-warning-600 hover:bg-warning-700 hover:border-warning-700 active:bg-warning-700 shadow-card',
-  link:      'bg-transparent text-primary-700 border border-transparent hover:underline underline-offset-2 px-0',
+  primary:   'bg-gold-sheen bg-primary-500 text-on-primary border border-primary-400 hover:bg-primary-700 hover:border-primary-700 active:bg-primary-600 shadow-gold font-semibold',
+  secondary: 'bg-neutral-100 text-neutral-900 border border-neutral-300 hover:bg-neutral-200 hover:border-neutral-400 active:bg-neutral-300',
+  outline:   'bg-transparent text-neutral-800 border border-neutral-300 hover:bg-neutral-100 hover:border-neutral-400 active:bg-neutral-200',
+  ghost:     'bg-transparent text-neutral-700 border border-transparent hover:bg-neutral-100 hover:text-neutral-900 active:bg-neutral-200',
+  danger:    'bg-danger-500 text-on-primary border border-danger-500 hover:bg-danger-700 hover:border-danger-700 active:bg-danger-500 shadow-card font-semibold',
+  success:   'bg-success-500 text-on-primary border border-success-500 hover:bg-success-700 hover:border-success-700 active:bg-success-500 shadow-card font-semibold',
+  warning:   'bg-warning-500 text-on-primary border border-warning-500 hover:bg-warning-700 hover:border-warning-700 active:bg-warning-500 shadow-card font-semibold',
+  link:      'bg-transparent text-primary-500 border border-transparent hover:text-primary-700 hover:underline underline-offset-2 px-0',
 };
 
-/** Same variants recoloured for dark chrome. */
+/** Variants for the deepest chrome (kitchen/bar boards), which sits below the app background. */
 const darkVariants: Partial<Record<ButtonVariant, string>> = {
-  secondary: 'bg-neutral-800 text-neutral-100 border border-neutral-700 hover:bg-neutral-700 active:bg-neutral-600',
-  outline:   'bg-transparent text-neutral-100 border border-neutral-600 hover:bg-neutral-800 hover:border-neutral-500 active:bg-neutral-700',
-  ghost:     'bg-transparent text-neutral-300 border border-transparent hover:bg-neutral-800 hover:text-white active:bg-neutral-700',
-  link:      'bg-transparent text-primary-300 border border-transparent hover:underline underline-offset-2 px-0',
+  secondary: 'bg-neutral-200 text-neutral-900 border border-neutral-300 hover:bg-neutral-300 active:bg-neutral-300',
+  outline:   'bg-transparent text-neutral-900 border border-neutral-300 hover:bg-neutral-100 hover:border-neutral-400 active:bg-neutral-200',
+  ghost:     'bg-transparent text-neutral-600 border border-transparent hover:bg-neutral-100 hover:text-neutral-900 active:bg-neutral-200',
+  link:      'bg-transparent text-primary-500 border border-transparent hover:underline underline-offset-2 px-0',
 };
 
 const sizes: Record<ButtonSize, string> = {
@@ -63,7 +66,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={cn(
-        'relative inline-flex items-center justify-center font-medium select-none whitespace-nowrap',
+        'relative inline-flex items-center justify-center font-medium select-none whitespace-nowrap transition-colors duration-control',
         'transition-[background-color,border-color,color,box-shadow] press',
         'disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:active:scale-100',
         (onDark && darkVariants[variant]) || variants[variant],

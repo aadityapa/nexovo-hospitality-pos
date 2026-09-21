@@ -44,7 +44,7 @@ screen to the end and asserts the last control clears the bottom navigation and 
 
 | # | Screen / viewport | Observed | Why it is open |
 |---|---|---|---|
-| G1 | Inventory dashboard, **360 px only** | 8 px of page-wide horizontal scroll (doc 368 px in a 360 px viewport). The card in the exception-list grid measures 352 px inside a 328 px track despite `min-width: 0` on the item and no fixed-width descendant | Does not occur at 390, 768, 1024 or 1440 px. Four probes narrowed it to a grid-track sizing quirk rather than any single element; closing it properly needs more time than the remaining defects warranted. Recorded rather than papered over with `overflow-x: hidden`, which would hide future real overflows |
+| ~~G1~~ | ~~Inventory dashboard, 360 px~~ | **CLOSED at its source.** The grid declared columns only at `lg`, so below that it fell back to an *implicit* `auto` track, which sizes to min-content and pushed the card to 352 px inside a 328 px container. A base `grid-cols-1` (`repeat(1, minmax(0,1fr))`) fixes it. Applied to all 36 files carrying the same pattern. Verified: 0 overflow at 360 px across 39 routes. No `overflow-x: hidden` was used anywhere |
 | G2 | Cashier lists, kitchen board, 360–390 px | Secondary meta lines truncate ("BILL-20260920-0001 · 11:35 AM · …") | The identifying part (bill/order number) is always first and complete; the truncated tail is a repeat of information shown elsewhere in the row. Acceptable under the brief's "truncation only when the full value remains practically accessible" |
 
 ## D. Needs product scope, not design work
@@ -73,8 +73,9 @@ would be a control that cannot work.
 
 | Check | Scope | Result |
 |---|---|---|
-| Page-level horizontal overflow | 39 routes × 390 / 768 / 1024 / 1440 px | **0** |
+| Page-level horizontal overflow | 39 routes × 360 / 390 / 768 / 1024 / 1440 px | **0** |
 | Unnamed interactive controls | same | **0** |
+| Text below its WCAG AA contrast threshold | 22 routes, every visible text node measured against its painted background | **0** |
 | Inputs without an associated label | 39 routes | **0** |
 | Last control reachable after scrolling to the end | 13 representative screens at 390 px | **13 / 13 pass** |
 | TypeScript | whole project | **0 errors** |
@@ -85,3 +86,41 @@ would be a control that cannot work.
 **Not verified:** interaction with a real on-screen keyboard, real printer output for the 80 mm
 receipt, and behaviour on physical touch hardware. The touch-target rule is verified present in the
 built CSS and correct by construction, but it has not been exercised on a device.
+
+## E. Dark-theme redesign pass — defects found and closed
+
+| # | Screen / viewport | Observed | Correction | Verified |
+|---|---|---|---|---|
+| H1 | Dashboard and every money figure | `₹1,890.5`, `₹341.9` — one decimal, which reads as a truncated number and never matches a receipt | `money()` now prints both decimals whenever an amount has a fractional part; whole amounts stay compact; `{decimals:true}` still forces the full form. Abbreviated axis labels stay in `compactMoney`, a separate function | ✅ `₹1,890.50`, `₹341.90` at 1440 px |
+| H2 | Reports, single-observation ranges | One lone bar spanning the plot read as a rendering fault | Every bar capped with `maxBarSize`; a range with exactly **one** observation now states the figure in a labelled block instead of drawing a chart; zero keeps its empty state | ✅ |
+| H3 | Settings, all widths | A permanent "No unsaved changes." panel occupied a whole band with two dead controls | The save bar only exists while the form is dirty or has errors | ✅ 390 px |
+| H4 | Whole app, 22 routes | 26 text nodes below WCAG AA — all of them `neutral-400` (#6B7682, 3.96:1) carrying separators, counts and muted labels | The token moved to `#7E8892` (5.1:1 on a card) rather than 26 call sites | ✅ browser-measured: no text below AA |
+| H5 | Engine test suite | `workflow.test.ts` failed between 16:00 and 19:00 local — the seed carries a real 16:00–19:00 happy hour, so service charge came out 53 instead of 57.5 | The **test** was wrong, not the engine: the clock is now pinned to a fixed 11:00 before the seed is built. The expectation was not altered | ✅ passes at any time of day |
+| H6 | Tooltip, scrims, sidebar, several chips | Inverting the neutral ramp turned `bg-neutral-900 text-white` into white-on-white and `bg-neutral-900/60` scrims into near-white veils | Found by sweeping every file for light-only classes; tooltip, both dialog scrims, sidebar chrome, notification badge and the POS cart launcher rebuilt on surface tokens | ✅ |
+| H7 | Several grid tracks | Bare `1fr` on prefixed grids (`lg:grid-cols-[1fr_320px]`) let a wide table widen its column instead of scrolling | Converted to `minmax(0,1fr)` | ✅ |
+| H8 | VIP cards | `border-warning-400` / `border-info-300` — rungs that do not exist in the ramp, so those borders rendered nothing | Rebuilt on the VIP language with real rungs | ✅ |
+
+
+---
+
+## D. Found by the ten-combination sweep (this cycle)
+
+810 route inspections — six roles, 81 routes, 360/390/768/1024/1440 × dark/light. Full record in
+`docs/VERIFICATION.md`.
+
+| # | Screen / viewport | Observed | User impact | Correction | Verified |
+|---|---|---|---|---|---|
+| V1 | Every dark-declared route, LIGHT theme | Gold text at 3.31:1 on charcoal | **The theme toggle did not win.** A dark-declared route kept a `.chrome-dark` island under the light theme, so operational screens stayed black in light mode while light-theme tokens painted on them | `surfaceClass` now only ever returns `chrome-light`, and only under the dark theme | ✅ light@1440, and 3 unit tests |
+| V2 | 6 screens, 390 px | 14 page overflows; documents up to 457 px | The page scrolled sideways on a phone | The page-head action slot was `shrink-0`, making its max-content width the page's floor. Now `min-w-0` in `DashboardHero` and `PageHeader` | ✅ 390 px |
+| V3 | Every screen with a date filter | 9 px overflow | As above | A nested row inside `DateRangeFilter` had no `min-w-0` | ✅ 390 px |
+| V4 | Cashier screens, 1024 px | Document 1065 px | Sideways scroll on a tablet | The header's right group was `shrink-0`, so the POS inline nav could not compress. The nav now yields; identity and status controls stay fixed | ✅ 1024 px |
+| V5 | Purchase-order detail, 768 px | Document 772 px | 4 px sideways scroll | A full-bleed sticky bar used `sm:-mx-6` against a 20 px gutter. Margins now match `p-4 sm:p-5 lg:p-6`; offset corrected from the old 64 px header to 60 px | ✅ 768 px |
+| V6 | Ivory workspaces | `neutral-400` at 4.43:1 on real text | Under AA by seven hundredths | Darkened to 4.70:1 | ✅ both themes |
+| V7 | Floors (manager) | Area names unmeasurable over a gradient scrim | A surface nobody can measure is one nobody can defend | Solid `bg-neutral-950/95` caption band. NOTE: `/92` is not on Tailwind's opacity scale and is dropped silently | ✅ |
+| V8 | Billing engine (not visual) | A by-id lookup carried no branch predicate, so another branch could read — and take payment against — a bill | **Cross-branch write.** Isolation was enforced on list paths only | `findBill`, `findOrder`, `getTable`, `getItem` are branch-scoped and answer 404 | ✅ 2 engine tests |
+
+### Still open
+
+| # | Screen / viewport | Observed | Why it is open |
+|---|---|---|---|
+| O1 | Roles & permissions, 360 and 390 px | `document.scrollWidth` 436 in a 390 px viewport | Every candidate element is inside a genuine scroll region and nothing is visibly outside the viewport — the 46 px belongs to a scroll container that is growing instead of scrolling. `min-w-0` on the page root, `w-full min-w-0` on the chip row, and removing its negative margin all failed to move it. Not reproduced at 768 px and above; no content is unreachable. Left open and measured rather than hidden with `overflow-x: hidden` |

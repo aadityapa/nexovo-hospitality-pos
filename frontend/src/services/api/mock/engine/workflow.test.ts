@@ -3,7 +3,7 @@
  * LOGIN → CREATE ORDER → ADD ITEMS → CONFIRM → KITCHEN/BAR RECEIVE → STATUS UPDATES → REQUEST BILL
  * → GENERATE BILL → DISCOUNT (cap + approval) → PAYMENTS (split, no overpayment) → CLOSE.
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest';
 import { createSeedDb, type MockDb } from '../db';
 import type { Ctx } from './context';
 import * as auth from './auth';
@@ -24,7 +24,24 @@ const expectApi = (fn: () => unknown, status: number) => {
   expect((err as ApiError).status).toBe(status);
 };
 
-beforeEach(() => { db = createSeedDb(); });
+/**
+ * The clock is pinned before the seed is built.
+ *
+ * The seed carries a real Happy Hour offer (16:00–19:00, 20% off cocktails). Every expectation
+ * below that involves money — subtotal, service charge, tax, the discount cap — is only correct
+ * when that offer is NOT live, so running the suite between 4 and 7 in the afternoon made it fail
+ * on arithmetic that was perfectly right. The bug was the test's dependence on wall-clock time,
+ * not the billing engine, so the clock is fixed rather than the numbers.
+ *
+ * 11:00 is deliberately outside every time-windowed offer in the seed.
+ */
+const FIXED_CLOCK = new Date(2026, 0, 14, 11, 0, 0);   // Wednesday, 11:00 local
+beforeEach(() => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.setSystemTime(FIXED_CLOCK);
+  db = createSeedDb();
+});
+afterAll(() => { vi.useRealTimers(); });
 
 describe('authentication & RBAC', () => {
   it('logs in with valid credentials and rejects invalid ones', () => {

@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Bell, Check, ChefHat, Wine, Clock, ChevronRight } from 'lucide-react';
 import { useOrders, useOrderMutations } from '@/features/orders/hooks';
 import { useNow } from '@/hooks/useRealtime';
-import { PageHeader, Button, Card, LoadingState, ErrorState, EmptyState, SegmentedControl, Badge } from '@/components/ui';
+import { PageHeader, Button, Card, CardHeader, LoadingState, ErrorState, EmptyState, SegmentedControl, Badge } from '@/components/ui';
+import { EmptyPlate } from '@/components/graphics';
 import { elapsedClock, elapsedMinutes } from '@/utils/date';
 import { DELAY_THRESHOLDS } from '@/config/statuses';
 import { cn } from '@/utils/cn';
@@ -56,28 +57,18 @@ export default function ReadyItemsPage() {
         subtitle="Marked ready by the kitchen and bar. Longest wait at the top."
       >
         {all.length > 0 && (
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <SegmentedControl
-              ariaLabel="Filter the queue by station"
-              value={station}
-              onChange={setStation}
-              options={[
-                { value: 'ALL', label: 'All', count: stationCount('ALL') },
-                { value: 'KITCHEN', label: 'Kitchen', count: stationCount('KITCHEN') },
-                { value: 'BAR', label: 'Bar', count: stationCount('BAR') },
-              ]}
-            />
-            {oldest && (
-              <p className="text-sm text-neutral-600 sm:ml-auto inline-flex items-center gap-1.5" aria-live="polite">
-                <Clock className="h-4 w-4 text-neutral-400 shrink-0" aria-hidden />
-                <span className="tabular-nums">{rows.length} item{rows.length === 1 ? '' : 's'}</span>
-                <span className="text-neutral-400" aria-hidden>·</span>
-                <span className={cn('font-medium tabular-nums', waitTone(oldest.mins).text)}>
-                  oldest {elapsedClock(oldest.since, now)}
-                </span>
-              </p>
-            )}
-          </div>
+          /* Three stations is a switch, not a facet list, so it stays a segmented control —
+             counted, because "Bar 0" is the fastest way to know the drinks are all away. */
+          <SegmentedControl
+            ariaLabel="Filter the queue by station"
+            value={station}
+            onChange={setStation}
+            options={[
+              { value: 'ALL', label: 'All', count: stationCount('ALL') },
+              { value: 'KITCHEN', label: 'Kitchen', count: stationCount('KITCHEN') },
+              { value: 'BAR', label: 'Bar', count: stationCount('BAR') },
+            ]}
+          />
         )}
       </PageHeader>
 
@@ -87,7 +78,7 @@ export default function ReadyItemsPage() {
       {q.data && (rows.length === 0 ? (
         <Card padded={false}>
           <EmptyState
-            icon={<Bell className="h-6 w-6" />}
+            icon={<EmptyPlate />}
             title={all.length === 0 ? 'Nothing waiting to be served' : `Nothing ready at the ${station === 'BAR' ? 'bar' : 'kitchen'}`}
             description={all.length === 0
               ? 'Items appear here the moment the kitchen or bar marks them ready.'
@@ -98,17 +89,38 @@ export default function ReadyItemsPage() {
           />
         </Card>
       ) : (
-        <ul className="space-y-2">
+        /*
+          THE PASS, AS ONE BOARD. A single card with hairline separators rather than a stack of
+          cards: the queue is read top-down under a thumb, and the separator is enough to part two
+          plates. Each row keeps its own left edge in the waiting tone, so "going cold" is still
+          the first thing the eye lands on.
+        */
+        <Card padded={false}>
+          <CardHeader
+            className="p-4 pb-3 mb-0 border-b border-neutral-200"
+            title={<span className="flex items-center gap-2"><Bell className="h-4 w-4 text-success-500 shrink-0" aria-hidden />On the pass</span>}
+            subtitle={oldest ? (
+              <span className="inline-flex items-center gap-1.5 flex-wrap" aria-live="polite">
+                <Clock className="h-3.5 w-3.5 text-neutral-400 shrink-0" aria-hidden />
+                <span className="tabular-nums">{rows.length} item{rows.length === 1 ? '' : 's'}</span>
+                <span className="text-neutral-400" aria-hidden>·</span>
+                <span className={cn('font-medium tabular-nums', waitTone(oldest.mins).text)}>oldest {elapsedClock(oldest.since, now)}</span>
+              </span>
+            ) : undefined}
+          />
+          <ul className="divide-y divide-neutral-200">
           {rows.map(({ o, it, since, mins }) => {
             const tone = waitTone(mins);
             const bar = it.prepLocation === 'BAR';
             return (
               <li
                 key={it.id}
-                className={cn('card border-l-4 p-3 sm:p-4 flex flex-wrap items-center gap-3', tone.edge)}
+                className={cn('border-l-4 p-3 sm:p-4 flex flex-wrap items-center gap-3', tone.edge)}
               >
                 <span
-                  className={cn('h-11 w-11 rounded-md flex items-center justify-center shrink-0', bar ? 'bg-info-50 text-info-600' : 'bg-warning-50 text-warning-700')}
+                  /* Same construction as the shared Badge: `-50` fill, `-700` glyph — the rung
+                     that stays legible on its own tint. */
+                  className={cn('h-11 w-11 rounded-md flex items-center justify-center shrink-0 ring-1 ring-inset', bar ? 'bg-info-50 text-info-700 ring-info-200' : 'bg-warning-50 text-warning-700 ring-warning-200')}
                   aria-hidden
                 >
                   {bar ? <Wine className="h-5 w-5" /> : <ChefHat className="h-5 w-5" />}
@@ -158,7 +170,8 @@ export default function ReadyItemsPage() {
               </li>
             );
           })}
-        </ul>
+          </ul>
+        </Card>
       ))}
     </div>
   );

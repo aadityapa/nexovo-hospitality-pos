@@ -78,7 +78,8 @@ export function listItems(ctx: Ctx, q: { search?: string; categoryId?: ID; statu
 
 export function getItem(ctx: Ctx, id: ID): InventoryItem {
   assertPermission(ctx, 'inventory:view');
-  const i = ctx.db.p2.invItems.find((x) => x.id === Number(id) && !x.isDeleted);
+  // Branch-scoped, like `listItems` — stock belongs to the branch that holds it.
+  const i = ctx.db.p2.invItems.find((x) => x.id === Number(id) && !x.isDeleted && x.branchId === ctx.branchId);
   if (!i) throw errors.notFound('Inventory item not found');
   return hydrateItem(ctx, i);
 }

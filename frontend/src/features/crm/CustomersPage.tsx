@@ -7,6 +7,8 @@ import { Plus, Pencil, Trash2, ShieldCheck, Star } from 'lucide-react';
 import { useCustomers, useCrmMutations } from '@/features/p2/hooks';
 import { usePermission } from '@/hooks/useAuth';
 import { useDebounce } from '@/hooks/useRealtime';
+import { useWorkspace } from '@/hooks/useSurface';
+import { HeaderSearch } from '@/components/layout/Shell';
 import { PageHeader, Button, IconButton, Modal, ConfirmDialog, Input, Textarea, Switch, DataTable, SearchInput, Badge, Avatar, LoadingState, ErrorState, type Column } from '@/components/ui';
 import { ApiError } from '@/services/api/client';
 import { money } from '@/utils/money';
@@ -32,7 +34,7 @@ export function CustomerForm({ editing, onClose, onSaved, initialName }: { editi
   };
   return (
     <Modal open onClose={onClose} size="lg" title={editing ? `Edit ${editing.fullName}` : 'New customer'} footer={<><Button variant="outline" onClick={onClose}>Cancel</Button><Button onClick={handleSubmit(onSubmit)} loading={saveCustomer.isPending}>{editing ? 'Save changes' : 'Create customer'}</Button></>}>
-      <form onSubmit={handleSubmit(onSubmit)} className="grid sm:grid-cols-2 gap-4" noValidate>
+      <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 sm:grid-cols-2 gap-4" noValidate>
         <Input label="Full name" required autoFocus error={errors.fullName?.message} {...register('fullName')} />
         <Input label="Phone" required inputMode="tel" hint="Unique per customer" error={errors.phone?.message} {...register('phone')} />
         <Input label="Email" type="email" error={errors.email?.message} {...register('email')} />
@@ -48,7 +50,19 @@ export function CustomerForm({ editing, onClose, onSaved, initialName }: { editi
   );
 }
 
+/**
+ * Tier colour comes from the tier the account actually holds, not from a rank we invented.
+ * Gold takes the product's gold; the rest take neutral semantics. Violet is never used here —
+ * it is reserved for VIP classification and a loyalty tier is not a VIP flag.
+ */
+const TIER_TONE: Record<string, 'primary' | 'neutral' | 'warning' | 'info'> = {
+  GOLD: 'primary', PLATINUM: 'info', SILVER: 'neutral', BRONZE: 'warning',
+};
+const tierTone = (t: string) => TIER_TONE[t.trim().toUpperCase()] ?? 'neutral';
+const tierLabel = (t: string) => (t ? t.charAt(0).toUpperCase() + t.slice(1).toLowerCase() : t);
+
 export default function CustomersPage() {
+  const ws = useWorkspace();
   const navigate = useNavigate();
   const canManage = usePermission('customers:manage');
   const [search, setSearch] = useState('');
@@ -62,29 +76,95 @@ export default function CustomersPage() {
   const searching = dq.trim().length > 0;
 
   const tierBadge = (c: Customer) => (c.loyaltyTier
-    ? <Badge size="sm" tone="accent" icon={<Star className="h-3 w-3" aria-hidden />}>{c.loyaltyTier}</Badge>
+    ? <Badge size="sm" tone={tierTone(c.loyaltyTier)} icon={<Star className="h-3 w-3" aria-hidden />}>{tierLabel(c.loyaltyTier)}</Badge>
     : <span className="text-neutral-400">—</span>);
 
+  /** A guest is a person, so the tile stays a disc; suppliers and products are the squares. */
+  const guestCell = (c: Customer) => (
+    <span className="flex items-center gap-3 min-w-0">
+      <Avatar name={c.fullName} variant="record" size="sm" />
+      <span className="min-w-0">
+        <span className="block font-medium text-neutral-900 truncate">{c.fullName}</span>
+        <span className="block text-caption text-neutral-500 truncate">Last visit {c.lastVisitAt ? fmtRelative(c.lastVisitAt) : 'never'}</span>
+      </span>
+    </span>
+  );
+
+  /* Email leads where there is one, with the phone underneath; a guest with no email leads with
+     the phone rather than with an empty line, because the phone is the field that is always set. */
+  const contactCell = (c: Customer) => (
+    <span className="block min-w-0">
+      <span className="block text-neutral-800 truncate">{c.email ?? c.phone}</span>
+      {c.email && <span className="block text-caption text-neutral-500 truncate">{c.phone}</span>}
+    </span>
+  );
+
+  const rowActions = (c: Customer) => (
+    <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+      <IconButton label={`Edit ${c.fullName}`} size="sm" onClick={() => { setEditing(c); setOpen(true); }}><Pencil className="h-4 w-4" /></IconButton>
+      <IconButton label={`Delete ${c.fullName}`} size="sm" className="text-danger-700" onClick={() => setToDelete(c)}><Trash2 className="h-4 w-4" /></IconButton>
+    </div>
+  );
+
   const columns: Column<Customer>[] = [
-    { key: 'name', header: 'Customer', sortValue: (c) => c.fullName, render: (c) => <span className="flex items-center gap-3"><Avatar name={c.fullName} size="sm" /><span className="min-w-0"><span className="font-medium">{c.fullName}</span><span className="block text-caption text-neutral-500 truncate">{c.phone}{c.email ? ` · ${c.email}` : ''}</span></span></span> },
+    { key: 'name', header: 'Guest', sortValue: (c) => c.fullName, render: guestCell },
+    { key: 'contact', header: 'Contact', sortValue: (c) => c.email ?? c.phone, render: contactCell },
     { key: 'visits', header: 'Visits', align: 'right', sortValue: (c) => c.totalVisits, render: (c) => <span className="tabular-nums font-medium">{c.totalVisits}</span> },
-    { key: 'last', header: 'Last visit', sortValue: (c) => c.lastVisitAt ?? '', render: (c) => (c.lastVisitAt ? <span title={fmtDate(c.lastVisitAt)} className="text-neutral-700">{fmtRelative(c.lastVisitAt)}</span> : <span className="text-neutral-400">Never visited</span>) },
+    { key: 'last', header: 'Last visit', hideBelow: 'lg', sortValue: (c) => c.lastVisitAt ?? '', render: (c) => (c.lastVisitAt ? <span title={fmtDate(c.lastVisitAt)} className="text-neutral-700">{fmtRelative(c.lastVisitAt)}</span> : <span className="text-neutral-400">Never visited</span>) },
     { key: 'spend', header: 'Total spend', align: 'right', sortValue: (c) => c.totalSpend, render: (c) => <span className="tabular-nums font-medium">{money(c.totalSpend)}</span> },
-    { key: 'avg', header: 'Avg spend', align: 'right', hideBelow: 'lg', render: (c) => <span className="tabular-nums text-neutral-600">{money(c.averageSpend)}</span> },
-    { key: 'tier', header: 'Tier', sortValue: (c) => c.loyaltyTier ?? '', render: tierBadge },
-    { key: 'points', header: 'Points', align: 'right', hideBelow: 'md', sortValue: (c) => c.loyaltyPoints, render: (c) => <span className="tabular-nums">{c.loyaltyPoints}</span> },
-    { key: 'tags', header: 'Tags', hideBelow: 'lg', render: (c) => <span className="flex flex-wrap gap-1">{(c.tags ?? '').split(',').map((t) => t.trim()).filter(Boolean).map((t) => <Badge key={t} size="sm">{t}</Badge>)}{c.consentMarketing && <Badge size="sm" tone="success" icon={<ShieldCheck className="h-3 w-3" />}>Opted in</Badge>}</span> },
-    ...(canManage ? [{ key: 'actions', header: '', align: 'right' as const, render: (c: Customer) => <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}><IconButton label="Edit" size="sm" onClick={() => { setEditing(c); setOpen(true); }}><Pencil className="h-4 w-4" /></IconButton><IconButton label="Delete" size="sm" className="text-danger-600" onClick={() => setToDelete(c)}><Trash2 className="h-4 w-4" /></IconButton></div> }] : []),
+    { key: 'avg', header: 'Avg spend', align: 'right', hideBelow: 'lg', sortValue: (c) => c.averageSpend, render: (c) => <span className="tabular-nums text-neutral-600">{money(c.averageSpend)}</span> },
+    { key: 'points', header: 'Points', align: 'right', hideBelow: 'lg', sortValue: (c) => c.loyaltyPoints, render: (c) => <span className="tabular-nums">{c.loyaltyPoints}</span> },
+    { key: 'tier', header: 'Loyalty tier', sortValue: (c) => c.loyaltyTier ?? '', render: tierBadge },
+    /* The product records no account status for a guest. What it DOES record is the marketing
+       consent, and that is a state with legal weight — so that is what this column carries. */
+    { key: 'consent', header: 'Marketing', sortValue: (c) => (c.consentMarketing ? 1 : 0), render: (c) => (c.consentMarketing
+      ? <Badge size="sm" tone="success" icon={<ShieldCheck className="h-3 w-3" aria-hidden />}>Opted in</Badge>
+      : <Badge size="sm" tone="neutral">Not opted in</Badge>) },
+    { key: 'tags', header: 'Tags', hideBelow: 'lg', render: (c) => <span className="flex flex-wrap gap-1">{(c.tags ?? '').split(',').map((t) => t.trim()).filter(Boolean).map((t) => <Badge key={t} size="sm">{t}</Badge>)}</span> },
+    ...(canManage ? [{ key: 'actions', header: '', align: 'right' as const, render: rowActions }] : []),
+  ];
+
+  /**
+   * THE MANAGER BOARD (panel 21) — guest, visits, total spend, points, tags, last visit.
+   *
+   * Two real differences from the admin directory. The identity cell leads with the guest's
+   * EMAIL beneath the name rather than with a repeated last-visit line, because last visit has a
+   * column of its own here; a guest with no email falls back to the phone, which is the field the
+   * record always carries. And points and tags stop being `hideBelow="lg"` extras — they are what
+   * a manager recognises a regular by, so they hold their own columns. Marketing consent, average
+   * spend and tier are the back-office's account view and are left to it.
+   */
+  const managerColumns: Column<Customer>[] = [
+    { key: 'name', header: 'Guest', sortValue: (c) => c.fullName, render: (c) => (
+      <span className="flex items-center gap-3 min-w-0">
+        <Avatar name={c.fullName} variant="record" size="sm" />
+        <span className="min-w-0">
+          <span className="block font-medium text-neutral-900 truncate">{c.fullName}</span>
+          <span className="block text-caption text-neutral-500 truncate">{c.email ?? c.phone}</span>
+        </span>
+      </span>
+    ) },
+    { key: 'visits', header: 'Visits', align: 'right', sortValue: (c) => c.totalVisits, render: (c) => <span className="tabular-nums font-medium">{c.totalVisits}</span> },
+    { key: 'spend', header: 'Total spend', align: 'right', sortValue: (c) => c.totalSpend, render: (c) => <span className="tabular-nums font-medium">{money(c.totalSpend)}</span> },
+    { key: 'points', header: 'Points', align: 'right', sortValue: (c) => c.loyaltyPoints, render: (c) => <span className="tabular-nums">{c.loyaltyPoints}</span> },
+    { key: 'tags', header: 'Tags', hideBelow: 'md', render: (c) => {
+      const tags = (c.tags ?? '').split(',').map((t) => t.trim()).filter(Boolean);
+      return tags.length
+        ? <span className="flex flex-wrap gap-1">{tags.map((t) => <Badge key={t} size="sm">{t}</Badge>)}</span>
+        : <span className="text-neutral-400">—</span>;
+    } },
+    { key: 'last', header: 'Last visit', sortValue: (c) => c.lastVisitAt ?? '', render: (c) => (c.lastVisitAt ? <span title={fmtDate(c.lastVisitAt)} className="text-neutral-700">{fmtRelative(c.lastVisitAt)}</span> : <span className="text-neutral-400">Never visited</span>) },
+    ...(canManage ? [{ key: 'actions', header: '', align: 'right' as const, render: rowActions }] : []),
   ];
 
   const mobileCard = (c: Customer) => (
     <div className="flex items-start gap-3">
-      <Avatar name={c.fullName} size="sm" />
+      <Avatar name={c.fullName} variant="record" size="sm" />
       <div className="min-w-0 flex-1 space-y-1.5">
         <div className="flex items-start justify-between gap-2">
           <span className="min-w-0">
             <span className="block font-medium text-neutral-900 truncate">{c.fullName}</span>
-            <span className="block text-caption text-neutral-500 truncate">{c.phone}</span>
+            <span className="block text-caption text-neutral-500 truncate">{c.email ?? c.phone}</span>
           </span>
           {tierBadge(c)}
         </div>
@@ -93,43 +173,50 @@ export default function CustomersPage() {
           <span>Last {c.lastVisitAt ? fmtRelative(c.lastVisitAt) : 'never'}</span>
           <span className="tabular-nums font-medium text-neutral-800">{money(c.totalSpend)}</span>
         </div>
-        {canManage && (
-          <div className="pt-1 flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-            <IconButton label="Edit" size="sm" onClick={() => { setEditing(c); setOpen(true); }}><Pencil className="h-4 w-4" /></IconButton>
-            <IconButton label="Delete" size="sm" className="text-danger-600" onClick={() => setToDelete(c)}><Trash2 className="h-4 w-4" /></IconButton>
-          </div>
-        )}
+        {canManage && <div className="pt-1">{rowActions(c)}</div>}
       </div>
     </div>
   );
 
   return (
     <div>
-      <PageHeader title="Customers" subtitle="Find a guest by name or phone, then open the profile" actions={canManage && <Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => { setEditing(null); setOpen(true); }}>New customer</Button>}>
-        {/* Search leads this screen: a host or cashier arrives with a name or a phone number. */}
-        <div className="card p-3 sm:p-4">
-          <SearchInput value={search} onChange={setSearch} autoFocus placeholder="Search name, phone or email" className="w-full" />
-          <p className="text-caption text-neutral-500 mt-2" aria-live="polite">
+      {/* A host or cashier arrives with a name or a phone number, so this screen's search is the
+          first thing it offers — hoisted into the header, where the reference puts it. */}
+      <HeaderSearch>
+        <SearchInput value={search} onChange={setSearch} autoFocus placeholder="Search guests by name, phone or email…" className="w-full max-w-md" />
+      </HeaderSearch>
+
+      <PageHeader
+        title="Customers"
+        subtitle="Find a guest by name or phone, then open the profile"
+        actions={canManage && <Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => { setEditing(null); setOpen(true); }}>Add customer</Button>}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <p className="text-caption text-neutral-500" aria-live="polite">
             {q.isLoading ? 'Searching…'
               : searching ? `${rows.length} match${rows.length === 1 ? '' : 'es'} for “${dq.trim()}”`
-                : `${rows.length} customer${rows.length === 1 ? '' : 's'} · type to narrow the list`}
+                : 'Type in the header search to narrow the list'}
+          </p>
+          <p className="text-caption text-neutral-500">
+            Total guests <span className="text-base font-semibold tabular-nums text-neutral-900 align-middle">{rows.length}</span>
           </p>
         </div>
       </PageHeader>
+
       {q.isLoading && <LoadingState variant="table" rows={6} />}
       {q.isError && <ErrorState error={q.error} onRetry={() => void q.refetch()} />}
       {q.data && <DataTable
-        columns={columns}
+        columns={ws === 'manager' ? managerColumns : columns}
         rows={rows}
         rowKey={(c) => c.id}
         mobileCard={mobileCard}
         onRowClick={(c) => navigate(`/admin/customers/${c.id}`)}
         pageSize={25}
         initialSort={{ key: 'last', dir: 'desc' }}
-        caption="Customers with visits, last visit, spend and loyalty tier"
+        caption="Customers with visits, total spend and loyalty tier"
         emptyTitle={searching ? `No guest matches “${dq.trim()}”` : 'No customers yet'}
         emptyDescription={searching ? 'Check the spelling, or create the guest now.' : 'Customers are created here or attached to an order by the waiter/cashier.'}
-        emptyAction={canManage ? <Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => { setEditing(null); setOpen(true); }}>{searching ? `Create “${dq.trim()}”` : 'New customer'}</Button> : undefined}
+        emptyAction={canManage ? <Button variant="outline" leftIcon={<Plus className="h-4 w-4" />} onClick={() => { setEditing(null); setOpen(true); }}>{searching ? `Create “${dq.trim()}”` : 'Add customer'}</Button> : undefined}
       />}
       {open && <CustomerForm editing={editing} onClose={() => setOpen(false)} initialName={!editing && searching && rows.length === 0 ? dq.trim() : undefined} />}
       <ConfirmDialog open={!!toDelete} onClose={() => setToDelete(null)} variant="danger" title={`Delete ${toDelete?.fullName}?`} message="The profile is anonymised (name, phone, email and notes removed). Visit and loyalty history stays for reporting." confirmLabel="Delete & anonymise" loading={deleteCustomer.isPending} onConfirm={async () => { if (toDelete) { try { await deleteCustomer.mutateAsync(toDelete.id); } finally { setToDelete(null); } } }} />

@@ -116,20 +116,20 @@ export function DiscountDialog({ bill, open, onClose, onApply, loading }: { bill
         />
 
         {/* ------------------------------------------------- what it does to the bill */}
-        <section aria-label="Effect on this bill" className="rounded-md border border-neutral-200 bg-neutral-50 p-3">
+        <section aria-label="Effect on this bill" className="rounded-md border border-neutral-200 bg-surface p-3">
           <p className="text-label text-neutral-700 uppercase mb-2">Effect on this bill</p>
           <KeyValue
             items={[
-              { label: 'Bill total now', value: <span className="tabular-nums font-medium">{money(bill.grandTotal)}</span> },
-              { label: 'Discountable amount', value: <span className="tabular-nums">{money(base)}</span> },
+              { label: 'Bill total now', value: <span className="tnum font-medium">{money(bill.grandTotal)}</span> },
+              { label: 'Discountable amount', value: <span className="tnum">{money(base)}</span> },
               ...(bill.orderDiscountTotal > 0
-                ? [{ label: 'Already discounted', value: <span className="tabular-nums text-neutral-600">{money(bill.orderDiscountTotal)}</span> }]
+                ? [{ label: 'Already discounted', value: <span className="tnum text-neutral-600">{money(bill.orderDiscountTotal)}</span> }]
                 : []),
               {
                 label: 'This discount',
-                value: <span className={cn('tabular-nums font-semibold', large ? 'text-warning-700' : 'text-primary-700')}>− {money(amount)} ({pct.toFixed(1)}%)</span>,
+                value: <span className={cn('tnum font-semibold', large ? 'text-warning-700' : 'text-primary-700')}>− {money(amount)} ({pct.toFixed(1)}%)</span>,
               },
-              { label: 'Discountable left', value: <span className="tabular-nums font-semibold">{money(remaining)}</span> },
+              { label: 'Discountable left', value: <span className="tnum font-semibold">{money(remaining)}</span> },
             ]}
           />
           <p className="text-caption text-neutral-500 mt-2 leading-relaxed">
@@ -146,7 +146,7 @@ export function DiscountDialog({ bill, open, onClose, onApply, loading }: { bill
         )}
 
         <div>
-          <p className="text-label text-neutral-700 mb-1.5">Reason <span className="text-danger-600" aria-hidden>*</span><span className="sr-only"> (required)</span></p>
+          <p className="text-label text-neutral-700 mb-1.5">Reason <span className="text-danger-700" aria-hidden>*</span><span className="sr-only"> (required)</span></p>
           <QuickChips options={REASONS} selected={[reason]} onToggle={(r) => setReason(r === reason ? '' : r)} className="mb-2" />
           <Textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why is this discount given?" aria-label="Discount reason" />
         </div>

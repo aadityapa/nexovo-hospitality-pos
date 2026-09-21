@@ -7,7 +7,7 @@ import { DiscountDialog } from './DiscountDialog';
 import { useOrder } from '@/features/orders/hooks';
 import { usePermission } from '@/hooks/useAuth';
 import { useRealtimeInvalidate } from '@/hooks/useRealtime';
-import { PageHeader, Button, Card, StatusBadge, Badge, ConfirmDialog, LoadingState, ErrorState, KeyValue, Textarea } from '@/components/ui';
+import { PageHeader, Button, Card, CardHeader, StatusBadge, Badge, ConfirmDialog, LoadingState, ErrorState, KeyValue, Textarea } from '@/components/ui';
 import { money } from '@/utils/money';
 import { fmtDateTime, fmtTime } from '@/utils/date';
 import { PAYMENT_METHOD_LABELS } from '@/config/statuses';
@@ -69,7 +69,7 @@ export default function BillingScreenPage() {
       {open && <Button size="pos" block className="lg:col-span-2" leftIcon={<Lock className="h-5 w-5" />} loading={m.finalize.isPending} onClick={() => setConfirmFinalize(true)}>Finalize bill</Button>}
       {!open && b.balanceDue > 0 && canPay && <Button size="pos" block variant="success" className="lg:col-span-2" leftIcon={<CreditCard className="h-5 w-5" />} onClick={() => navigate(`/cashier/bills/${b.id}/pay`)}>Take payment · {money(b.balanceDue)}</Button>}
       {b.paymentStatus === 'PAID' && b.status !== 'CLOSED' && canClose && <Button size="pos" block variant="primary" className="lg:col-span-2" leftIcon={<CheckCircle2 className="h-5 w-5" />} loading={m.close.isPending} onClick={() => setConfirmClose(true)}>Close order &amp; free table</Button>}
-      {b.status === 'CLOSED' && <div className="lg:col-span-2 rounded-sm bg-success-50 border border-success-100 text-success-700 text-sm font-medium px-3 py-2 text-center">Order completed · {fmtDateTime(b.closedAt)}</div>}
+      {b.status === 'CLOSED' && <div className="lg:col-span-2 rounded-sm bg-success-50 border border-success-200 text-success-700 text-sm font-medium px-3 py-2 text-center">Order completed · {fmtDateTime(b.closedAt)}</div>}
     </>
   );
   const links = (
@@ -84,45 +84,62 @@ export default function BillingScreenPage() {
       <PageHeader back={() => navigate('/cashier')} title={<span className="flex items-center gap-3 flex-wrap">{b.tableName}<StatusBadge kind="bill" status={b.status} size="lg" /><StatusBadge kind="payment" status={b.paymentStatus} /></span>} subtitle={`${b.billNumber} · ${b.orderNumber} · Waiter ${b.waiterName} · Cashier ${b.cashierName} · ${fmtDateTime(b.createdAt)}`}
         actions={<><Button variant="outline" className="w-full sm:w-auto min-h-touch sm:min-h-0" leftIcon={<Printer className="h-4 w-4" />} onClick={() => navigate(`/cashier/bills/${b.id}/receipt`)}>Print bill</Button></>} />
       {/* The trailing padding is what keeps the last card reachable above the phone dock. */}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_400px]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_400px]">
         {/* LEFT */}
         <div className="space-y-4">
           <Card padded={false}>
-            <div className="px-4 py-3 border-b border-neutral-200 flex flex-wrap items-center justify-between gap-x-3 gap-y-1"><h2 className="text-subheading">Items</h2><span className="text-caption text-neutral-500">{b.items.length} lines · prices as ordered</span></div>
-            <ul className="divide-y divide-neutral-100">
+            {/* Every block on this screen wears the same `CardHeader` the manager's panels do —
+                title, one supporting line, and the block's own action on the right. */}
+            <CardHeader
+              className="p-4 pb-3 mb-0 border-b border-neutral-200"
+              title="Items"
+              subtitle={`${b.items.length} line${b.items.length === 1 ? '' : 's'} · prices as ordered`}
+            />
+            <ul className="divide-y divide-neutral-200">
               {b.items.map((it) => (
                 <li key={it.id} className="px-4 py-3 flex items-start gap-3">
-                  <span className={cn('mt-0.5 h-8 w-8 rounded-sm flex items-center justify-center shrink-0', it.prepLocation === 'BAR' ? 'bg-info-50 text-info-600' : 'bg-warning-50 text-warning-600')}>{it.prepLocation === 'BAR' ? <Wine className="h-4 w-4" /> : <ChefHat className="h-4 w-4" />}</span>
+                  <span className={cn('mt-0.5 h-8 w-8 rounded-sm flex items-center justify-center shrink-0 ring-1 ring-inset', it.prepLocation === 'BAR' ? 'bg-info-50 text-info-700 ring-info-200' : 'bg-warning-50 text-warning-700 ring-warning-200')}>{it.prepLocation === 'BAR' ? <Wine className="h-4 w-4" /> : <ChefHat className="h-4 w-4" />}</span>
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium">{it.itemName} <span className="text-neutral-500 font-normal">× {it.quantity}</span></p>
-                    <p className="text-caption text-neutral-500">{money(it.unitPrice)} each · tax {it.taxPercent}%{it.notes ? ` · ${it.notes}` : ''}</p>
+                    <p className="font-medium text-neutral-900">{it.itemName} <span className="text-neutral-500 font-normal">× {it.quantity}</span></p>
+                    <p className="text-caption text-neutral-500 tnum">{money(it.unitPrice)} each · tax {it.taxPercent}%{it.notes ? ` · ${it.notes}` : ''}</p>
                     {it.discountAmount > 0 && <Badge tone="success" size="sm" icon={<Tag className="h-3 w-3" />} className="mt-1">Offer −{money(it.discountAmount)}</Badge>}
                   </div>
-                  <span className="font-semibold tabular-nums">{money(it.lineTotal)}</span>
+                  <span className="font-semibold tnum text-neutral-900">{money(it.lineTotal)}</span>
                 </li>
               ))}
             </ul>
-            <p className="px-4 py-2 text-caption text-neutral-500 border-t border-neutral-100">Quantities are locked once items are sent to the kitchen/bar. Use item cancellation on the order (manager approval) to remove items.</p>
+            <p className="px-4 py-2 text-caption text-neutral-500 border-t border-neutral-200">Quantities are locked once items are sent to the kitchen/bar. Use item cancellation on the order (manager approval) to remove items.</p>
           </Card>
           <Card padded={false}>
-            <div className="px-4 py-3 border-b border-neutral-200 flex flex-wrap items-center justify-between gap-2"><h2 className="text-subheading flex items-center gap-2"><Percent className="h-4 w-4" />Discounts</h2>{canDiscount && editable && <Button size="sm" variant="outline" className="min-h-touch sm:min-h-0" onClick={() => setDiscountOpen(true)}>Add discount</Button>}</div>
+            <CardHeader
+              className="p-4 pb-3 mb-0 border-b border-neutral-200"
+              title={<span className="flex items-center gap-2"><Percent className="h-4 w-4" aria-hidden />Discounts</span>}
+              subtitle={b.orderDiscountTotal > 0 ? `−${money(b.orderDiscountTotal)} applied to this bill` : undefined}
+              /* Gated exactly as before: `billing:discount` AND an open bill. */
+              action={canDiscount && editable && <Button size="sm" variant="outline" className="min-h-touch sm:min-h-0" onClick={() => setDiscountOpen(true)}>Add discount</Button>}
+            />
             {b.discounts.filter((d) => !d.isVoided).length === 0 ? <p className="px-4 py-4 text-sm text-neutral-500">No bill-level discount.{!editable && ' (Bill finalized — discounts locked.)'}</p> : (
-              <ul className="divide-y divide-neutral-100">{b.discounts.filter((d) => !d.isVoided).map((d) => (
+              <ul className="divide-y divide-neutral-200">{b.discounts.filter((d) => !d.isVoided).map((d) => (
                 <li key={d.id} className="px-4 py-3 flex items-center gap-3 text-sm">
-                  <div className="min-w-0 flex-1"><p className="font-medium">{d.discountType === 'PERCENTAGE' ? `${d.value}%` : money(d.value)} — {d.reason}</p><p className="text-caption text-neutral-500">by {d.appliedByName}{d.approvedByName ? ` · approved by ${d.approvedByName}` : ''} · {fmtTime(d.createdAt)}</p></div>
-                  <span className="font-semibold tabular-nums text-success-700">−{money(d.amount)}</span>
+                  <div className="min-w-0 flex-1"><p className="font-medium text-neutral-900">{d.discountType === 'PERCENTAGE' ? `${d.value}%` : money(d.value)} — {d.reason}</p><p className="text-caption text-neutral-500">by {d.appliedByName}{d.approvedByName ? ` · approved by ${d.approvedByName}` : ''} · {fmtTime(d.createdAt)}</p></div>
+                  <span className="font-semibold tnum text-success-700">−{money(d.amount)}</span>
                   {canDiscount && editable && <Button size="sm" variant="ghost" className="min-h-touch min-w-touch sm:min-h-0 sm:min-w-0 shrink-0" aria-label="Remove discount" onClick={() => m.removeDiscount.mutate({ id: b.id, discountId: d.id })}><X className="h-4 w-4" /></Button>}
                 </li>))}</ul>
             )}
           </Card>
           {b.payments.length > 0 && (
             <Card padded={false}>
-              <div className="px-4 py-3 border-b border-neutral-200"><h2 className="text-subheading flex items-center gap-2"><CreditCard className="h-4 w-4" />Payments</h2></div>
-              <ul className="divide-y divide-neutral-100">{b.payments.map((p) => (
+              <CardHeader
+                className="p-4 pb-3 mb-0 border-b border-neutral-200"
+                title={<span className="flex items-center gap-2"><CreditCard className="h-4 w-4" aria-hidden />Payments</span>}
+                /* Straight off the bill the server returned — never a sum computed here. */
+                subtitle={`${money(b.paidAmount, { decimals: true })} taken of ${money(b.grandTotal, { decimals: true })}`}
+              />
+              <ul className="divide-y divide-neutral-200">{b.payments.map((p) => (
                 <li key={p.id} className={cn('px-4 py-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm', p.status === 'REVERSED' && 'opacity-60')}>
                   <Badge tone={p.status === 'REVERSED' ? 'danger' : 'primary'}>{PAYMENT_METHOD_LABELS[p.method]}</Badge>
-                  <div className="min-w-0 flex-1"><p className="font-medium">{p.paymentNumber}{p.reference ? ` · ${p.reference}` : ''}</p><p className="text-caption text-neutral-500">{p.receivedByName} · {fmtTime(p.createdAt)}{p.status === 'REVERSED' ? ` · reversed: ${p.reversalReason}` : ''}</p></div>
-                  <span className={cn('font-semibold tabular-nums', p.status === 'REVERSED' && 'line-through')}>{money(p.amount)}</span>
+                  <div className="min-w-0 flex-1"><p className="font-medium text-neutral-900">{p.paymentNumber}{p.reference ? ` · ${p.reference}` : ''}</p><p className="text-caption text-neutral-500">{p.receivedByName} · {fmtTime(p.createdAt)}{p.status === 'REVERSED' ? ` · reversed: ${p.reversalReason}` : ''}</p></div>
+                  <span className={cn('font-semibold tnum text-neutral-900', p.status === 'REVERSED' && 'line-through')}>{money(p.amount)}</span>
                   {canRefund && p.status === 'SUCCESS' && b.status !== 'CLOSED' && <Button size="sm" variant="ghost" className="text-danger-700 min-h-touch sm:min-h-0" leftIcon={<Undo2 className="h-4 w-4" />} onClick={() => setReverse(p.id)}>Reverse</Button>}
                 </li>))}</ul>
             </Card>
@@ -156,7 +173,7 @@ export default function BillingScreenPage() {
       */}
       <div className="lg:hidden save-bar mt-4">
         <div className="card shadow-panel overflow-hidden">
-          <div id="bill-summary-sheet" hidden={!dockOpen} className="max-h-64 overflow-y-auto overscroll-contain px-4 py-3 border-b border-neutral-100">
+          <div id="bill-summary-sheet" hidden={!dockOpen} className="max-h-64 overflow-y-auto overscroll-contain px-4 py-3 border-b border-neutral-200">
             <BillSummary bill={b} compact />
           </div>
           <button
@@ -164,19 +181,21 @@ export default function BillingScreenPage() {
             aria-expanded={dockOpen}
             aria-controls="bill-summary-sheet"
             onClick={() => setDockOpen((o) => !o)}
-            className="w-full min-h-touch px-4 py-2.5 flex items-center gap-3 text-left transition-colors hover:bg-neutral-50"
+            className="w-full min-h-touch px-4 py-2.5 flex items-center gap-3 text-left transition-colors duration-control hover:bg-neutral-100"
           >
+            {/* Same hierarchy as the desktop rail: grand total heaviest, balance due coloured
+                and one step down, both tabular so they align across the dock. */}
             <span className="min-w-0 flex-1">
               <span className="block text-label uppercase text-neutral-500">Grand total</span>
-              <span className="block text-xl font-semibold tnum text-neutral-900 truncate">{money(b.grandTotal, { decimals: true })}</span>
+              <span className="block text-2xl leading-8 font-semibold tnum text-neutral-900 truncate">{money(b.grandTotal, { decimals: true })}</span>
             </span>
             {b.balanceDue > 0.005 && (
               <span className="min-w-0 text-right">
                 <span className="block text-label uppercase text-neutral-500">Balance due</span>
-                <span className="block text-base font-semibold tnum text-danger-700 truncate">{money(b.balanceDue, { decimals: true })}</span>
+                <span className="block text-lg leading-7 font-semibold tnum text-danger-700 truncate">{money(b.balanceDue, { decimals: true })}</span>
               </span>
             )}
-            <ChevronUp className={cn('h-5 w-5 shrink-0 text-neutral-400 transition-transform', dockOpen && 'rotate-180')} aria-hidden />
+            <ChevronUp className={cn('h-5 w-5 shrink-0 text-neutral-400 transition-transform duration-control ease-out-soft', dockOpen && 'rotate-180')} aria-hidden />
             <span className="sr-only">{dockOpen ? 'Hide bill breakdown' : 'Show bill breakdown'}</span>
           </button>
           <div className="px-3 pb-3 space-y-2">{actions}</div>

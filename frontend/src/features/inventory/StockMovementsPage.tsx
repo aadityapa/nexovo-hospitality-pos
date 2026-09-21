@@ -15,6 +15,9 @@ import type { StockMovement, MovementType, ManualMovementType } from '@/types';
 
 type Direction = '' | 'IN' | 'OUT';
 
+/** The reference document this line came from, exactly as the movement recorded it. */
+const refLabel = (m: StockMovement) => (m.refType ? `${m.refType}${m.refId != null ? ` #${m.refId}` : ''}` : '—');
+
 export default function StockMovementsPage() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -33,27 +36,47 @@ export default function StockMovementsPage() {
   // Direction is a view of the rows already fetched — no extra request.
   const rows = useMemo(() => (dir === '' ? all : all.filter((m) => (dir === 'IN' ? m.qty > 0 : m.qty < 0))), [all, dir]);
 
-  /** Direction is stated twice: an arrow and the words "In"/"Out", never colour alone. */
-  const DirectionCell = ({ m }: { m: StockMovement }) => {
+  /** Direction is stated three ways — an arrow, the word, and the sign on the figure. */
+  const DirectionBadge = ({ m }: { m: StockMovement }) => {
     const inbound = m.qty > 0;
     return (
-      <span className={cn('inline-flex items-center gap-1.5 font-semibold tabular-nums whitespace-nowrap', inbound ? 'text-success-700' : 'text-danger-700')}>
-        {inbound ? <ArrowDownLeft className="h-4 w-4 shrink-0" aria-hidden /> : <ArrowUpRight className="h-4 w-4 shrink-0" aria-hidden />}
-        <span className="text-label uppercase">{inbound ? 'In' : 'Out'}</span>
-        <span>{inbound ? '+' : '−'}{Math.abs(m.qty)} {m.unitCode}</span>
-      </span>
+      <Badge
+        size="sm"
+        tone={inbound ? 'success' : m.type === 'WASTAGE' || m.type === 'DAMAGE' ? 'danger' : 'neutral'}
+        icon={inbound ? <ArrowDownLeft className="h-3 w-3" aria-hidden /> : <ArrowUpRight className="h-3 w-3" aria-hidden />}
+      >
+        {inbound ? 'Incoming' : 'Outgoing'}
+      </Badge>
     );
   };
 
+  /** The signed quantity, right-aligned and tabular so a column of them reconciles by eye. */
+  const SignedQty = ({ m }: { m: StockMovement }) => (
+    <span className="block whitespace-nowrap">
+      <span className={cn('block tabular-nums font-semibold', m.qty > 0 ? 'text-success-700' : 'text-danger-700')}>
+        {m.qty > 0 ? '+' : '−'}{Math.abs(m.qty)} {m.unitCode}
+      </span>
+      <span className="block text-caption text-neutral-500 tabular-nums">balance {m.qtyBefore} → {m.qtyAfter}</span>
+    </span>
+  );
+
   const columns: Column<StockMovement>[] = [
-    { key: 'when', header: 'When', sortValue: (m) => m.createdAt, render: (m) => <span className="text-neutral-600 whitespace-nowrap">{fmtDateTime(m.createdAt)}</span> },
+    { key: 'when', header: 'Date & time', sortValue: (m) => m.createdAt, render: (m) => <span className="text-neutral-600 whitespace-nowrap">{fmtDateTime(m.createdAt)}</span> },
     { key: 'item', header: 'Item', sortValue: (m) => m.itemName, render: (m) => <button type="button" className="font-medium text-left text-neutral-900 hover:text-primary-700 hover:underline underline-offset-2" onClick={(e) => { e.stopPropagation(); navigate(`/admin/inventory/items/${m.invItemId}`); }}>{m.itemName}</button> },
-    { key: 'type', header: 'Type', sortValue: (m) => m.type, render: (m) => <Badge size="sm" tone={m.qty > 0 ? 'success' : m.type === 'WASTAGE' || m.type === 'DAMAGE' ? 'danger' : 'neutral'}>{MOVEMENT_LABELS[m.type]}</Badge> },
-    { key: 'qty', header: 'Direction / qty', align: 'right', sortValue: (m) => m.qty, render: (m) => <DirectionCell m={m} /> },
-    { key: 'before', header: 'Balance', align: 'right', hideBelow: 'lg', sortValue: (m) => m.qtyAfter, render: (m) => <span className="tabular-nums text-neutral-600 whitespace-nowrap">{m.qtyBefore} → <span className="text-neutral-900 font-medium">{m.qtyAfter}</span></span> },
-    { key: 'cost', header: 'Cost', align: 'right', hideBelow: 'md', sortValue: (m) => m.totalCost, render: (m) => <span className="tabular-nums">{money(m.totalCost)}</span> },
-    { key: 'reason', header: 'Reason', hideBelow: 'lg', render: (m) => <span className="text-neutral-600">{m.refType ? `${m.refType} #${m.refId ?? ''} · ` : ''}{m.reason ?? '—'}</span> },
-    { key: 'by', header: 'By', hideBelow: 'lg', render: (m) => <span className="text-neutral-600 whitespace-nowrap">{m.createdByName ?? 'system'}</span> },
+    {
+      key: 'type', header: 'Type', sortValue: (m) => m.type,
+      render: (m) => (
+        <span className="block">
+          <DirectionBadge m={m} />
+          <span className="block text-caption text-neutral-500 mt-0.5">{MOVEMENT_LABELS[m.type]}</span>
+        </span>
+      ),
+    },
+    { key: 'qty', header: 'Quantity', align: 'right', sortValue: (m) => m.qty, render: (m) => <SignedQty m={m} /> },
+    { key: 'cost', header: 'Cost', align: 'right', hideBelow: 'lg', sortValue: (m) => m.totalCost, render: (m) => <span className="tabular-nums">{money(m.totalCost)}</span> },
+    { key: 'ref', header: 'Reference', hideBelow: 'lg', sortValue: (m) => refLabel(m), render: (m) => <span className="text-neutral-600 whitespace-nowrap">{refLabel(m)}</span> },
+    { key: 'notes', header: 'Notes', hideBelow: 'lg', render: (m) => <span className="text-neutral-600">{m.reason ?? '—'}</span> },
+    { key: 'by', header: 'User', hideBelow: 'lg', render: (m) => <span className="text-neutral-600 whitespace-nowrap">{m.createdByName ?? 'system'}</span> },
   ];
 
   const exportCsv = () => {
@@ -64,21 +87,23 @@ export default function StockMovementsPage() {
 
   return (
     <div>
-      <PageHeader title="Stock movements" subtitle="Audit trail — purchases, consumption, wastage and adjustments, newest first" actions={<><Button variant="outline" leftIcon={<Download className="h-4 w-4" />} onClick={exportCsv} disabled={!rows.length}>CSV</Button>{canAdjust && <Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => setOpen(true)}>Record movement</Button>}</>}>
+      <PageHeader title="Stock movements" subtitle="Audit trail — purchases, consumption, wastage and adjustments, newest first" actions={<><Button variant="outline" leftIcon={<Download className="h-4 w-4" />} onClick={exportCsv} disabled={!rows.length}>Export</Button>{canAdjust && <Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => setOpen(true)}>Record movement</Button>}</>}>
+        {/* Only filters that are actually wired: the date range and the movement type go to the
+            server, the direction is a view of the rows it returned. */}
         <div className="flex flex-col xl:flex-row gap-2 xl:items-center">
           <DateRangeFilter state={dr} />
-          <SegmentedControl
-            ariaLabel="Filter by direction" size="sm" value={dir} onChange={setDir}
-            options={[
-              { value: '', label: 'All', count: all.length },
-              { value: 'IN', label: <span className="inline-flex items-center gap-1"><ArrowDownLeft className="h-3.5 w-3.5" aria-hidden />Stock in</span>, ariaLabel: 'Stock in', count: inCount },
-              { value: 'OUT', label: <span className="inline-flex items-center gap-1"><ArrowUpRight className="h-3.5 w-3.5" aria-hidden />Stock out</span>, ariaLabel: 'Stock out', count: outCount },
-            ]}
-          />
           <FilterSelect
             ariaLabel="Filter by movement type" className="xl:w-56" value={type} placeholder="All types"
             onChange={(e) => { setType(e.target.value as '' | MovementType); }}
             options={(Object.keys(MOVEMENT_LABELS) as MovementType[]).map((t) => ({ value: t, label: MOVEMENT_LABELS[t] }))}
+          />
+          <SegmentedControl
+            ariaLabel="Filter by direction" size="sm" value={dir} onChange={setDir}
+            options={[
+              { value: '', label: 'All', count: all.length },
+              { value: 'IN', label: <span className="inline-flex items-center gap-1"><ArrowDownLeft className="h-3.5 w-3.5" aria-hidden />Incoming</span>, ariaLabel: 'Incoming', count: inCount },
+              { value: 'OUT', label: <span className="inline-flex items-center gap-1"><ArrowUpRight className="h-3.5 w-3.5" aria-hidden />Outgoing</span>, ariaLabel: 'Outgoing', count: outCount },
+            ]}
           />
         </div>
       </PageHeader>
@@ -86,14 +111,14 @@ export default function StockMovementsPage() {
       {q.isError && <ErrorState error={q.error} onRetry={() => void q.refetch()} />}
       {q.data && (
         <DataTable
-          columns={columns} rows={rows} rowKey={(m) => m.id} pageSize={50} dense
+          columns={columns} rows={rows} rowKey={(m) => m.id} pageSize={50}
           initialSort={{ key: 'when', dir: 'desc' }}
-          caption="Stock movement audit log: date, item, movement type, direction, quantity, resulting balance and who recorded it"
+          caption="Stock movement ledger: date and time, item, direction, signed quantity, resulting balance, reference document, note and who recorded it"
           toolbar={
             <p className="px-1 text-sm text-neutral-600">
               <span className="font-semibold text-neutral-900 tabular-nums">{rows.length}</span> movement{rows.length === 1 ? '' : 's'}
               {dir === '' && all.length > 0 && (
-                <span className="text-neutral-500"> · {inCount} in · {outCount} out</span>
+                <span className="text-neutral-500"> · {inCount} incoming · {outCount} outgoing</span>
               )}
               {type && <span className="text-neutral-500"> · {MOVEMENT_LABELS[type]}</span>}
             </p>
@@ -105,11 +130,11 @@ export default function StockMovementsPage() {
             <div className="space-y-1.5">
               <div className="flex items-start justify-between gap-3">
                 <button type="button" className="font-medium text-left text-neutral-900 hover:underline min-w-0 truncate" onClick={() => navigate(`/admin/inventory/items/${m.invItemId}`)}>{m.itemName}</button>
-                <DirectionCell m={m} />
+                <span className="text-right shrink-0"><SignedQty m={m} /></span>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                <Badge size="sm" tone={m.qty > 0 ? 'success' : m.type === 'WASTAGE' || m.type === 'DAMAGE' ? 'danger' : 'neutral'}>{MOVEMENT_LABELS[m.type]}</Badge>
-                <span className="text-caption text-neutral-500">balance {m.qtyBefore} → {m.qtyAfter} · {money(m.totalCost)}</span>
+                <DirectionBadge m={m} />
+                <span className="text-caption text-neutral-500">{MOVEMENT_LABELS[m.type]} · {refLabel(m)} · {money(m.totalCost)}</span>
               </div>
               <p className="text-caption text-neutral-500">{fmtDateTime(m.createdAt)} · {m.createdByName ?? 'system'}{m.reason ? ` · ${m.reason}` : ''}</p>
             </div>

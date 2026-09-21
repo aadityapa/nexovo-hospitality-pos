@@ -3,14 +3,33 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#101828" />
+    <meta name="theme-color" content="#080A0C" />
     <meta name="description" content="Nexovo Hospitality POS — ordering, kitchen routing, billing and inventory." />
-    <meta name="color-scheme" content="light" />
+    <meta name="color-scheme" content="dark light" />
     <!-- Inter, with a full system fallback stack in the Tailwind config if the CDN is unreachable. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <title>Nexovo POS</title>
+    <script>
+      /*
+       * Theme bootstrap — runs before the first paint so a dark-theme operator never sees a
+       * white flash, and a light-theme one never sees a black one. Mirrors applyTheme() in
+       * src/store/uiStore.ts; if the two ever disagree, the store wins on hydrate.
+       */
+      (function () {
+        try {
+          var p = localStorage.getItem('nexovo.theme');
+          var sys = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+          var t = p === 'light' || p === 'dark' ? p : sys;
+          document.documentElement.setAttribute('data-theme', t);
+          var m = document.querySelector('meta[name="theme-color"]');
+          if (m) m.setAttribute('content', t === 'light' ? '#F4F6F8' : '#080A0C');
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

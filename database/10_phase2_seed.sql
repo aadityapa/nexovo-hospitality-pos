@@ -15,7 +15,7 @@ BEGIN
   p('suppliers:view','suppliers','View suppliers');           p('suppliers:manage','suppliers','Manage suppliers');
   p('purchases:view','purchases','View purchase orders');     p('purchases:manage','purchases','Create/edit purchase orders'); p('purchases:approve','purchases','Approve purchase orders'); p('purchases:receive','purchases','Receive goods');
   p('customers:view','customers','View customers');           p('customers:manage','customers','Manage customers');
-  p('loyalty:view','loyalty','View loyalty');                 p('loyalty:manage','loyalty','Manage loyalty program');         p('loyalty:redeem','loyalty','Redeem points on bills');
+  p('loyalty:view','loyalty','View loyalty');                 p('loyalty:manage','loyalty','Member operations, incl. point adjustments'); p('loyalty:configure','loyalty','Edit program rules, earning, redemption, tiers, expiry, limits'); p('loyalty:redeem','loyalty','Redeem points on bills');
   p('reservations:view','reservations','View reservations'); p('reservations:manage','reservations','Manage reservations');
   p('club:view','club','View club entries');                  p('club:manage','club','Check-in / cover charges');
   p('vip:view','vip','View VIP tables');                      p('vip:manage','vip','Manage VIP bookings');

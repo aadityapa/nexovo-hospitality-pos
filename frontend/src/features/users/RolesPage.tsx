@@ -4,10 +4,16 @@ import { Shield, Save, Lock, Eye, Users, Check, Undo2, SearchX, Percent, PencilL
 import { rolesApi } from '@/services/api/endpoints';
 import { usePermission } from '@/hooks/useAuth';
 import { toast } from '@/store/uiStore';
-import { PageHeader, Button, Card, CardHeader, LoadingState, ErrorState, EmptyState, Badge, Input, SearchInput, Alert } from '@/components/ui';
+import { PageHeader, Button, Card, CardHeader, LoadingState, ErrorState, EmptyState, Badge, Input, SearchInput, Switch, Alert } from '@/components/ui';
 import { PERMISSIONS, PERMISSION_MODULES, permissionModule, type Permission } from '@/config/permissions';
 import { cn } from '@/utils/cn';
 import type { Role } from '@/types';
+
+/** The part of a permission code after its module — `orders:cancel:item` → `cancel:item`. */
+const actionOf = (p: Permission) => p.slice(p.indexOf(':') + 1);
+
+/** Matrix header cell — the same band `DataTable` uses, so both read as one table language. */
+const TH = 'px-4 py-3 text-label uppercase text-neutral-500 font-semibold whitespace-nowrap bg-surface border-b border-neutral-200 text-left';
 
 /**
  * ROLES & PERMISSIONS — a master/detail editor.
@@ -77,8 +83,44 @@ export default function RolesPage() {
   const mode: 'readonly' | 'system-locked' | 'editable' = !canManage ? 'readonly' : superAdmin ? 'system-locked' : 'editable';
   const users = selected?.userCount ?? 0;
 
+  /**
+   * ONE PERMISSION, AS A SWITCH.
+   *
+   * The accessible name is the permission code plus the module it belongs to, because "create"
+   * on its own is ambiguous across twenty-six rows. A permission changed since the last save
+   * carries an amber ring AND a spelled-out note, never colour alone.
+   */
+  const permSwitch = (p: Permission, moduleLabel: string, text?: string) => {
+    const touched = changes.touched.has(p);
+    return (
+      <span key={p} className={cn('inline-flex items-center gap-2 rounded-md min-w-0', touched && 'ring-2 ring-warning-500 px-1.5 -mx-1.5')}>
+        <Switch
+          size="sm"
+          checked={perms.includes(p)}
+          disabled={locked}
+          onChange={() => toggle(p)}
+          ariaLabel={`${p} — ${moduleLabel}`}
+        />
+        {text && <span className="font-mono text-[11px] text-neutral-600 break-all min-w-0">{text}</span>}
+        {touched && <span className="sr-only"> — changed, not yet saved</span>}
+      </span>
+    );
+  };
+
+  /** A column that does not apply to this module says so, rather than showing a dead control. */
+  const notApplicable = (moduleLabel: string, column: string) => (
+    <span className="text-neutral-400">
+      —<span className="sr-only">no {column.toLowerCase()} permission exists for {moduleLabel}</span>
+    </span>
+  );
+
   return (
-    <div>
+    /* `min-w-0` on the page root: the permission matrix is a 760 px table inside a `.table-scroll`
+       box, and without a zero minimum somewhere above it the scroll container's own min-content
+       width propagates up and widens the document instead of scrolling. Measured at 390 px: the
+       document was 436 px wide with no element visibly outside the viewport, because everything
+       WAS inside the scroll region — the region itself was the thing that had grown. */
+    <div className="min-w-0">
       <PageHeader
         title="Roles & permissions"
         subtitle="A role is a set of permissions. The server enforces them on every request — this matrix is how you change them."
@@ -105,7 +147,12 @@ export default function RolesPage() {
             <div
               role="group"
               aria-labelledby="role-picker-label"
-              className="flex gap-2 overflow-x-auto overscroll-x-contain no-scrollbar py-1 -mx-1 px-1"
+              /* `w-full min-w-0` and NO negative margin. `-mx-1 px-1` was a focus-ring bleed
+                 trick that makes the row 8 px wider than its container, and a scroll container
+                 that is wider than its parent reports that width to the document — which is how
+                 this screen measured a 436 px document inside a 390 px viewport while every
+                 chip was correctly contained and scrollable. The ring has room without it. */
+              className="flex gap-2 overflow-x-auto overscroll-x-contain no-scrollbar py-1 w-full min-w-0"
             >
               {roles.data.map((r) => {
                 const on = selected.id === r.id;
@@ -117,16 +164,16 @@ export default function RolesPage() {
                     aria-current={on ? 'true' : undefined}
                     onClick={() => setSelectedId(Number(r.id))}
                     className={cn(
-                      'shrink-0 min-h-touch px-3.5 rounded-full border text-sm font-medium inline-flex items-center gap-1.5 transition-colors press',
+                      'shrink-0 min-h-touch px-3.5 rounded-full border text-sm font-medium inline-flex items-center gap-1.5 transition-colors duration-control press',
                       on
-                        ? 'bg-primary-600 border-primary-600 text-white'
-                        : 'bg-white border-neutral-300 text-neutral-700 hover:bg-neutral-50 hover:border-neutral-400',
+                        ? 'bg-gold-sheen bg-primary-500 border-primary-400 text-on-primary'
+                        : 'bg-neutral-100 border-neutral-300 text-neutral-800 hover:bg-neutral-200 hover:border-neutral-400',
                     )}
                   >
                     {on ? <Check className="h-3.5 w-3.5 shrink-0" aria-hidden /> : <Shield className="h-3.5 w-3.5 shrink-0 text-neutral-400" aria-hidden />}
                     {r.name}
-                    {sys && <Lock className={cn('h-3 w-3 shrink-0', on ? 'text-primary-100' : 'text-neutral-400')} aria-hidden />}
-                    <span className={cn('rounded-full px-1.5 text-[11px] tabular-nums font-semibold', on ? 'bg-primary-800 text-white' : 'bg-neutral-100 text-neutral-600')}>
+                    {sys && <Lock className={cn('h-3 w-3 shrink-0', on ? 'text-on-primary/70' : 'text-neutral-400')} aria-hidden />}
+                    <span className={cn('rounded-full px-1.5 text-[11px] tabular-nums font-semibold', on ? 'bg-on-primary/15 text-on-primary' : 'bg-neutral-200 text-neutral-700')}>
                       {r.permissions.length}
                     </span>
                     {on && <span className="sr-only">— currently being edited</span>}
@@ -139,11 +186,11 @@ export default function RolesPage() {
             </p>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)] items-start">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[260px_minmax(0,1fr)] items-start">
             {/* ---------------------------------------------------- Role list (lg and above) */}
             <Card padded={false} className="hidden lg:block">
               <p className="px-4 pt-4 pb-2 text-label uppercase text-neutral-500">Roles</p>
-              <ul className="divide-y divide-neutral-100">
+              <ul className="divide-y divide-neutral-200">
                 {roles.data.map((r) => {
                   const on = selected.id === r.id;
                   return (
@@ -153,8 +200,8 @@ export default function RolesPage() {
                         aria-current={on ? 'true' : undefined}
                         onClick={() => setSelectedId(Number(r.id))}
                         className={cn(
-                          'w-full text-left px-4 py-3 flex items-center gap-3 border-l-4 transition-colors hover:bg-neutral-50 min-h-touch',
-                          on ? 'border-l-primary-600 bg-primary-50' : 'border-l-transparent',
+                          'w-full text-left px-4 py-3 flex items-center gap-3 border-l-4 transition-colors duration-control hover:bg-neutral-100 min-h-touch',
+                          on ? 'border-l-primary-500 bg-primary-50' : 'border-l-transparent',
                         )}
                       >
                         <Shield className={cn('h-4 w-4 shrink-0', on ? 'text-primary-700' : 'text-neutral-400')} aria-hidden />
@@ -181,7 +228,7 @@ export default function RolesPage() {
                       {mode === 'system-locked' && <Badge tone="warning" size="sm" icon={<Lock className="h-3 w-3" aria-hidden />}>Locked — cannot be edited</Badge>}
                       {mode === 'readonly' && <Badge tone="neutral" size="sm" icon={<Eye className="h-3 w-3" aria-hidden />}>Read-only for you</Badge>}
                       {mode === 'editable' && <Badge tone="primary" size="sm" icon={<PencilLine className="h-3 w-3" aria-hidden />}>Editable</Badge>}
-                      {dirty && <Badge tone="accent" size="sm">Unsaved changes</Badge>}
+                      {dirty && <Badge tone="warning" size="sm">Unsaved changes</Badge>}
                     </h2>
                     {selected.description && <p className="text-sm text-neutral-500 mt-1 leading-snug">{selected.description}</p>}
                     <p className="text-caption text-neutral-500 mt-2 flex flex-wrap gap-x-3 gap-y-1">
@@ -222,10 +269,10 @@ export default function RolesPage() {
                   className="p-5 pb-0"
                   title="Permission matrix"
                   subtitle={locked
-                    ? 'Grouped by module. A filled chip is granted; an outlined chip is not.'
-                    : 'Grouped by module. Tap a permission to grant or revoke it — a save bar appears as soon as something changes.'}
+                    ? 'One row per module. A switch that is on is a permission the server will allow.'
+                    : 'One row per module. Flip a switch to grant or revoke — a save bar appears as soon as something changes.'}
                 />
-                <div className="px-5 pt-3">
+                <div className="px-5 pt-3 pb-4">
                   <SearchInput value={filter} onChange={setFilter} placeholder="Find a permission or module" aria-label="Find a permission" />
                 </div>
 
@@ -238,76 +285,94 @@ export default function RolesPage() {
                     action={<Button variant="outline" onClick={() => setFilter('')}>Clear the filter</Button>}
                   />
                 ) : (
-                  <ul className="divide-y divide-neutral-100 mt-3">
-                    {visibleModules.map(([m, list]) => {
-                      const full = groups[m];
-                      const granted = full.filter((p) => perms.includes(p)).length;
-                      const none = granted === 0;
-                      const all = granted === full.length;
-                      const moduleDirty = full.some((p) => changes.touched.has(p));
-                      return (
-                        <li key={m} className={cn('px-5 py-4 min-w-0', none && 'bg-neutral-50/70')}>
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-2.5">
-                            {q ? (
-                              <span className="font-medium text-neutral-900">{PERMISSION_MODULES[m] ?? m}</span>
-                            ) : (
-                              <label className={cn('flex items-center gap-2 font-medium min-w-0', locked ? 'text-neutral-600' : 'cursor-pointer text-neutral-900')}>
-                                <input
-                                  type="checkbox"
-                                  className="h-4 w-4 rounded-sm"
-                                  disabled={locked}
-                                  checked={all}
-                                  aria-label={`Grant every ${PERMISSION_MODULES[m] ?? m} permission`}
-                                  ref={(el) => { if (el) el.indeterminate = !all && granted > 0; }}
-                                  onChange={() => toggleModule(m)}
-                                />
-                                <span className="truncate">{PERMISSION_MODULES[m] ?? m}</span>
-                              </label>
-                            )}
-                            {/* The per-module count is the fastest read on the page: "granted x of y". */}
-                            <Badge size="sm" tone={none ? 'neutral' : all ? 'success' : 'primary'}>
-                              {none ? `None granted · 0 of ${full.length}` : `Granted ${granted} of ${full.length}`}
-                            </Badge>
-                            {moduleDirty && <Badge size="sm" tone="accent">Unsaved</Badge>}
-                            {q && <span className="text-caption text-neutral-500">showing {list.length} of {full.length}</span>}
-                          </div>
-                          <div className="flex flex-wrap gap-1.5">
-                            {list.map((p) => {
-                              const on = perms.includes(p);
-                              const touched = changes.touched.has(p);
-                              return (
-                                <button
-                                  key={p}
-                                  type="button"
-                                  disabled={locked}
-                                  aria-pressed={on}
-                                  onClick={() => toggle(p)}
-                                  className={cn(
-                                    'rounded-sm border px-2 py-1 text-xs font-mono transition-colors disabled:cursor-not-allowed inline-flex items-center gap-1.5 max-w-full',
-                                    on
-                                      ? 'bg-primary-600 border-primary-600 text-white'
-                                      : 'bg-white border-neutral-300 text-neutral-600 hover:border-neutral-400 disabled:text-neutral-400',
-                                    touched && 'ring-2 ring-accent-500',
-                                  )}
-                                >
-                                  {on && <Check className="h-3 w-3 shrink-0" aria-hidden />}
-                                  <span className="min-w-0 break-all">{p}</span>
-                                  {touched && <span className="sr-only"> — changed, not yet saved</span>}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                  /*
+                    THE MATRIX SCROLLS; THE PAGE NEVER DOES (defects B1 and F7).
+                    `.table-scroll` carries `min-width: 0`, so this 760 px table scrolls inside its
+                    own box instead of widening the grid column it sits in. No `overflow-x: hidden`
+                    is used anywhere to hide the symptom.
+                  */
+                  <div className="table-scroll border-t border-neutral-200">
+                    <table className="w-full min-w-[760px] text-sm border-collapse">
+                      <caption className="sr-only">
+                        Permissions held by {selected.name}, one row per module. The View and Manage columns are the two
+                        actions that exist across modules; anything else a module defines is in “Other actions”.
+                      </caption>
+                      <thead>
+                        <tr>
+                          <th scope="col" className={cn(TH, 'w-[210px]')}>Module</th>
+                          <th scope="col" className={cn(TH, 'text-center w-[86px]')}>View</th>
+                          <th scope="col" className={cn(TH, 'text-center w-[86px]')}>Manage</th>
+                          <th scope="col" className={TH}>Other actions</th>
+                          <th scope="col" className={cn(TH, 'text-right w-[190px]')}>Granted</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {visibleModules.map(([m, list]) => {
+                          const full = groups[m];
+                          const label = PERMISSION_MODULES[m] ?? m;
+                          const granted = full.filter((p) => perms.includes(p)).length;
+                          const none = granted === 0;
+                          const all = granted === full.length;
+                          const moduleDirty = full.some((p) => changes.touched.has(p));
+                          const view = list.find((p) => p === `${m}:view`);
+                          const manage = list.find((p) => p === `${m}:manage`);
+                          const others = list.filter((p) => p !== view && p !== manage);
+                          return (
+                            <tr key={m} className={cn('border-b border-neutral-200/70 last:border-b-0 align-top', none && 'bg-neutral-50/70')}>
+                              <th scope="row" className="px-4 py-3 text-left font-normal min-w-0">
+                                {q ? (
+                                  <span className="font-medium text-neutral-900">{label}</span>
+                                ) : (
+                                  <label className={cn('flex items-center gap-2 font-medium min-w-0', locked ? 'text-neutral-600' : 'cursor-pointer text-neutral-900')}>
+                                    <input
+                                      type="checkbox"
+                                      className="h-4 w-4 rounded-sm shrink-0"
+                                      disabled={locked}
+                                      checked={all}
+                                      aria-label={`Grant every ${label} permission`}
+                                      ref={(el) => { if (el) el.indeterminate = !all && granted > 0; }}
+                                      onChange={() => toggleModule(m)}
+                                    />
+                                    <span className="truncate">{label}</span>
+                                  </label>
+                                )}
+                                {q && <span className="block text-caption text-neutral-500 mt-0.5">showing {list.length} of {full.length}</span>}
+                              </th>
+                              <td className="px-4 py-3">
+                                <span className="flex justify-center">{view ? permSwitch(view, label) : notApplicable(label, 'View')}</span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="flex justify-center">{manage ? permSwitch(manage, label) : notApplicable(label, 'Manage')}</span>
+                              </td>
+                              <td className="px-4 py-3 min-w-0">
+                                {others.length === 0
+                                  ? <span className="text-neutral-400">—<span className="sr-only">this module defines no further permissions</span></span>
+                                  : <div className="flex flex-wrap gap-x-5 gap-y-0.5 min-w-0">{others.map((p) => permSwitch(p, label, actionOf(p)))}</div>}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                {/* The per-module count is the fastest read on the page: "granted x of y". */}
+                                <span className="inline-flex flex-wrap justify-end items-center gap-1.5">
+                                  <Badge size="sm" tone={none ? 'neutral' : all ? 'success' : 'primary'}>
+                                    {none ? `None granted · 0 of ${full.length}` : `Granted ${granted} of ${full.length}`}
+                                  </Badge>
+                                  {moduleDirty && <Badge size="sm" tone="warning">Unsaved</Badge>}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
 
-                <p className="px-5 py-3 text-caption text-neutral-500 border-t border-neutral-100 flex items-start gap-1.5">
+                <p className="px-5 py-3 text-caption text-neutral-500 border-t border-neutral-200 flex items-start gap-1.5">
                   <Eye className="h-3.5 w-3.5 mt-px shrink-0 text-neutral-400" aria-hidden />
                   <span className="min-w-0">
-                    A filled chip is granted; an outlined chip is not. Modules with nothing granted are shaded and labelled “None granted”.
-                    {mode === 'editable' && ' A chip outlined in amber and marked “Unsaved” has been changed but not yet written.'}
+                    A switch that is on is granted. “View” and “Manage” are the only two actions this system defines across
+                    modules, so a module that has neither prints an em dash rather than an inert control; everything else it
+                    defines is a named switch under “Other actions”. Modules with nothing granted are shaded and labelled “None granted”.
+                    {mode === 'editable' && ' A switch ringed in amber, in a row marked “Unsaved”, has been changed but not yet written.'}
                   </span>
                 </p>
               </Card>

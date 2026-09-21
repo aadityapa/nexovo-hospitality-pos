@@ -12,11 +12,22 @@ dist/
 *.log
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Editor
 .idea/
 .vscode/
 *.swp
+*.swo
+*~
+
+# Caches and generated output
+# node_modules/ already covers Vite's pre-bundle cache; these catch a stray top-level one, plus
+# coverage output and TypeScript incremental build info, none of which were previously ignored.
+.vite/
+.cache/
+coverage/
+*.tsbuildinfo
 
 # Accidental root lockfile (app lives in frontend/)
 /package-lock.json

@@ -72,9 +72,13 @@ CREATE OR REPLACE PACKAGE BODY api_router2_pkg AS
       WHEN 'DELETE /customers/{id}' THEN customer_pkg.delete_customer(p_id); l_msg := 'Customer deleted';
       WHEN 'PUT /orders/{id}/customer' THEN customer_pkg.attach_to_order(p_id, b.get_number('customerId')); d := order_pkg.order_json(p_id); l_msg := 'Customer linked to order';
       WHEN 'GET /loyalty/program' THEN sec_pkg.assert_permission('loyalty:view'); d := loyalty_pkg.program_json;
-      WHEN 'PUT /loyalty/program' THEN loyalty_pkg.save_program(b); d := loyalty_pkg.program_json; l_msg := 'Loyalty program updated';
+      -- Asserted here AND inside save_program. The package assertion is the one that matters (it
+      -- guards the procedure however it is reached, including from another package); this one
+      -- keeps the route table readable as a permission map.
+      WHEN 'PUT /loyalty/program' THEN sec_pkg.assert_permission('loyalty:configure'); loyalty_pkg.save_program(b); d := loyalty_pkg.program_json; l_msg := 'Loyalty program updated';
       WHEN 'GET /loyalty/accounts/{id}' THEN sec_pkg.assert_permission('loyalty:view'); d := loyalty_pkg.account_json(p_id);
-      WHEN 'POST /loyalty/accounts/{id}/adjust' THEN loyalty_pkg.adjust(p_id, b.get_number('points'), b.get_string('notes')); d := loyalty_pkg.account_json(p_id); l_msg := 'Points adjusted';
+      -- Member operation: stays on 'loyalty:manage', which the manager keeps.
+      WHEN 'POST /loyalty/accounts/{id}/adjust' THEN sec_pkg.assert_permission('loyalty:manage'); loyalty_pkg.adjust(p_id, b.get_number('points'), b.get_string('notes')); d := loyalty_pkg.account_json(p_id); l_msg := 'Points adjusted';
       WHEN 'POST /bills/{id}/redeem-points' THEN loyalty_pkg.redeem_on_bill(p_id, b.get_number('points')); d := billing_pkg.bill_json(p_id); l_msg := 'Points redeemed';
 
       -- ---------------- reservations ----------------
