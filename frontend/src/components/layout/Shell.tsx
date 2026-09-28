@@ -18,6 +18,8 @@ import { fmtRelative } from '@/utils/date';
 import { isGroup, type NavEntry, type NavItem } from '@/config/navigation';
 import type { AppNotification } from '@/types';
 import { Avatar } from '@/components/ui';
+import { VenueArt, Photo } from '@/components/graphics';
+import { VENUE_IMG } from '@/config/imagery';
 import { ConnectionStatus } from './ConnectionStatus';
 
 /** Closes a popover on outside click. */
@@ -58,11 +60,18 @@ function useClickOutside(open: boolean, onClose: () => void) {
  * primary action, so it is dropped.
  */
 export function BrandMark({ collapsed, dark }: { collapsed?: boolean; dark?: boolean }) {
+  /* The wordmark splits the product name at its last word: "NEXOVO" in tracked small caps and
+     "POS" as a quiet suffix — the concept's masthead, built from the real `appName` rather than
+     a second hard-coded brand string. */
+  const words = env.appName.trim().split(/\s+/);
+  const suffix = words.length > 1 ? words[words.length - 1] : '';
+  const name = suffix ? words.slice(0, -1).join(' ') : env.appName;
   return (
     <div className="flex items-center gap-2.5 min-w-0">
+      {/* The mark is an editorial serif N on champagne — the one place the serif is a logotype. */}
       <span
         className={cn(
-          'h-8 w-8 rounded-md shrink-0 grid place-items-center font-bold text-sm leading-none tracking-tight',
+          'h-8 w-8 rounded-md shrink-0 grid place-items-center font-serif font-semibold text-[19px] leading-none',
           'fill-gold material-gloss bg-primary-500 text-on-primary ring-1 ring-inset ring-primary-700/50',
           dark && 'shadow-gold',
         )}
@@ -70,7 +79,12 @@ export function BrandMark({ collapsed, dark }: { collapsed?: boolean; dark?: boo
       >
         N
       </span>
-      {!collapsed && <span className="font-semibold truncate tracking-tight text-neutral-900">{env.appName}</span>}
+      {!collapsed && (
+        <span className="min-w-0 flex items-baseline gap-1.5 truncate">
+          <span className="font-semibold tracking-[0.14em] uppercase text-[13px] text-neutral-900">{name}</span>
+          {suffix && <span className="text-[10px] tracking-[0.18em] uppercase text-neutral-500">{suffix}</span>}
+        </span>
+      )}
     </div>
   );
 }
@@ -207,18 +221,26 @@ export function Sidebar({ entries, collapsed, onToggle, mobile, onClose }: {
         })}
       </div>
 
-      {/* The venue the operator is acting in, at the foot of the rail — the boards put it here,
-          and it is the answer to "which branch am I about to change?" without looking up. */}
+      {/*
+       * THE VENUE CARD at the foot of the rail — a small picture of the room with the venue and
+       * branch under it. It is the answer to "which venue am I about to change?" without looking
+       * up, and it is the one photograph-shaped thing in the chrome.
+       *
+       * The picture is the venue photograph shipped with the product (a local file — see
+       * config/imagery.ts) over the drawn `VenueArt` as its understudy, keyed off the venue's
+       * own name so a checkout without the photo still shows a room rather than a hole.
+       */}
       {branch && !collapsed && (
         <div className="px-3 pb-2 pt-2 border-t border-neutral-200 shrink-0">
-          <div className="flex items-center gap-2.5 rounded-md px-2 py-2 bg-neutral-100/60">
-            <span className="h-7 w-7 rounded-full shrink-0 grid place-items-center bg-primary-500/15 ring-1 ring-inset ring-primary-500/30" aria-hidden>
-              <Building2 className="h-3.5 w-3.5 text-primary-700" />
-            </span>
-            <span className="min-w-0 leading-tight">
-              <span className="block text-[12.5px] font-medium text-neutral-900 truncate">{branch.businessName}</span>
-              <span className="block text-[11px] text-neutral-500 truncate">{branch.name}</span>
-            </span>
+          <div className="overflow-hidden rounded-md border border-neutral-200 bg-neutral-100/60">
+            <Photo src={VENUE_IMG.hero} fallback={<VenueArt name={branch.businessName} className="h-full w-full" />} className="aspect-[16/7] w-full" />
+            <div className="flex items-center gap-2 px-2.5 py-2 leading-tight">
+              <Building2 className="h-3.5 w-3.5 shrink-0 text-primary-700" aria-hidden />
+              <span className="min-w-0">
+                <span className="block text-[12.5px] font-medium text-neutral-900 truncate">{branch.businessName}</span>
+                <span className="block text-[11px] text-neutral-500 truncate">{branch.name}</span>
+              </span>
+            </div>
           </div>
         </div>
       )}
@@ -429,10 +451,13 @@ export function NotificationBell() {
         className="relative h-10 w-10 flex items-center justify-center rounded-sm hover:bg-neutral-100 hover:text-neutral-900 text-neutral-600 transition-colors duration-fast"
       >
         <Bell className="h-5 w-5" aria-hidden />
-        {/* The count sits on a bright danger fill, so its label is the dark `on-primary`, and the
-            ring that punches it out of the bell is the header's own surface, not white. */}
+        {/* The count sits on `danger-700` with `neutral-50` for its label — a pair that inverts
+            together, so it is light-on-deep-red in the light theme and dark-on-soft-red in the
+            dark one. (It was `danger-500` + the fixed near-black `on-primary`: 3.93:1 on ivory
+            headers, the only contrast failure the theme audit found.) The ring that punches it
+            out of the bell is the header's own surface. */}
         {unread > 0 && (
-          <span className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-danger-500 text-on-primary text-[10px] font-bold flex items-center justify-center tabular-nums ring-2 ring-surface-raised">
+          <span className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-danger-700 text-neutral-50 text-[10px] font-bold flex items-center justify-center tabular-nums ring-2 ring-surface-raised">
             {unread > 99 ? '99+' : unread}
           </span>
         )}

@@ -162,7 +162,7 @@ export default function OrderDetailPage() {
             Order {o.orderNumber}
             <Badge tone={o.orderType === 'DINE_IN' ? 'neutral' : 'info'} size="lg">{TYPE_LABEL[o.orderType]}</Badge>
             <StatusBadge kind="order" status={o.status} size="lg" />
-            {o.vipResId && <Badge tone="warning" icon={<Crown className="h-3 w-3" />}>VIP</Badge>}
+            {o.vipResId && <Badge tone="accent" icon={<Crown className="h-3 w-3" />}>VIP</Badge>}
             {o.reservationId && <Badge tone="info" icon={<CalendarCheck className="h-3 w-3" />}>Reservation</Badge>}
           </span>
         }
@@ -221,7 +221,9 @@ export default function OrderDetailPage() {
           name can never push the items table wider than its own share of the row. */}
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4">
         <div className="space-y-4 min-w-0">
-          <Card padded={false}>
+          {/* The order's own lines are the document — the one hero on this screen, so it alone
+              wears the bronze hairline. */}
+          <Card padded={false} className="card-premium border-bronze/30">
             <CardHeader
               className="p-5 pb-3"
               title="Items"
@@ -282,9 +284,10 @@ export default function OrderDetailPage() {
                 <dt className="text-neutral-500 min-w-0">Items total</dt>
                 <dd className="tnum font-medium text-neutral-900 shrink-0 text-right">{money(o.subtotal)}</dd>
               </div>
-              <div className="flex items-baseline justify-between gap-3 pt-3 mt-1 border-t border-neutral-300">
+              <div className="flex items-baseline justify-between gap-3 pt-3 mt-1 border-t border-bronze/30">
                 <dt className="text-neutral-900 font-semibold min-w-0">Order total</dt>
-                <dd className="tnum text-subheading font-semibold text-neutral-900 shrink-0 text-right">{money(o.subtotal)}</dd>
+                {/* The total is set large in the sans, tabular, and printed straight — never rolled. */}
+                <dd className="tnum text-metric text-neutral-900 shrink-0 text-right">{money(o.subtotal)}</dd>
               </div>
             </dl>
             <p className="text-caption text-neutral-500 mt-3 leading-relaxed">

@@ -108,8 +108,8 @@ export default function SuppliersPage() {
      A settled account prints a real ₹0 in the quiet rung rather than a word: the eye compares a
      column of figures far faster than a column of adjectives. */
   const outstandingCell = (s: Supplier) => (s.outstanding > 0
-    ? <span className="inline-flex items-center justify-end gap-1.5 tabular-nums font-semibold text-danger-700"><AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden />{money(s.outstanding)}</span>
-    : <span className="tabular-nums text-neutral-500">{money(0)}</span>);
+    ? <span className="inline-flex items-center justify-end gap-1.5 tnum font-semibold text-danger-700 whitespace-nowrap"><AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden />{money(s.outstanding)}</span>
+    : <span className="tnum text-neutral-500">{money(0)}</span>);
 
   const rowActions = (s: Supplier) => (
     <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
@@ -125,12 +125,12 @@ export default function SuppliersPage() {
       ? <span title={fmtDate(s.lastReceiptAt)} className="text-neutral-700">{fmtRelative(s.lastReceiptAt)}</span>
       : <span className="text-neutral-400">Never ordered</span>) },
     { key: 'po', header: 'Open POs', align: 'center', hideBelow: 'lg', sortValue: (s) => s.openPoCount, render: (s) => (s.openPoCount > 0 ? <Badge tone="info" size="sm">{s.openPoCount} open</Badge> : <span className="text-neutral-400">—</span>) },
-    { key: 'terms', header: 'Terms', hideBelow: 'lg', sortValue: (s) => s.paymentTermsDays, render: (s) => <span className="tabular-nums text-neutral-600">{s.paymentTermsDays} days</span> },
-    { key: 'purchased', header: 'Purchased', align: 'right', hideBelow: 'lg', sortValue: (s) => s.totalPurchased, render: (s) => <span className="tabular-nums">{money(s.totalPurchased)}</span> },
-    { key: 'paid', header: 'Paid', align: 'right', hideBelow: 'lg', sortValue: (s) => s.totalPaid, render: (s) => <span className="tabular-nums">{money(s.totalPaid)}</span> },
+    { key: 'terms', header: 'Terms', hideBelow: 'lg', sortValue: (s) => s.paymentTermsDays, render: (s) => <span className="tnum text-neutral-600 whitespace-nowrap">{s.paymentTermsDays} days</span> },
+    { key: 'purchased', header: 'Purchased', align: 'right', hideBelow: 'lg', sortValue: (s) => s.totalPurchased, render: (s) => <span className="tnum text-neutral-700 whitespace-nowrap">{money(s.totalPurchased)}</span> },
+    { key: 'paid', header: 'Paid', align: 'right', hideBelow: 'lg', sortValue: (s) => s.totalPaid, render: (s) => <span className="tnum text-neutral-700 whitespace-nowrap">{money(s.totalPaid)}</span> },
     { key: 'due', header: 'Outstanding', align: 'right', sortValue: (s) => s.outstanding, render: outstandingCell },
     { key: 'status', header: 'Status', sortValue: (s) => s.status, render: (s) => <StatusBadge kind="supplier" status={s.status} size="sm" /> },
-    ...(canManage ? [{ key: 'actions', header: '', align: 'right' as const, render: rowActions }] : []),
+    ...(canManage ? [{ key: 'actions', header: <span className="sr-only">Actions</span>, align: 'right' as const, render: rowActions }] : []),
   ];
 
   /**
@@ -151,7 +151,7 @@ export default function SuppliersPage() {
       ? <span title={fmtDate(s.lastReceiptAt)} className="text-neutral-700">{fmtRelative(s.lastReceiptAt)}</span>
       : <span className="text-neutral-400">Never ordered</span>) },
     { key: 'status', header: 'Status', sortValue: (s) => s.status, render: (s) => <StatusBadge kind="supplier" status={s.status} size="sm" /> },
-    ...(canManage ? [{ key: 'actions', header: '', align: 'right' as const, render: rowActions }] : []),
+    ...(canManage ? [{ key: 'actions', header: <span className="sr-only">Actions</span>, align: 'right' as const, render: rowActions }] : []),
   ];
 
   const mobileCard = (s: Supplier) => (

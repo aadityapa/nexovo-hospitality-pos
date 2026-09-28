@@ -35,8 +35,16 @@ function ageingOf(o: Order, now: Date): Ageing {
   return { ready: false, mins: elapsedMinutes(o.createdAt, now), readyCount: 0 };
 }
 
-const readyTone = (mins: number) =>
-  mins >= DELAY_THRESHOLDS.late ? 'text-danger-700' : mins >= DELAY_THRESHOLDS.warn ? 'text-warning-700' : 'text-success-700';
+/**
+ * The waiting chip for a plate standing ready — the same `-50` / `-200` / `-700` construction the
+ * kitchen board and the pass queue use, so "going cold" looks the same on every waiter screen.
+ */
+const readyChip = (mins: number) =>
+  mins >= DELAY_THRESHOLDS.late
+    ? 'bg-danger-50 text-danger-700 border-danger-200'
+    : mins >= DELAY_THRESHOLDS.warn
+      ? 'bg-warning-50 text-warning-700 border-warning-200'
+      : 'bg-success-50 text-success-700 border-success-200';
 
 export default function WaiterOrdersPage() {
   const navigate = useNavigate();
@@ -151,7 +159,7 @@ export default function WaiterOrdersPage() {
                       {o.orderNumber} · {o.itemCount} item{o.itemCount === 1 ? '' : 's'}
                       <span className="hidden xs:inline"> · <Users className="inline h-3 w-3 -mt-0.5" aria-hidden /> {o.guestCount}</span>
                     </span>
-                    <span className={cn('mt-1 inline-flex items-center gap-1 text-caption font-medium', age.ready ? readyTone(age.mins) : 'text-neutral-500')}>
+                    <span className={cn('mt-1.5 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold tnum', age.ready ? readyChip(age.mins) : 'bg-neutral-100 text-neutral-600 border-neutral-300')}>
                       <Clock className="h-3 w-3 shrink-0" aria-hidden />
                       {age.ready ? `Ready ${ageLabel(age.mins)} ago` : `Open ${ageLabel(age.mins)}`}
                     </span>

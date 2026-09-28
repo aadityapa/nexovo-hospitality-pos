@@ -40,7 +40,9 @@ export default function ForgotPasswordPage() {
               <span className="mx-auto h-12 w-12 rounded-full bg-success-50 text-success-700 ring-1 ring-inset ring-success-200 flex items-center justify-center mb-4" aria-hidden>
                 <MailCheck className="h-6 w-6" />
               </span>
-              <h1 className="text-heading text-neutral-900">Check your inbox</h1>
+              {/* The one serif line this screen is allowed — the same voice as "Welcome back" on
+                  the sign-in card, and nothing else here takes it. */}
+              <h1 className="font-serif text-[30px] leading-none tracking-[-0.01em] text-neutral-900">Check your inbox</h1>
               <p className="text-sm text-neutral-500 mt-2 leading-relaxed">
                 If an account exists for <span className="font-medium text-neutral-700 break-all">{getValues('email')}</span>,
                 reset instructions are on their way.
@@ -59,8 +61,8 @@ export default function ForgotPasswordPage() {
               <span className="h-11 w-11 rounded-full bg-primary-50 text-primary-700 ring-1 ring-inset ring-primary-200 flex items-center justify-center mb-4" aria-hidden>
                 <KeyRound className="h-5 w-5" />
               </span>
-              <h1 className="text-heading text-neutral-900">Reset password</h1>
-              <p className="text-sm text-neutral-500 mt-1.5">
+              <h1 className="font-serif text-[30px] leading-none tracking-[-0.01em] text-neutral-900">Reset password</h1>
+              <p className="text-sm text-neutral-500 mt-2">
                 Enter the email on your staff account and we'll send reset instructions.
               </p>
               <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4" noValidate>

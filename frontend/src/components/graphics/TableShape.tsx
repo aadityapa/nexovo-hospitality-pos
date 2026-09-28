@@ -169,11 +169,12 @@ export function TableShape({
         focusable="false"
       >
         {/* Selection is a ring around the whole tile, clear of the body, so it still reads on a
-            table whose own tone is gold. */}
+            table whose own tone is gold. A VIP table's ring is the violet — the one hue that
+            means VIP — so the selected booth never borrows the brand gold. */}
         {selected && (
           <rect
             x={2} y={2} width={116} height={116} rx={16}
-            className="text-primary-500" fill="none" stroke="currentColor" strokeWidth={2.5}
+            className={vip ? 'text-accent-500' : 'text-primary-500'} fill="none" stroke="currentColor" strokeWidth={2.5}
           />
         )}
 

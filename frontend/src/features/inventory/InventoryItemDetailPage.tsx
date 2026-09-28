@@ -6,15 +6,39 @@ import { InventoryItemForm, MovementForm } from './InventoryForms';
 import { usePermission } from '@/hooks/useAuth';
 import { useWorkspace } from '@/hooks/useSurface';
 import { useRealtimeInvalidate } from '@/hooks/useRealtime';
-import { Button, Card, CardHeader, StatCard, StatusBadge, Badge, KeyValue, DataTable, Alert, LoadingState, ErrorState, EmptyState, SegmentedControl, ItemImage, type Column } from '@/components/ui';
-import { StockLevel } from '@/components/graphics';
+import { Button, Card, CardHeader, StatCard, StatusBadge, Badge, KeyValue, DataTable, Alert, LoadingState, ErrorState, EmptyState, SegmentedControl, type Column } from '@/components/ui';
+import { StockLevel, DishArt, BottleArt, dishKindFor, Photo } from '@/components/graphics';
+import { stockImage } from '@/config/imagery';
 import { money } from '@/utils/money';
 import { fmtDateTime } from '@/utils/date';
 import { MOVEMENT_LABELS } from '@/config/statuses';
 import { cn } from '@/utils/cn';
-import type { StockMovement } from '@/types';
+import type { StockMovement, InventoryItem } from '@/types';
 
 type Tab = 'overview' | 'movements' | 'suppliers';
+
+/**
+ * THE PICTURE. The document leads with the item, and a stock record carries no photograph, so
+ * the frame holds the item's own drawing — a bottle for the bottle and beverage kinds, a dish
+ * for everything else. The same drawing, keyed off the same name, as the thumbnail on the list it
+ * was opened from; the bronze hairline belongs to the hero card around it, not to the frame.
+ */
+function ItemPicture({ item, className }: { item: Pick<InventoryItem, 'code' | 'name' | 'categoryName' | 'categoryKind'>; className?: string }) {
+  const bottle = item.categoryKind === 'BOTTLE' || item.categoryKind === 'BEVERAGE';
+  return (
+    <div className={cn('overflow-hidden rounded-md bg-neutral-100 ring-1 ring-inset ring-neutral-200', className)} aria-hidden>
+      {/* The stock item's photograph (config/imagery.ts, keyed by its code), with the drawing as
+          understudy — which is also what an item with no checked photo (white rum) shows. */}
+      <Photo
+        src={stockImage(item.code)}
+        fallback={bottle
+          ? <BottleArt name={item.name} category={item.categoryName} className="p-3" />
+          : <DishArt name={item.name} kind={dishKindFor(item.name, { category: item.categoryName })} />}
+        className="h-full w-full"
+      />
+    </div>
+  );
+}
 
 export default function InventoryItemDetailPage() {
   const { id } = useParams();
@@ -155,18 +179,16 @@ export default function InventoryItemDetailPage() {
         className="inline-flex items-center gap-1.5 text-[13px] text-neutral-500 hover:text-neutral-900 transition-colors duration-fast mb-3 min-h-touch"
       >
         <ChevronLeft className="h-4 w-4" aria-hidden />
-        Back to stock items
+        Back to inventory items
       </Link>
 
-      {/* IDENTITY. Picture-led, as the board draws it: what the thing is, then what state it is in. */}
-      <Card className="mb-4">
+      {/* IDENTITY. Picture-led, as the board draws it: what the thing is, then what state it is in.
+          The one bronze hairline on the screen — this is the hero card, and nothing else takes it. */}
+      <Card className="mb-4 border-bronze/30 material-gloss">
         <div className="flex flex-col sm:flex-row gap-5 min-w-0">
           {/* The manager board leads the document with a large product picture; the admin board
               leads with a thumbnail beside the facts. Same drawing, same source, wider frame. */}
-          <ItemImage
-            src={null} alt={i.name} category={i.categoryName}
-            rounded="rounded-md" className={cn('w-full aspect-[4/3] shrink-0', ws === 'manager' ? 'sm:w-64' : 'sm:w-44')}
-          />
+          <ItemPicture item={i} className={cn('w-full aspect-[4/3] shrink-0', ws === 'manager' ? 'sm:w-64' : 'sm:w-44')} />
           <div className="min-w-0 flex-1">
             <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
               <div className="min-w-0">

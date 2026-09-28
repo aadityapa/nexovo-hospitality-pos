@@ -243,13 +243,14 @@ export default function MenuItemsPage() {
           <ul className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {rows.map((r, idx) => (
               <li key={r.id} className="anim-reveal min-w-0" style={beat(idx)}>
-                <article className="card material-gloss p-0 overflow-hidden h-full flex flex-col min-w-0">
+                <article className="card material-gloss p-0 overflow-hidden h-full flex flex-col min-w-0 transition-[border-color,box-shadow] duration-control hover:border-neutral-300 hover:shadow-panel">
                   <div className="relative">
                     {/* A real photograph wins; a missing one becomes the dish's own drawing, so the
-                        grid stays image-led instead of showing a row of grey tiles. */}
+                        grid stays image-led instead of showing a row of grey tiles. The drawn tile
+                        carries its bronze hairline itself; a photograph takes the card's own edge. */}
                     <ItemImage
                       src={r.imageUrl} alt={r.name} prepLocation={r.prepLocation} category={r.categoryName}
-                      rounded="rounded-none" className="aspect-[4/3] w-full"
+                      rounded="rounded-none" className="aspect-[4/3] w-full ring-0 border-b border-bronze/20"
                     />
                     {canManage && (
                       <div className="absolute top-2 right-2 flex items-center gap-1">
@@ -285,6 +286,9 @@ export default function MenuItemsPage() {
                           <span className="min-w-0 break-words line-clamp-2" title={r.name}>{r.name}</span>
                         </h3>
                         <p className="text-xs text-neutral-500 mt-0.5 truncate">{r.categoryName ?? r.code}</p>
+                        {/* The record's own description, two lines at most — the reference cards
+                            read name, then a line of what the dish is, then the price. */}
+                        {r.description && <p className="text-caption text-neutral-500 mt-1 line-clamp-2 leading-snug break-words">{r.description}</p>}
                       </div>
                       {/* Status is colour AND text AND a dot — never the fill on its own. */}
                       <Badge tone={r.isAvailable ? 'success' : 'neutral'} size="sm" dot className="shrink-0">
@@ -295,7 +299,9 @@ export default function MenuItemsPage() {
                     {/* `mt-auto` parks the price on the card's floor, so the price rules line up
                         across the row however tall the names above them are. */}
                     <div className="mt-auto pt-3 border-t border-neutral-200 flex items-center justify-between gap-2">
-                      <p className="text-[15px] font-semibold text-primary-700 tabular-nums">{money(r.price)}</p>
+                      {/* The price is a figure, not a brand mark: ivory on the dark ground, ink on
+                          the light one, tabular so a column of cards lines up. */}
+                      <p className="text-[15px] font-semibold text-neutral-900 tnum">{money(r.price)}</p>
                       {canAvail && (
                         <Switch
                           size="sm"

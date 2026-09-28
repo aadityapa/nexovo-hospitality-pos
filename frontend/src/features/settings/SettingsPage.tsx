@@ -12,6 +12,7 @@ import { toast } from '@/store/uiStore';
 import { PageHeader, Button, IconButton, Card, CardHeader, Input, Select, Switch, Textarea, Modal, LoadingState, ErrorState, EmptyState, Badge, Alert, useReadOnly, ReadOnlyBanner, ReadOnlyPill, ReadOnlyField } from '@/components/ui';
 import { env } from '@/config/env';
 import { cn } from '@/utils/cn';
+import { money } from '@/utils/money';
 import type { Branch, BranchInput, TaxGroup, TaxGroupInput } from '@/types';
 
 /**
@@ -378,7 +379,7 @@ function BranchSettingsReadOnly({ branch, section }: { branch: Branch; section: 
           <ReadOnlyField
             label={FIELD_LABELS.minSpendFlatFee}
             value={shortfall === 'FLAT_FEE'
-              ? <span className="tabular-nums">₹{branch.minSpendFlatFee ?? 0}</span>
+              ? <span className="tabular-nums">{money(branch.minSpendFlatFee ?? 0)}</span>
               : <span className="text-neutral-500">Not used — the shortfall mode is “{SHORTFALL_LABEL[shortfall]}”</span>}
           />
           <ReadOnlyField label={FIELD_LABELS.pmsProvider} value={PMS_OPTIONS.find((p) => p.value === branch.pmsProvider)?.label ?? PMS_OPTIONS[0].label} />

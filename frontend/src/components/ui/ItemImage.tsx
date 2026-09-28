@@ -32,8 +32,12 @@ export function ItemImage({ src, alt, prepLocation, category, kind, className, r
   const [failed, setFailed] = useState(false);
 
   if (!src || failed) {
+    /* The drawn tile sits inside a bronze hairline — the same edge a premium panel takes — so a
+       menu without photography reads as a set of framed plates rather than a row of grey holes.
+       The drawing covers the whole box, so there is never a broken-image glyph and never a stock
+       photograph standing in for this venue's food. */
     return (
-      <div className={cn('overflow-hidden bg-neutral-100 ring-1 ring-inset ring-neutral-200', rounded, className)} aria-hidden>
+      <div className={cn('overflow-hidden bg-neutral-100 ring-1 ring-inset ring-bronze/30', rounded, className)} aria-hidden>
         <DishArt name={alt} kind={kind ?? dishKindFor(alt, { prepLocation, category })} />
       </div>
     );

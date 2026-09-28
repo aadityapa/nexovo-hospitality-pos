@@ -28,7 +28,9 @@ const variants: Record<ButtonVariant, string> = {
   secondary: 'bg-neutral-100 text-neutral-900 border border-neutral-300 hover:bg-neutral-200 hover:border-neutral-400 active:bg-neutral-300',
   outline:   'bg-transparent text-neutral-800 border border-neutral-300 hover:bg-neutral-100 hover:border-neutral-400 active:bg-neutral-200',
   ghost:     'bg-transparent text-neutral-700 border border-transparent hover:bg-neutral-100 hover:text-neutral-900 active:bg-neutral-200',
-  danger:    'bg-danger-500 text-on-primary border border-danger-500 hover:bg-danger-700 hover:border-danger-700 active:bg-danger-500 shadow-card font-semibold',
+  /* `danger-700` + `neutral-50` invert together (deep red / ivory label in light, soft red / near-black
+     label in dark); `danger-500` + fixed `on-primary` measured 3.93:1 in the light theme. */
+  danger:    'bg-danger-700 text-neutral-50 border border-danger-700 hover:bg-danger-700/90 active:bg-danger-700 shadow-card font-semibold',
   success:   'bg-success-500 text-on-primary border border-success-500 hover:bg-success-700 hover:border-success-700 active:bg-success-500 shadow-card font-semibold',
   warning:   'bg-warning-500 text-on-primary border border-warning-500 hover:bg-warning-700 hover:border-warning-700 active:bg-warning-500 shadow-card font-semibold',
   link:      'bg-transparent text-primary-500 border border-transparent hover:text-primary-700 hover:underline underline-offset-2 px-0',

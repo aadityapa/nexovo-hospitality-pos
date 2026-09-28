@@ -8,6 +8,7 @@
 import type { Branch, Floor, DiningTable, TaxGroup, MenuCategory, MenuItem, Offer, Order, Bill, RoleCode, AuditLog, OrderStatusHistory } from '@/types';
 import type { Permission } from '@/config/permissions';
 import { ROLE_PERMISSIONS, ROLE_MAX_DISCOUNT } from '@/config/permissions';
+import { menuImage } from '@/config/imagery';
 import { createPhase2Seed, type Phase2Db } from './db2';
 
 export interface DbUser {
@@ -75,7 +76,7 @@ export interface MockDb {
   p2: Phase2Db;
 }
 
-export const DB_VERSION = 5;   // 5: seeded tables use deterministic public QR codes
+export const DB_VERSION = 7;   // 7: category photographs; 6: menu photographs are local files; 5: deterministic public QR codes
 export const DB_KEY = 'nexovo.mockdb';
 
 const now = () => new Date().toISOString();
@@ -117,8 +118,10 @@ function table(id: number, floorId: number, floorName: string, number: string, n
   return { id, branchId: 1, floorId, floorName, number, name, capacity, publicCode: stableCode(`MAIN|${id}|${number}`), qrVersion: 1, status: 'AVAILABLE', statusOverride: false, assignedWaiterId: waiterId, assignedWaiterName: waiterId === 4 ? 'Rahul Verma' : 'Sneha Iyer', activeOrderId: null, activeOrderNumber: null, activeOrderStatus: null, activeOrderTotal: null, occupiedSince: null, isActive: true, isDeleted: false, createdAt: now() };
 }
 
-function cat(id: number, name: string, prep: 'KITCHEN' | 'BAR'): MenuCategory {
-  return { id, branchId: 1, name, slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), description: null, imageUrl: null, prepLocation: prep, displayOrder: id, isActive: true, isDeleted: false, createdAt: now() };
+/* A category's picture is the photograph of one of its OWN dishes (`coverCode`), never a generic
+   stock image, so a category tile can only ever show food or drink the venue actually sells. */
+function cat(id: number, name: string, prep: 'KITCHEN' | 'BAR', coverCode?: string): MenuCategory {
+  return { id, branchId: 1, name, slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), description: null, imageUrl: coverCode ? menuImage(coverCode) : null, prepLocation: prep, displayOrder: id, isActive: true, isDeleted: false, createdAt: now() };
 }
 
 let itemSeq = 0;
@@ -127,7 +130,15 @@ function item(code: string, categoryId: number, name: string, description: strin
   return { id: itemSeq, branchId: 1, categoryId, code, name, description, imageUrl: img, price, prepLocation: prep, taxGroupId, isVeg, isPopular, isAvailable: true, isActive: true, isDeleted: false, displayOrder: itemSeq, tags: null, createdAt: now(), updatedAt: null };
 }
 
-const u = (id: string) => `https://images.unsplash.com/${id}?w=600&q=70&auto=format`;
+/*
+ * Every seeded item's picture is a LOCAL file, `/img/menu/<code>.jpg`, fetched once into
+ * `public/img/` by `scripts/fetch-assets.mjs` from the licensed sources in `assets.manifest.json`.
+ * The seed used to hot-link `images.unsplash.com` — two of those URLs had gone 404 and five more
+ * showed a different dish from the one they were attached to (samosas as "Garlic Naan", a Jack
+ * Daniel's bottle as "Glenfiddich"). A photograph is now part of the record's code, and the
+ * manifest is where each one was checked against the dish it stands for.
+ */
+const local = (code: string) => menuImage(code);
 
 function ymd(d: Date) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
 function daysFromNow(n: number) { const d = new Date(); d.setDate(d.getDate() + n); return ymd(d); }
@@ -153,48 +164,48 @@ export function createSeedDb(): MockDb {
   ];
 
   const categories: MenuCategory[] = [
-    cat(1, 'Starters', 'KITCHEN'), cat(2, 'Main Course', 'KITCHEN'), cat(3, 'Chinese', 'KITCHEN'), cat(4, 'Indian', 'KITCHEN'),
-    cat(5, 'Pizza', 'KITCHEN'), cat(6, 'Burgers', 'KITCHEN'), cat(7, 'Desserts', 'KITCHEN'), cat(8, 'Beverages', 'BAR'),
-    cat(9, 'Mocktails', 'BAR'), cat(10, 'Cocktails', 'BAR'), cat(11, 'Beer', 'BAR'), cat(12, 'Wine', 'BAR'), cat(13, 'Spirits', 'BAR'),
+    cat(1, 'Starters', 'KITCHEN', 'ST01'), cat(2, 'Main Course', 'KITCHEN', 'MC01'), cat(3, 'Chinese', 'KITCHEN', 'CH01'), cat(4, 'Indian', 'KITCHEN', 'IN01'),
+    cat(5, 'Pizza', 'KITCHEN', 'PZ01'), cat(6, 'Burgers', 'KITCHEN', 'BG02'), cat(7, 'Desserts', 'KITCHEN', 'DS03'), cat(8, 'Beverages', 'BAR', 'BV01'),
+    cat(9, 'Mocktails', 'BAR', 'MK01'), cat(10, 'Cocktails', 'BAR', 'CK03'), cat(11, 'Beer', 'BAR', 'BR02'), cat(12, 'Wine', 'BAR', 'WN01'), cat(13, 'Spirits', 'BAR', 'SP01'),
   ];
 
   const items: MenuItem[] = [
-    item('ST01', 1, 'Paneer Tikka', 'Char-grilled cottage cheese, mint chutney', 320, 'KITCHEN', 1, true, true, u('photo-1567188040759-fb8a883dc6d8')),
-    item('ST02', 1, 'Chicken Wings', 'Six pieces, peri-peri glaze', 380, 'KITCHEN', 1, false, true, u('photo-1608039755401-742074f0548d')),
-    item('ST03', 1, 'French Fries', 'Crispy, salted, served with ketchup', 250, 'KITCHEN', 1, true, true, u('photo-1573080496219-bb080dd4f877')),
-    item('ST04', 1, 'Nachos Grande', 'Cheese, salsa, jalapeños, sour cream', 340, 'KITCHEN', 1, true, false, u('photo-1513456852971-30c0b8199d4d')),
-    item('MC01', 2, 'Grilled Salmon', 'Lemon butter, sautéed greens', 890, 'KITCHEN', 1, false, false, u('photo-1467003909585-2f8a72700288')),
-    item('MC02', 2, 'Pasta Alfredo', 'Creamy parmesan, penne', 460, 'KITCHEN', 1, true, false, u('photo-1645112411341-6c4fd023714a')),
-    item('MC03', 2, 'Mushroom Risotto', 'Arborio rice, wild mushrooms', 520, 'KITCHEN', 1, true, false, u('photo-1476124369491-e7addf5db371')),
-    item('CH01', 3, 'Hakka Noodles', 'Wok-tossed vegetables', 290, 'KITCHEN', 1, true, false, u('photo-1585032226651-759b368d7246')),
-    item('CH02', 3, 'Chilli Chicken', 'Indo-Chinese classic, dry', 380, 'KITCHEN', 1, false, true, u('photo-1603133872878-684f208fb84b')),
-    item('CH03', 3, 'Veg Manchurian', 'Vegetable dumplings, soy garlic sauce', 310, 'KITCHEN', 1, true, false, u('photo-1626804475297-41608ea09aeb')),
-    item('IN01', 4, 'Butter Chicken', 'Tandoori chicken in tomato-butter gravy', 480, 'KITCHEN', 1, false, true, u('photo-1603894584373-5ac82b2ae398')),
-    item('IN02', 4, 'Dal Makhani', 'Slow-cooked black lentils', 340, 'KITCHEN', 1, true, false, u('photo-1546833999-b9f581a1996d')),
-    item('IN03', 4, 'Garlic Naan', 'Tandoor baked, butter garlic', 90, 'KITCHEN', 1, true, false, u('photo-1601050690597-df0568f70950')),
-    item('IN04', 4, 'Chicken Biryani', 'Hyderabadi dum, raita', 420, 'KITCHEN', 1, false, true, u('photo-1563379091339-03b21ab4a4f8')),
-    item('PZ01', 5, 'Margherita Pizza', 'San Marzano tomato, buffalo mozzarella', 450, 'KITCHEN', 1, true, true, u('photo-1574071318508-1cdbab80d002')),
-    item('PZ02', 5, 'Pepperoni Pizza', 'Pork pepperoni, mozzarella', 560, 'KITCHEN', 1, false, false, u('photo-1628840042765-356cda07504e')),
-    item('BG01', 6, 'Chicken Burger', 'Crispy fillet, slaw, brioche bun', 350, 'KITCHEN', 1, false, true, u('photo-1568901346375-23c9450c58cd')),
-    item('BG02', 6, 'Classic Beef Burger', 'Double patty, cheddar', 420, 'KITCHEN', 1, false, false, u('photo-1550547660-d9450f859349')),
-    item('BG03', 6, 'Veggie Burger', 'Beetroot-quinoa patty', 320, 'KITCHEN', 1, true, false, u('photo-1520072959219-c595dc870360')),
-    item('DS01', 7, 'Chocolate Brownie', 'Warm, with vanilla ice cream', 260, 'KITCHEN', 1, true, true, u('photo-1607920591413-4ec007e70023')),
-    item('DS02', 7, 'Gulab Jamun', 'Two pieces, rose syrup', 180, 'KITCHEN', 1, true, false, u('photo-1601303516534-bf0b1eb70c0d')),
-    item('DS03', 7, 'Tiramisu', 'Espresso soaked, mascarpone', 320, 'KITCHEN', 1, true, false, u('photo-1571877227200-a0d98ea607e9')),
-    item('BV01', 8, 'Fresh Lime Soda', 'Sweet / salted', 120, 'BAR', 1, true, false, u('photo-1523677011781-c91d1bbe2f9e')),
-    item('BV02', 8, 'Cold Coffee', 'Blended with ice cream', 220, 'BAR', 1, true, false, u('photo-1461023058943-07fcbe16d735')),
-    item('BV03', 8, 'Mineral Water 1L', 'Chilled', 60, 'BAR', 4, true, false, null),
-    item('MK01', 9, 'Virgin Mojito', 'Mint, lime, soda', 260, 'BAR', 1, true, true, u('photo-1551024709-8f23befc6f87')),
-    item('MK02', 9, 'Blue Lagoon', 'Blue curaçao syrup, lemonade', 280, 'BAR', 1, true, false, u('photo-1536935338788-846bb9981813')),
-    item('CK01', 10, 'Mojito', 'White rum, mint, lime', 450, 'BAR', 3, true, true, u('photo-1551538827-9c037cb4f32a')),
-    item('CK02', 10, 'Long Island Iced Tea', 'Five spirits, cola', 620, 'BAR', 3, true, false, u('photo-1470337458703-46ad1756a187')),
-    item('CK03', 10, 'Whiskey Sour', 'Bourbon, lemon, egg white', 550, 'BAR', 3, false, false, u('photo-1514362545857-3bc16c4c7d1b')),
-    item('BR01', 11, 'Kingfisher Premium 650ml', 'Lager', 400, 'BAR', 3, true, true, u('photo-1608270586620-248524c67de9')),
-    item('BR02', 11, 'Craft IPA 330ml', 'Local brewery', 380, 'BAR', 3, true, false, u('photo-1535958636474-b021ee887b13')),
-    item('WN01', 12, 'House Red (glass)', 'Cabernet Sauvignon', 520, 'BAR', 3, true, false, u('photo-1510812431401-41d2bd2722f3')),
-    item('WN02', 12, 'House White (glass)', 'Sauvignon Blanc', 520, 'BAR', 3, true, false, u('photo-1566754436893-98224ee05be8')),
-    item('SP01', 13, 'Single Malt 30ml', 'Glenfiddich 12', 750, 'BAR', 3, true, false, u('photo-1527281400683-1aae777175f8')),
-    item('SP02', 13, 'Premium Vodka 30ml', 'Grey Goose', 550, 'BAR', 3, true, false, null),
+    item('ST01', 1, 'Paneer Tikka', 'Char-grilled cottage cheese, mint chutney', 320, 'KITCHEN', 1, true, true, local('ST01')),
+    item('ST02', 1, 'Chicken Wings', 'Six pieces, peri-peri glaze', 380, 'KITCHEN', 1, false, true, local('ST02')),
+    item('ST03', 1, 'French Fries', 'Crispy, salted, served with ketchup', 250, 'KITCHEN', 1, true, true, local('ST03')),
+    item('ST04', 1, 'Nachos Grande', 'Cheese, salsa, jalapeños, sour cream', 340, 'KITCHEN', 1, true, false, local('ST04')),
+    item('MC01', 2, 'Grilled Salmon', 'Lemon butter, sautéed greens', 890, 'KITCHEN', 1, false, false, local('MC01')),
+    item('MC02', 2, 'Pasta Alfredo', 'Creamy parmesan, penne', 460, 'KITCHEN', 1, true, false, local('MC02')),
+    item('MC03', 2, 'Mushroom Risotto', 'Arborio rice, wild mushrooms', 520, 'KITCHEN', 1, true, false, local('MC03')),
+    item('CH01', 3, 'Hakka Noodles', 'Wok-tossed vegetables', 290, 'KITCHEN', 1, true, false, local('CH01')),
+    item('CH02', 3, 'Chilli Chicken', 'Indo-Chinese classic, dry', 380, 'KITCHEN', 1, false, true, local('CH02')),
+    item('CH03', 3, 'Veg Manchurian', 'Vegetable dumplings, soy garlic sauce', 310, 'KITCHEN', 1, true, false, local('CH03')),
+    item('IN01', 4, 'Butter Chicken', 'Tandoori chicken in tomato-butter gravy', 480, 'KITCHEN', 1, false, true, local('IN01')),
+    item('IN02', 4, 'Dal Makhani', 'Slow-cooked black lentils', 340, 'KITCHEN', 1, true, false, local('IN02')),
+    item('IN03', 4, 'Garlic Naan', 'Tandoor baked, butter garlic', 90, 'KITCHEN', 1, true, false, local('IN03')),
+    item('IN04', 4, 'Chicken Biryani', 'Hyderabadi dum, raita', 420, 'KITCHEN', 1, false, true, local('IN04')),
+    item('PZ01', 5, 'Margherita Pizza', 'San Marzano tomato, buffalo mozzarella', 450, 'KITCHEN', 1, true, true, local('PZ01')),
+    item('PZ02', 5, 'Pepperoni Pizza', 'Pork pepperoni, mozzarella', 560, 'KITCHEN', 1, false, false, local('PZ02')),
+    item('BG01', 6, 'Chicken Burger', 'Crispy fillet, slaw, brioche bun', 350, 'KITCHEN', 1, false, true, local('BG01')),
+    item('BG02', 6, 'Classic Beef Burger', 'Double patty, cheddar', 420, 'KITCHEN', 1, false, false, local('BG02')),
+    item('BG03', 6, 'Veggie Burger', 'Beetroot-quinoa patty', 320, 'KITCHEN', 1, true, false, local('BG03')),
+    item('DS01', 7, 'Chocolate Brownie', 'Warm, with vanilla ice cream', 260, 'KITCHEN', 1, true, true, local('DS01')),
+    item('DS02', 7, 'Gulab Jamun', 'Two pieces, rose syrup', 180, 'KITCHEN', 1, true, false, local('DS02')),
+    item('DS03', 7, 'Tiramisu', 'Espresso soaked, mascarpone', 320, 'KITCHEN', 1, true, false, local('DS03')),
+    item('BV01', 8, 'Fresh Lime Soda', 'Sweet / salted', 120, 'BAR', 1, true, false, local('BV01')),
+    item('BV02', 8, 'Cold Coffee', 'Blended with ice cream', 220, 'BAR', 1, true, false, local('BV02')),
+    item('BV03', 8, 'Mineral Water 1L', 'Chilled', 60, 'BAR', 4, true, false, local('BV03')),
+    item('MK01', 9, 'Virgin Mojito', 'Mint, lime, soda', 260, 'BAR', 1, true, true, local('MK01')),
+    item('MK02', 9, 'Blue Lagoon', 'Blue curaçao syrup, lemonade', 280, 'BAR', 1, true, false, local('MK02')),
+    item('CK01', 10, 'Mojito', 'White rum, mint, lime', 450, 'BAR', 3, true, true, local('CK01')),
+    item('CK02', 10, 'Long Island Iced Tea', 'Five spirits, cola', 620, 'BAR', 3, true, false, local('CK02')),
+    item('CK03', 10, 'Whiskey Sour', 'Bourbon, lemon, egg white', 550, 'BAR', 3, false, false, local('CK03')),
+    item('BR01', 11, 'Kingfisher Premium 650ml', 'Lager', 400, 'BAR', 3, true, true, local('BR01')),
+    item('BR02', 11, 'Craft IPA 330ml', 'Local brewery', 380, 'BAR', 3, true, false, local('BR02')),
+    item('WN01', 12, 'House Red (glass)', 'Cabernet Sauvignon', 520, 'BAR', 3, true, false, local('WN01')),
+    item('WN02', 12, 'House White (glass)', 'Sauvignon Blanc', 520, 'BAR', 3, true, false, local('WN02')),
+    item('SP01', 13, 'Single Malt 30ml', 'Glenfiddich 12', 750, 'BAR', 3, true, false, local('SP01')),
+    item('SP02', 13, 'Premium Vodka 30ml', 'Grey Goose', 550, 'BAR', 3, true, false, local('SP02')),
   ];
   const byCode = (c: string) => items.find((i) => i.code === c)!.id;
 

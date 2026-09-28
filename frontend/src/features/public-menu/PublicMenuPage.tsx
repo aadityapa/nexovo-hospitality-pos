@@ -53,65 +53,122 @@ function VegDot({ veg }: { veg: boolean }) {
   );
 }
 
-/* ------------------------------------------------------------------ item card */
+/* ------------------------------------------------------------------ dish cards */
 /**
- * The guest-facing dish row. `selected` is the number of this dish already on the guest's list,
- * derived from the selection they built — nothing is invented. When it is non-zero the card
- * takes a gold edge and the ADD control becomes a live count, so a guest scrolling back up can
- * see what they have chosen without opening the summary sheet.
+ * Both dish cards take the same props. `selected` is the number of this dish already on the
+ * guest's list, derived from the selection they built — nothing is invented. When it is non-zero
+ * the card takes a gold edge and the ADD control becomes a live count, so a guest scrolling back
+ * up can see what they have chosen without opening the summary sheet.
+ */
+interface DishCardProps { item: MenuItem; offers: Offer[]; selected: number; onOpen: () => void; onQuickAdd: () => void }
+
+/** The ADD control, shared by both cards so the two never drift apart in label or behaviour. */
+function AddControl({ item, selected, onQuickAdd, size }: { item: MenuItem; selected: number; onQuickAdd: () => void; size: 'sm' | 'md' }) {
+  return (
+    <Button
+      size={size}
+      variant={selected > 0 ? 'primary' : 'outline'}
+      className={cn('font-semibold', size === 'sm' ? 'min-w-[64px]' : 'min-w-[96px] min-h-touch', selected === 0 && 'text-primary-700 border-primary-200 hover:bg-primary-50 hover:border-primary-400')}
+      disabled={!item.isAvailable}
+      onClick={onQuickAdd}
+      aria-label={selected > 0 ? `Add another ${item.name}, ${selected} already selected` : `Add ${item.name} to selection`}
+    >
+      {!item.isAvailable ? 'N/A' : selected > 0 ? `${selected} · ADD` : 'ADD'}
+    </Button>
+  );
+}
+
+/**
+ * THE FEATURED DISH — the first dish of each section, drawn large: the picture across the top,
+ * then the name, the record's own description and the price. It is the one card in a section that
+ * takes the bronze hairline, which is what makes a section read as a hero followed by a list
+ * rather than as a stack of identical rows.
  *
  * MATERIAL. This is the guest's screen, on the guest's own phone, read at leisure — so the dish
- * card gets the gloss that an operational row does not: one specular band raking across the top,
- * so a page of dishes reads as a set of lit surfaces rather than a stack of rectangles. It takes
- * no `.material-edge`: the card's edge is a real `border` that CHANGES with selection (gold once
- * the dish is on the list), and its lift is `shadow-card` — `.material-edge` is a `box-shadow`
- * and would replace that shadow on exactly the cards that are meant to be lifted.
+ * card gets the gloss that an operational row does not. It takes no `.material-edge`: the card's
+ * edge is a real `border` that CHANGES with selection (gold once the dish is on the list).
  */
-function MenuItemCard({ item, offers, selected, onOpen, onQuickAdd }: { item: MenuItem; offers: Offer[]; selected: number; onOpen: () => void; onQuickAdd: () => void }) {
+function FeaturedDishCard({ item, offers, selected, onOpen, onQuickAdd }: DishCardProps) {
   const best = bestOfferForLine(offers, item, item.price, 1);
   return (
     <article className={cn(
-      'flex gap-3.5 p-3.5 bg-surface-raised rounded-md border material-gloss transition-[border-color,box-shadow] duration-control',
+      'overflow-hidden rounded-lg border bg-surface-raised material-gloss shadow-card transition-[border-color,box-shadow] duration-control min-w-0',
+      selected > 0 ? 'border-primary-500' : 'border-bronze/40 hover:border-bronze/60 hover:shadow-panel',
+      !item.isAvailable && 'opacity-60',
+    )}>
+      {/* Tapping the picture opens the same sheet as the title. It is kept out of the tab order
+          so keyboard users meet each dish once, not twice. */}
+      <button
+        type="button"
+        onClick={onOpen}
+        tabIndex={-1}
+        aria-label={`View ${item.name}`}
+        className="block w-full overflow-hidden bg-neutral-100 border-b border-bronze/20"
+      >
+        <ItemImage item={item} className="w-full aspect-[16/10]" />
+      </button>
+      <div className="p-4 min-w-0">
+        <button type="button" onClick={onOpen} className="block w-full min-w-0 text-left" aria-label={`View ${item.name}`}>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <VegDot veg={item.isVeg} />
+            {/* Violet means VIP classification in this product — a popular dish is emphasis. */}
+            {item.isPopular && <Badge tone="warning" size="sm" icon={<Flame className="h-3 w-3" />}>Popular</Badge>}
+            {best.offer && <Badge tone="success" size="sm" icon={<Tag className="h-3 w-3" />}>{offerLabel(best.offer)}</Badge>}
+          </div>
+          <h3 className="mt-2 text-lg font-semibold text-neutral-900 leading-snug break-words">{item.name}</h3>
+          {item.description && <p className="mt-1 text-sm text-neutral-500 leading-relaxed line-clamp-3 break-words">{item.description}</p>}
+          {selected > 0 && <p className="mt-1.5 text-caption font-semibold text-primary-700 tnum">{selected} on your list</p>}
+          {!item.isAvailable && <p className="mt-1.5 text-caption text-danger-700 font-medium">Currently unavailable</p>}
+        </button>
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <p className="text-lg font-semibold tnum text-neutral-900">{money(item.price)}</p>
+          <AddControl item={item} selected={selected} onQuickAdd={onQuickAdd} size="md" />
+        </div>
+      </div>
+    </article>
+  );
+}
+
+/**
+ * THE COMPACT ROW — every dish after the first in a section: thumbnail, name, a line of the
+ * record's description, the price on the right. The thumbnail is framed by the same bronze
+ * hairline the drawn fallback carries, so a photographed dish and a drawn one sit in one frame.
+ */
+function MenuItemCard({ item, offers, selected, onOpen, onQuickAdd }: DishCardProps) {
+  const best = bestOfferForLine(offers, item, item.price, 1);
+  return (
+    <article className={cn(
+      'flex gap-3 p-3 bg-surface-raised rounded-md border material-gloss transition-[border-color,box-shadow] duration-control min-w-0',
       selected > 0 ? 'border-primary-500 shadow-card' : 'border-neutral-200 hover:border-neutral-300 hover:shadow-card',
       !item.isAvailable && 'opacity-60',
     )}>
-      <button type="button" onClick={onOpen} className="flex-1 min-w-0 text-left" aria-label={`View ${item.name}`}>
-        <div className="flex items-center gap-2 flex-wrap">
-          <VegDot veg={item.isVeg} />
-          {/* Violet means VIP classification in this product — a popular dish is emphasis. */}
-          {item.isPopular && <Badge tone="warning" size="sm" icon={<Flame className="h-3 w-3" />}>Popular</Badge>}
-          {best.offer && <Badge tone="success" size="sm" icon={<Tag className="h-3 w-3" />}>{offerLabel(best.offer)}</Badge>}
-        </div>
-        <h3 className="font-semibold text-neutral-900 mt-2 leading-snug">{item.name}</h3>
-        {item.description && <p className="text-sm text-neutral-500 mt-1 line-clamp-2 leading-relaxed">{item.description}</p>}
-        <p className="mt-2.5 font-semibold tnum text-neutral-900">{money(item.price)}</p>
-        {selected > 0 && (
-          <p className="mt-1 text-caption font-semibold text-primary-700 tnum">{selected} on your list</p>
-        )}
-        {!item.isAvailable && <p className="text-caption text-danger-700 font-medium mt-1">Currently unavailable</p>}
+      <button
+        type="button"
+        onClick={onOpen}
+        tabIndex={-1}
+        aria-label={`View ${item.name}`}
+        className="h-16 w-16 shrink-0 rounded-md overflow-hidden bg-neutral-100 ring-1 ring-inset ring-bronze/30"
+      >
+        <ItemImage item={item} className="h-full w-full" />
       </button>
-      <div className="w-[112px] shrink-0 flex flex-col items-center gap-2">
-        {/* Tapping the photo opens the same sheet as the title. It is kept out of the tab
-            order so keyboard users meet each dish once, not twice. */}
-        <button
-          type="button"
-          onClick={onOpen}
-          tabIndex={-1}
-          aria-label={`View ${item.name}`}
-          className="w-[112px] h-[96px] rounded-md overflow-hidden bg-neutral-100 ring-1 ring-inset ring-neutral-200"
-        >
-          <ItemImage item={item} className="w-full h-full" />
-        </button>
-        <Button
-          size="sm"
-          variant={selected > 0 ? 'primary' : 'outline'}
-          className={cn('w-[112px] font-semibold', selected === 0 && 'text-primary-700 border-primary-200 hover:bg-primary-50 hover:border-primary-400')}
-          disabled={!item.isAvailable}
-          onClick={onQuickAdd}
-          aria-label={selected > 0 ? `Add another ${item.name}, ${selected} already selected` : `Add ${item.name} to selection`}
-        >
-          {!item.isAvailable ? 'N/A' : selected > 0 ? `${selected} · ADD` : 'ADD'}
-        </Button>
+      <button type="button" onClick={onOpen} className="flex-1 min-w-0 text-left" aria-label={`View ${item.name}`}>
+        <div className="flex items-start gap-1.5 min-w-0">
+          <span className="mt-0.5 inline-flex shrink-0"><VegDot veg={item.isVeg} /></span>
+          <h3 className="font-semibold text-neutral-900 leading-snug min-w-0 break-words">{item.name}</h3>
+        </div>
+        {item.description && <p className="mt-0.5 text-caption text-neutral-500 leading-snug line-clamp-2 break-words">{item.description}</p>}
+        {(item.isPopular || best.offer) && (
+          <div className="mt-1.5 flex items-center gap-1 flex-wrap">
+            {item.isPopular && <Badge tone="warning" size="sm" icon={<Flame className="h-3 w-3" />}>Popular</Badge>}
+            {best.offer && <Badge tone="success" size="sm" icon={<Tag className="h-3 w-3" />}>{offerLabel(best.offer)}</Badge>}
+          </div>
+        )}
+        {selected > 0 && <p className="mt-1 text-caption font-semibold text-primary-700 tnum">{selected} on your list</p>}
+        {!item.isAvailable && <p className="mt-1 text-caption text-danger-700 font-medium">Currently unavailable</p>}
+      </button>
+      <div className="shrink-0 flex flex-col items-end justify-between gap-2">
+        <p className="font-semibold tnum text-neutral-900 leading-snug">{money(item.price)}</p>
+        <AddControl item={item} selected={selected} onQuickAdd={onQuickAdd} size="sm" />
       </div>
     </article>
   );
@@ -133,7 +190,7 @@ function ItemSheet({ item, offers, onClose, onAdd }: { item: MenuItem | null; of
     }>
       {/* The photograph runs full bleed to the sheet edge — the one generous piece of imagery
           on a guest screen, and the reason the sheet exists rather than an inline expander. */}
-      <div className="-mx-5 -mt-4"><ItemImage item={item} className="w-full h-56" /></div>
+      <div className="-mx-5 -mt-4 border-b border-bronze/20"><ItemImage item={item} className="w-full h-56" /></div>
       <div className="mt-4 flex items-center gap-2"><VegDot veg={item.isVeg} />{item.isPopular && <Badge tone="warning" size="sm" icon={<Flame className="h-3 w-3" />}>Popular</Badge>}<span className="text-caption text-neutral-500 ml-auto">{item.prepLocation === 'BAR' ? 'From the bar' : 'From the kitchen'}</span></div>
       <h2 className="text-heading mt-2 text-neutral-900">{item.name}</h2>
       {item.description && <p className="text-neutral-600 mt-1 leading-relaxed">{item.description}</p>}
@@ -213,7 +270,7 @@ function OffersView({ data }: { data: PublicMenu }) {
           13 px supporting line. The rule that used to be repeated under every single offer now
           sits here once, where a guest reads it before the list rather than five times inside it. */}
       <div className="mb-4">
-        <p className="text-label uppercase text-primary-700">Offers</p>
+        <p className="text-label uppercase tracking-[0.16em] text-primary-700">Offers</p>
         <h1 className="text-heading text-neutral-900 mt-1">
           {data.offers.length > 0 ? `${data.offers.length} offer${data.offers.length === 1 ? '' : 's'} running now` : 'Offers'}
         </h1>
@@ -223,14 +280,14 @@ function OffersView({ data }: { data: PublicMenu }) {
       </div>
       {data.offers.length === 0 && <EmptyState icon={<Tag className="h-6 w-6" />} title="No offers right now" description="Check back later — happy hours and specials appear here automatically." />}
       {data.offers.map((o) => (
-        <article key={o.id} className="card p-4">
+        <article key={o.id} className="card material-gloss p-4">
           <div className="flex items-start gap-3">
             <span className="h-10 w-10 rounded-md bg-success-50 text-success-700 ring-1 ring-inset ring-success-200 flex items-center justify-center shrink-0"><Tag className="h-5 w-5" /></span>
             <div className="min-w-0 flex-1">
               <h3 className="font-semibold text-neutral-900">{o.name}</h3>
               <p className="text-sm text-neutral-600 leading-relaxed">{o.description}</p>
               <p className="text-sm font-medium text-success-700 mt-1">{offerLabel(o)}{o.maxDiscountAmount ? ` (max ${money(o.maxDiscountAmount)})` : ''}</p>
-              <dl className="mt-2 text-caption text-neutral-500 space-y-0.5">
+              <dl className="mt-2 text-caption text-neutral-500 space-y-0.5 tnum">
                 {(o.startTime || o.endTime) && <div className="flex items-center gap-1"><Clock className="h-3 w-3" />{o.startTime ?? '00:00'} – {o.endTime ?? '23:59'}</div>}
                 <div>Valid till {o.endDate}</div>
                 <div>{o.appliesTo === 'ALL' ? 'Applies to all items' : o.appliesTo === 'CATEGORIES' ? `Applies to: ${o.categoryIds.map(catName).filter(Boolean).join(', ')}` : `Applies to: ${o.itemIds.map(itemName).filter(Boolean).join(', ')}`}</div>
@@ -276,20 +333,19 @@ function MenuHome({ data, s, openItem }: { data: PublicMenu; s: ReturnType<typeo
   return (
     <>
       {featured && !dq && (
-        /* The one premium flourish on the guest screen: a gold hairline over the card surface
-            with the restrained top sheen, not a saturated block. Gold names the offer; the
-            card stays a card, so the dishes below it remain the loudest thing on the page.
-            The sheen is now `.material-gloss` and REPLACES the old `bg-surface-sheen` wash
-            rather than stacking on it — two highlights on one surface is a shine, and a shine
-            is exactly what this system does not do. */
+        /* The one premium flourish above the menu: a bronze hairline over the card surface with
+            the restrained top sheen, not a saturated block. Gold names the offer; the card stays
+            a card, so the dishes below it remain the loudest thing on the page. The sheen is
+            `.material-gloss` alone — two highlights on one surface is a shine, and a shine is
+            exactly what this system does not do. */
         <Link
           to="offers"
-          className="block mx-4 mt-4 rounded-lg border border-primary-200 material-gloss bg-surface-raised shadow-card p-4 relative overflow-hidden transition-[border-color,box-shadow] duration-control hover:border-primary-400 hover:shadow-panel"
+          className="block mx-4 mt-4 rounded-lg border border-bronze/40 material-gloss bg-surface-raised shadow-card p-4 relative overflow-hidden transition-[border-color,box-shadow] duration-control hover:border-bronze/60 hover:shadow-panel"
         >
           <span className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-primary-500/10" aria-hidden />
-          <p className="text-label uppercase text-primary-700 flex items-center gap-1"><Tag className="h-3 w-3" />Featured offer</p>
-          <p className="text-lg font-semibold mt-1 text-neutral-900">{featured.name}</p>
-          <p className="text-sm text-neutral-500">{featured.startTime ? `${featured.startTime} – ${featured.endTime}` : featured.description}</p>
+          <p className="text-label uppercase tracking-[0.16em] text-primary-700 flex items-center gap-1"><Tag className="h-3 w-3" />Featured offer</p>
+          <p className="text-lg font-semibold mt-1 text-neutral-900 break-words">{featured.name}</p>
+          <p className="text-sm text-neutral-500 break-words">{featured.startTime ? `${featured.startTime} – ${featured.endTime}` : featured.description}</p>
           <span className="inline-block mt-3 text-sm font-medium text-primary-700 underline underline-offset-4">View all offers ({data.offers.length})</span>
         </Link>
       )}
@@ -316,7 +372,7 @@ function MenuHome({ data, s, openItem }: { data: PublicMenu; s: ReturnType<typeo
               className={cn(
                 'anim-reveal shrink-0 min-h-touch px-4 rounded-full text-sm font-medium border transition-colors duration-control',
                 active === c.id
-                  ? 'bg-primary-500 text-on-primary border-primary-400'
+                  ? 'bg-gold-sheen bg-primary-500 text-on-primary border-primary-400'
                   : 'bg-surface-raised text-neutral-700 border-neutral-300 hover:border-neutral-400 hover:bg-neutral-100',
               )}
             >
@@ -337,8 +393,8 @@ function MenuHome({ data, s, openItem }: { data: PublicMenu; s: ReturnType<typeo
                 style={beat(n)}
                 className="anim-reveal w-44 shrink-0 text-left rounded-md bg-surface-raised border border-neutral-200 material-gloss shadow-card overflow-hidden transition-[border-color,box-shadow] duration-control hover:border-neutral-300 hover:shadow-panel press"
               >
-                <ItemImage item={i} className="w-full h-28" />
-                <div className="p-2.5">
+                <ItemImage item={i} className="w-full h-28 border-b border-bronze/20" />
+                <div className="p-2.5 min-w-0">
                   <p className="text-sm font-medium truncate text-neutral-900">{i.name}</p>
                   <p className="text-sm text-neutral-500 tnum">{money(i.price)}</p>
                 </div>
@@ -352,18 +408,32 @@ function MenuHome({ data, s, openItem }: { data: PublicMenu; s: ReturnType<typeo
             the empty state is the one place it can afford a mark of its own. */}
         {grouped.length === 0 && <EmptyState icon={<EmptyPlate />} title="No dishes match" description={`Nothing found for “${q}”.`} action={<Button variant="outline" onClick={() => setQ('')}>Clear search</Button>} />}
         {/*
-          The dish grid arrives in stages by SECTION, not by dish. A category is the unit the eye
+          The dish list arrives in stages by SECTION, not by dish. A category is the unit the eye
           reads the menu in, so the beat lands where the guest's attention lands; animating forty
           individual dish cards would be a list of records trickling in, which this system does not
           do. The delay is the same capped `staggerDelay`, so however many categories a venue has,
           the last one is on screen within 320 ms of the first.
+
+          EACH SECTION OPENS ON ITS FIRST DISH, drawn large, and the rest follow as compact rows —
+          the reference's "one featured card, then the list", applied per category so that the
+          chips above stay what they are (navigation to a section) and the featured dish is always
+          the first dish of the section the guest is in. Nothing is chosen for them: it is simply
+          the venue's own first item in its own order.
         */}
-        {grouped.map(({ cat, idx, items }) => (
-          <section key={cat.id} data-cat={cat.id} ref={(el) => { sectionRefs.current[cat.id] = el; }} style={beat(idx)} className="anim-reveal scroll-mt-[120px]">
-            <h2 className="text-subheading mb-2 flex items-center gap-2">{cat.name}<span className="text-caption text-neutral-500 font-normal tnum">{items.length}</span></h2>
-            <div className="space-y-3">{items.map((i) => <MenuItemCard key={i.id} item={i} offers={data.offers} selected={s.qtyOf(i.id)} onOpen={() => openItem(i.id)} onQuickAdd={() => s.add(i, 1, '')} />)}</div>
-          </section>
-        ))}
+        {grouped.map(({ cat, idx, items }) => {
+          const [lead, ...rest] = items;
+          return (
+            <section key={cat.id} data-cat={cat.id} ref={(el) => { sectionRefs.current[cat.id] = el; }} style={beat(idx)} className="anim-reveal scroll-mt-[120px]">
+              <h2 className="text-subheading mb-2.5 flex items-center gap-2">{cat.name}<span className="text-caption text-neutral-500 font-normal tnum">{items.length}</span></h2>
+              <FeaturedDishCard item={lead} offers={data.offers} selected={s.qtyOf(lead.id)} onOpen={() => openItem(lead.id)} onQuickAdd={() => s.add(lead, 1, '')} />
+              {rest.length > 0 && (
+                <div className="mt-3 space-y-3">
+                  {rest.map((i) => <MenuItemCard key={i.id} item={i} offers={data.offers} selected={s.qtyOf(i.id)} onOpen={() => openItem(i.id)} onQuickAdd={() => s.add(i, 1, '')} />)}
+                </div>
+              )}
+            </section>
+          );
+        })}
         <footer className="text-center text-caption text-neutral-500 pt-6 flex flex-col gap-1 border-t border-neutral-200 mt-4">
           {data.business.address && <span className="inline-flex items-center justify-center gap-1 pt-4"><MapPin className="h-3 w-3 shrink-0" aria-hidden />{data.business.address}</span>}
           {data.business.phone && <span className="inline-flex items-center justify-center gap-1"><Phone className="h-3 w-3 shrink-0" aria-hidden />{data.business.phone}</span>}
@@ -401,6 +471,9 @@ export default function PublicMenuPage() {
      * the management hero, and the dish cards on top of it take gloss alone.
      */
     <div className="min-h-screen bg-surface material-matte max-w-lg mx-auto shadow-panel sm:my-0">
+      {/* The chrome carries the TABLE — the one fact the guest needs to see wherever they have
+          scrolled to — and the venue's mark. The venue's NAME is set once, in the serif, in the
+          hero below, so it is not printed twice within the first hundred pixels of the page. */}
       <header className="sticky top-0 z-30 bg-surface-raised/95 backdrop-blur supports-[backdrop-filter]:bg-surface-raised/80 border-b border-neutral-200 h-14 flex items-center gap-3 px-4">
         <Routes>
           <Route path="offers" element={<button type="button" onClick={() => navigate('.')} aria-label="Back to menu" className="h-9 w-9 -ml-2 flex items-center justify-center rounded-sm text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 transition-colors duration-control"><ChevronLeft className="h-5 w-5" /></button>} />
@@ -408,14 +481,24 @@ export default function PublicMenuPage() {
               the `.fill-gold` ramp with a gloss over it, the same treatment the product's own
               brand tile takes in the app chrome. Its edge is the inset `ring`, so no
               `.material-edge` (which would replace it). */}
-          <Route path="*" element={data.business.logoUrl ? <img src={data.business.logoUrl} alt="" className="h-9 w-9 rounded-sm object-cover" /> : <span className="h-9 w-9 rounded-sm fill-gold material-gloss bg-primary-500 text-on-primary ring-1 ring-inset ring-primary-400 flex items-center justify-center font-bold">{data.business.name[0]}</span>} />
+          <Route path="*" element={data.business.logoUrl ? <img src={data.business.logoUrl} alt="" className="h-9 w-9 rounded-sm object-cover ring-1 ring-bronze/30" /> : <span className="h-9 w-9 rounded-sm fill-gold material-gloss bg-primary-500 text-on-primary ring-1 ring-inset ring-primary-400 flex items-center justify-center font-bold">{data.business.name[0]}</span>} />
         </Routes>
-        <div className="min-w-0 flex-1"><p className="font-semibold truncate leading-tight text-neutral-900">{data.business.name}</p><p className="text-caption text-neutral-500 truncate">{data.table.floorName} · <span className="font-semibold text-neutral-800">Table {data.table.number}</span></p></div>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold truncate leading-tight text-neutral-900 tnum">Table {data.table.number}</p>
+          <p className="text-caption text-neutral-500 truncate">{data.table.floorName}</p>
+        </div>
         <Link to="offers" className="h-10 w-10 flex items-center justify-center rounded-sm hover:bg-neutral-100 text-success-700 transition-colors duration-control" aria-label="Offers"><Tag className="h-5 w-5" /></Link>
       </header>
+      {/* THE HERO LINE — the venue's name in the editorial serif, the single use of it on this
+          screen. The welcome message is the venue's own, shown only when one is set; a
+          placeholder sentence is not a hospitality gesture. */}
       <Routes>
         <Route index element={<>
-          <div className="px-4 pt-5"><p className="text-label uppercase text-primary-700">Welcome</p><h1 className="text-heading text-neutral-900 mt-1">{data.business.welcomeMessage || `Welcome to ${data.business.name}`}</h1></div>
+          <div className="px-4 pt-5 min-w-0">
+            <p className="text-label uppercase tracking-[0.16em] text-primary-700">Welcome</p>
+            <h1 className="font-serif font-medium text-[32px] leading-tight tracking-[-0.005em] text-neutral-900 mt-1 break-words">{data.business.name}</h1>
+            {data.business.welcomeMessage && <p className="text-[13px] text-neutral-500 mt-1.5 leading-snug break-words">{data.business.welcomeMessage}</p>}
+          </div>
           <MenuHome data={data} s={s} openItem={openItem} />
         </>} />
         <Route path="offers" element={<OffersView data={data} />} />

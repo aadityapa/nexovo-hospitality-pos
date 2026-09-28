@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 import { CalendarDays } from 'lucide-react';
+import { VenueArt, Photo } from '@/components/graphics';
+import { VENUE_IMG } from '@/config/imagery';
 import { fmtDate } from '@/utils/date';
 import { cn } from '@/utils/cn';
 import type { DateRange } from '@/types';
@@ -28,13 +30,22 @@ import type { DateRange } from '@/types';
  * MOTION. The head never animates. It arrives inside `PageTransition`'s content rise, and a second
  * entrance on the one fixed landmark of a screen makes the reader's eye start from a moving target.
  */
-export function DashboardHero({ title, subtitle, range, actions, children, compact }: {
+export function DashboardHero({ title, subtitle, range, actions, children, compact, venue }: {
   title: string;
   subtitle?: string;
   range?: DateRange;
   actions?: ReactNode;
   children?: ReactNode;
   compact?: boolean;
+  /**
+   * THE VENUE BANNER. When a venue name is given, the head is set on a card with a drawn view of
+   * the room fading in from the right — the luxury concept's "Good evening" header. It is the one
+   * place on a working screen that carries scenery, and it is decoration: `aria-hidden`, behind
+   * a scrim that keeps the title on a plain ground, never behind a table or a figure that has to
+   * be read. The picture is the venue photograph (`VENUE_IMG.hero`, a local file) over the
+   * drawn `VenueArt` keyed off the venue's own name as its understudy.
+   */
+  venue?: string;
 }) {
   const sameDay = range ? range.from.slice(0, 10) === range.to.slice(0, 10) : true;
 
@@ -52,7 +63,26 @@ export function DashboardHero({ title, subtitle, range, actions, children, compa
   );
 
   return (
-    <div className={cn('min-w-0', compact ? 'mb-3.5' : 'mb-5')}>
+    <div className={cn(
+      'min-w-0',
+      compact ? 'mb-3.5' : 'mb-5',
+      /* With a venue: a raised card, bronze hairline, the room behind the right edge. `isolate`
+         gives the picture its own stacking context so `-z-10` cannot drop it under the page. */
+      venue && 'relative isolate overflow-hidden rounded-lg border border-bronze/30 bg-surface-raised shadow-panel p-5 sm:p-6',
+    )}>
+      {venue && (
+        <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden>
+          {/* The picture holds the right half on wide screens and the top band on phones: the
+              venue photograph (local file) over the drawn room as its understudy. */}
+          <div className="absolute inset-y-0 right-0 w-full sm:w-[58%] opacity-90">
+            <Photo src={VENUE_IMG.hero} fallback={<VenueArt name={venue} className="h-full w-full" />} className="h-full w-full" />
+          </div>
+          {/* Two scrims: one keeps the title's ground plain, one keeps the picture from ending
+              in a hard edge. Static gradients — nothing here moves. */}
+          <div className="absolute inset-0 bg-gradient-to-r from-surface-raised via-surface-raised/95 to-surface-raised/25 sm:via-surface-raised/90 sm:to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-surface-raised to-transparent" />
+        </div>
+      )}
       {/*
        * The title and the actions share one row and wrap as a unit. `items-start` rather than
        * `items-center`, so a two-line title keeps its action button level with the FIRST line —
@@ -62,9 +92,23 @@ export function DashboardHero({ title, subtitle, range, actions, children, compa
         <div className="min-w-0">
           {/* Never truncated. A page title that ends in an ellipsis tells the operator nothing,
               and there is no width at which wrapping costs more than that. */}
+          {/*
+           * THE SERIF. The luxury direction sets every major page title in an editorial serif —
+           * "Inventory", "Reports", "Bottle service" — and this component and `PageHeader` are the
+           * two places a page title is set, so the serif lives here and nowhere in a feature file.
+           * It is a display face at 28–34 px with normal weight; the sans stays on the subtitle,
+           * the actions and everything below. `compact` heads (the live queues) stay sans — there
+           * the title is a label over a working list, not a heading over a room.
+           */}
+          {/* The line-height comes AFTER the font size, in the same string. `cn` runs
+              tailwind-merge, which treats a later `text-[34px]` as overriding an earlier
+              `leading-*` and drops it. The serif title then inherited its parent's tight line
+              and its descenders ran into the subtitle; the screenshot review caught it. */}
           <h1 className={cn(
-            'text-neutral-900 font-semibold tracking-[-0.02em] leading-tight break-words',
-            compact ? 'text-[19px] sm:text-heading' : 'text-heading sm:text-display',
+            'text-neutral-900 break-words',
+            compact
+              ? 'font-semibold tracking-[-0.02em] text-[19px] sm:text-heading leading-tight'
+              : 'font-serif font-medium tracking-[-0.005em] text-[28px] sm:text-[34px] leading-[1.15]',
           )}>
             {title}
           </h1>

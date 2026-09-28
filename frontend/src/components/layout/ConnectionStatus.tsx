@@ -46,7 +46,7 @@ export function ConnectionStatus({ onDark, compact }: { onDark?: boolean; compac
         ? `Connected — checked ${AGO(lastSyncAt, now)} · ${activity}`
         : `Connected · ${activity}`,
       base: 'text-success-700 bg-success-50 border-success-200',
-      deep: 'text-success-700 bg-success-500/12 border-success-500/30',
+      deep: 'text-success-700 bg-success-500/[.12] border-success-500/30',
     },
     connecting: {
       Icon: Loader2,
@@ -62,7 +62,7 @@ export function ConnectionStatus({ onDark, compact }: { onDark?: boolean; compac
         ? `Not receiving updates — last connected ${AGO(lastSyncAt, now)}. Retrying automatically.`
         : 'Not receiving updates. Retrying automatically.',
       base: 'text-danger-700 bg-danger-50 border-danger-200',
-      deep: 'text-danger-700 bg-danger-500/12 border-danger-500/30',
+      deep: 'text-danger-700 bg-danger-500/[.12] border-danger-500/30',
     },
     disabled: {
       Icon: RefreshCw,

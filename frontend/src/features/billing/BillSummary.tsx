@@ -53,11 +53,12 @@ export function BillSummary({ bill, className, compact }: { bill: Bill; classNam
 
       {/*
         The grand total is the most important number on the screen, so it is the heaviest type
-        in the panel — `text-metric` at the brightest text value. It is deliberately NOT a gold
-        fill: gold marks the primary ACTION next to it, and two gold objects competing would
-        make neither read as the thing to press.
+        in the panel — `text-metric` at the brightest text value, set in the sans, never the
+        serif. It is deliberately NOT a gold fill: gold marks the primary ACTION next to it, and
+        two gold objects competing would make neither read as the thing to press. The one
+        bronze hairline in the panel is the rule the total sits on.
       */}
-      <div className="border-t border-neutral-200 pt-2.5 mt-2.5">
+      <div className="border-t border-bronze/30 pt-2.5 mt-2.5">
         <div className="flex justify-between items-baseline gap-3">
           <span className="font-semibold text-neutral-900">Grand total</span>
           <span className="text-metric tnum text-neutral-900">{money(bill.grandTotal, { decimals: true })}</span>

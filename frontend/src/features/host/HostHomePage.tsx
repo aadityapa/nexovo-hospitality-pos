@@ -4,9 +4,10 @@ import { CalendarDays, PartyPopper, Crown, UserPlus, Plus, Armchair, Users, Cont
 import { useReservations, useClubDashboard, useVipTables, useReservationMutations } from '@/features/p2/hooks';
 import { useTables } from '@/features/tables/hooks';
 import { CheckInModal } from '@/features/club/ClubDashboardPage';
-import { MinimumSpendMeter, showMinimumSpend } from '@/features/club/VipTablesPage';
+import { MinimumSpendMeter, showMinimumSpend, VipChip } from '@/features/club/VipTablesPage';
 import { ReservationForm } from '@/features/reservations/ReservationsPage';
 import { DashboardHero } from '@/features/dashboard/DashboardPage';
+import { useBranch } from '@/components/layout/Shell';
 import { useAuth, usePermission } from '@/hooks/useAuth';
 import { useRealtimeInvalidate } from '@/hooks/useRealtime';
 import { Avatar, Button, Card, CardHeader, StatCard, StatusBadge, StatusDot, statusMeta, Badge, LoadingState, EmptyState } from '@/components/ui';
@@ -17,6 +18,13 @@ import { cn } from '@/utils/cn';
 
 /** The `--d` beat of a staged reveal — a function of position, never of the booking behind it. */
 const beat = (i: number) => ({ '--d': `${staggerDelay(i)}ms` }) as CSSProperties;
+
+/**
+ * One arrival on the desk's list. From `md` up the same track definition is used by the header
+ * above the list, so the two line up exactly: time, guest, covers, table, status, action. Below
+ * `md` the row folds into a card and the header is hidden.
+ */
+const ARRIVAL_COLS = 'md:grid md:grid-cols-[3.25rem_minmax(0,1fr)_3.5rem_minmax(0,6.5rem)_minmax(0,6.5rem)_auto] md:items-center md:gap-3';
 
 /**
  * Home for the HOST role — tonight at a glance: bookings, door, VIP tables.
@@ -43,6 +51,8 @@ const beat = (i: number) => ({ '--d': `${staggerDelay(i)}ms` }) as CSSProperties
 export default function HostHomePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  /* The venue behind the banner — the same cached read the shell's rail footer makes. */
+  const { data: branch } = useBranch();
   const canRes = usePermission('reservations:manage');
   const canClub = usePermission('club:manage');
   const canVip = usePermission('vip:view');
@@ -95,9 +105,26 @@ export default function HostHomePage() {
     return { total: serviceable.length, occupied, held, free: serviceable.length - occupied - held };
   }, [tables.data, reservedIds]);
   const pct = (n: number) => (floor.total > 0 ? `${(n / floor.total) * 100}%` : '0%');
+  /**
+   * The same partition, per area, for the banner: "Dining room 8 / 14 available". Every figure
+   * is counted from the same fetched rows by the same rule as `floor` above — a table is free
+   * when it is in service, not occupied and not held for an arrival — so the areas add up to
+   * the total the availability card prints.
+   */
+  const areas = useMemo(() => {
+    const m = new Map<number, { id: number; name: string; free: number; total: number }>();
+    (tables.data ?? []).filter((t) => t.isActive && t.status !== 'CLOSED').forEach((t) => {
+      const a = m.get(t.floorId) ?? { id: t.floorId, name: t.floorName, free: 0, total: 0 };
+      a.total += 1;
+      if (t.status === 'AVAILABLE' && !reservedIds.has(t.id)) a.free += 1;
+      m.set(t.floorId, a);
+    });
+    return [...m.values()];
+  }, [tables.data, reservedIds]);
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const firstName = user?.fullName.split(' ')[0] ?? 'host';
   /**
    * The desk works one service: the same date the bookings on this page were fetched for. The
    * band takes a range, so that day is handed to it as an instant inside the day (local midday),
@@ -118,21 +145,39 @@ export default function HostHomePage() {
 
   return (
     <div>
-      {/* The same band as the dashboards: the venue and branch this desk is working, the greeting,
-          and the service date every figure below is counted for. */}
+      {/* THE VENUE BANNER. The room, drawn, behind a scrim; the venue's own name set once in the
+          editorial serif (the one serif on this screen — the head's title); the greeting and the
+          service date beside it; and the floor's availability, area by area, as tabular figures.
+          Until the branch record is in the cache the head is the plain greeting. */}
       {/* `actions` is one group with a DEFINITE max-width below `sm`: the head's action slot is
           `shrink-0`, so without a definite cap three buttons set a max-content width the page
           cannot shrink under at 360 px. Above `sm` the cap lifts and the row reads as it did. */}
       <DashboardHero
-        title={`${greeting}, ${user?.fullName.split(' ')[0] ?? 'host'}`}
-        subtitle="Tonight at a glance — bookings, the door and the VIP floor"
+        title={branch?.businessName ?? `${greeting}, ${firstName}`}
+        subtitle={branch ? `${greeting}, ${firstName} — tonight at a glance: bookings, the door and the VIP floor` : 'Tonight at a glance — bookings, the door and the VIP floor'}
+        venue={branch?.businessName}
         range={period}
         actions={<div className="flex flex-wrap items-center gap-2 max-w-[13rem] sm:max-w-none">
           <Button variant="ghost" leftIcon={<Contact className="h-4 w-4" />} onClick={() => navigate('/admin/customers')}>Guest profiles</Button>
           {canRes && <Button variant="outline" leftIcon={<Plus className="h-4 w-4" />} onClick={() => setNewRes(true)}>New reservation</Button>}
           {canClub && <Button size="lg" variant="outline" leftIcon={<UserPlus className="h-5 w-5" />} onClick={() => setCheckIn(true)}>Check in guests</Button>}
         </div>}
-      />
+      >
+        {tables.data && areas.length > 0 && (
+          <dl className="flex flex-wrap gap-x-6 gap-y-2 min-w-0" aria-label="Tables free now, by area">
+            {areas.map((a) => (
+              <div key={a.id} className="min-w-0">
+                <dt className="text-label uppercase text-neutral-500 truncate">{a.name}</dt>
+                <dd className="leading-tight tabular-nums">
+                  <span className="text-[19px] font-semibold text-neutral-900">{a.free}</span>
+                  <span className="text-neutral-500"> / {a.total}</span>
+                  <span className="text-caption text-neutral-500"> available</span>
+                </dd>
+              </div>
+            ))}
+          </dl>
+        )}
+      </DashboardHero>
 
       {/* THE THREE CARDS. One column below `lg` so no label is ever truncated on a phone. */}
       <div className="grid grid-cols-1 lg:grid-cols-[repeat(3,minmax(0,1fr))] gap-4 mb-5">
@@ -163,7 +208,7 @@ export default function HostHomePage() {
                   <p className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-subheading text-neutral-900 break-words">{next.guestName}</span>
                     <StatusBadge kind="reservation" status={next.status} size="sm" hideIcon />
-                    {isVipTable && <Badge size="sm" tone="accent" icon={<Crown className="h-3 w-3" aria-hidden />}>VIP table</Badge>}
+                    {isVipTable && <VipChip />}
                     {isLate && <Badge size="sm" tone="danger" icon={<AlertTriangle className="h-3.5 w-3.5" aria-hidden />}>past booked time</Badge>}
                   </p>
                   <p className="mt-1 flex items-baseline gap-2 flex-wrap">
@@ -264,27 +309,49 @@ export default function HostHomePage() {
         <Card padded={false} className="anim-reveal" style={beat(5)}>
           <CardHeader className="p-4 pb-0" title={<span className="flex items-center gap-2"><CalendarDays className="h-4 w-4" />Upcoming arrivals</span>} subtitle={res.data ? `${upcoming.length} still to arrive${late.length > 0 ? ` · ${late.length} past the booked time` : ''}` : undefined} action={<Button size="sm" variant="ghost" onClick={() => navigate('/admin/reservations')}>All bookings</Button>} />
           {res.isLoading ? <div className="p-4"><LoadingState rows={3} /></div> : upcoming.length === 0 ? <EmptyState compact title="No more arrivals today" description={seated > 0 ? `${seated} table${seated === 1 ? ' is' : 's are'} seated.` : undefined} /> : (
-            <ul className="divide-y divide-neutral-200 mt-2">{upcoming.slice(0, 8).map((r) => {
-              const isLate = nowMs - dueAt(r.date, r.time) > 5 * 60_000;
-              return (
-                <li key={r.id} className={cn('py-3 pr-4 border-l-4 flex flex-col xs:flex-row xs:items-center gap-2 xs:gap-3', isLate ? 'border-l-danger-500 bg-danger-50/60 pl-3' : r.id === next?.id ? 'border-l-primary-500 bg-primary-50/60 pl-3' : 'border-l-transparent pl-4')}>
-                  <span className="flex items-start gap-3 flex-1 min-w-0">
-                    <time className="text-lg font-bold tabular-nums w-14 shrink-0 text-neutral-900">{r.time}</time>
-                    <span className="flex-1 min-w-0">
-                      <span className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-medium truncate text-neutral-900">{r.guestName}</span>
-                        <StatusBadge kind="reservation" status={r.status} size="sm" hideIcon />
-                        {isLate && <Badge size="sm" tone="danger" icon={<AlertTriangle className="h-3.5 w-3.5" aria-hidden />}>late</Badge>}
-                        {r.tableId != null && vipTableIds.has(r.tableId) && <Badge size="sm" tone="accent" icon={<Crown className="h-3 w-3" aria-hidden />}>VIP table</Badge>}
-                        {r.occasion && <Badge size="sm" tone="info">{r.occasion}</Badge>}
+            <>
+              {/* THE ARRIVALS TABLE (from `md`): time, guest, covers, table, status, action — the
+                  concept's host-desk columns, every one a field the booking carries. Below `md`
+                  the header goes and each arrival is a card. */}
+              <div className={cn('hidden mt-2 px-4 py-2 border-b border-neutral-200 text-label uppercase text-neutral-500', ARRIVAL_COLS)}>
+                <span>Time</span><span>Guest</span><span>Covers</span><span>Table</span><span>Status</span><span className="sr-only">Action</span>
+              </div>
+              <ul className="mt-2 p-3 space-y-2 md:mt-0 md:p-0 md:space-y-0">{upcoming.slice(0, 8).map((r) => {
+                const isLate = nowMs - dueAt(r.date, r.time) > 5 * 60_000;
+                /* A card below `md` (hairline all round, the state on its left rule); from `md` a
+                   row — the top and right rules go, the bottom hairline separates rows, and the
+                   left rule keeps carrying the state. Not `divide-y`: its sibling selector
+                   outranks `border-l-*` and would repaint the state rule neutral. */
+                return (
+                  <li
+                    key={r.id}
+                    className={cn(
+                      'min-w-0 px-3 py-3 rounded-md border border-neutral-200 border-l-4 md:px-4 md:rounded-none md:border-t-0 md:border-r-0 md:last:border-b-0',
+                      isLate ? 'border-l-danger-500 bg-danger-50/60' : r.id === next?.id ? 'border-l-primary-500 bg-primary-50/60' : 'border-l-transparent',
+                    )}
+                  >
+                    <div className={cn('flex flex-col gap-2 xs:flex-row xs:flex-wrap xs:items-center xs:gap-3', ARRIVAL_COLS)}>
+                      <time className="text-lg font-bold tabular-nums text-neutral-900 md:text-base md:font-semibold">{r.time}</time>
+                      <span className="min-w-0 xs:flex-1">
+                        <span className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-medium truncate text-neutral-900">{r.guestName}</span>
+                          {r.tableId != null && vipTableIds.has(r.tableId) && <VipChip />}
+                          {isLate && <Badge size="sm" tone="danger" icon={<AlertTriangle className="h-3.5 w-3.5" aria-hidden />}>late</Badge>}
+                          {r.occasion && <Badge size="sm" tone="info">{r.occasion}</Badge>}
+                        </span>
+                        <span className="block text-caption text-neutral-500 tnum">{r.phone}</span>
+                        {/* Covers and table repeat here below `md`, where their columns are folded away. */}
+                        <span className="block md:hidden text-caption text-neutral-500 tnum">{r.guests} guest{r.guests === 1 ? '' : 's'} · {r.tableName ?? r.tablePref ?? 'table TBD'}</span>
                       </span>
-                      <span className="block text-caption text-neutral-500">{r.guests} guests · {r.tableName ?? r.tablePref ?? 'table TBD'} · {r.phone}</span>
-                    </span>
-                  </span>
-                  <span className="shrink-0 [&>button]:min-h-touch xs:[&>button]:min-h-0">{seatButton(r, 'sm')}</span>
-                </li>
-              );
-            })}</ul>
+                      <span className="hidden md:block tnum text-sm text-neutral-700">{r.guests}</span>
+                      <span className="hidden md:block text-sm text-neutral-700 truncate">{r.tableName ?? r.tablePref ?? <span className="text-neutral-400">TBD</span>}</span>
+                      <span className="shrink-0"><StatusBadge kind="reservation" status={r.status} size="sm" hideIcon /></span>
+                      <span className="shrink-0 md:justify-self-end [&>button]:min-h-touch md:[&>button]:min-h-0">{seatButton(r, 'sm')}</span>
+                    </div>
+                  </li>
+                );
+              })}</ul>
+            </>
           )}
         </Card>
 

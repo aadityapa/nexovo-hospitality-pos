@@ -210,7 +210,7 @@ Actions: `CONFIRM` · `SEAT` (opens an order on the table and links it) · `COMP
 | GET | /vip/reservations/{id}[/spend] | vip:view | – | `VipReservation` (spend adds shortfall projection) |
 | POST/PUT | /vip/reservations[/{id}] | vip:manage | `VipReservationInput` | `VipReservation` |
 | POST | /vip/reservations/{id}/transition | vip:manage | `{action, reason?}` — SEAT / COMPLETE / CANCEL / NO_SHOW | `VipReservation` |
-| GET | /bottle-service | menu:view | – | `BottleServiceItem[]` |
+| GET | /bottle-service | menu:view | – | `BottleServiceItem[]` — `imageUrl` (the linked menu item's picture) is **optional**; a response without it still parses and the card draws its bottle |
 | PUT | /bottle-service/{menuItemId} | club:manage | `BottleServiceInput` | `BottleServiceItem[]` |
 | DELETE | /bottle-service/{menuItemId} | club:manage | – | `BottleServiceItem[]` |
 

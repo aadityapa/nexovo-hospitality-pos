@@ -61,6 +61,19 @@ const TIER_TONE: Record<string, 'primary' | 'neutral' | 'warning' | 'info'> = {
 const tierTone = (t: string) => TIER_TONE[t.trim().toUpperCase()] ?? 'neutral';
 const tierLabel = (t: string) => (t ? t.charAt(0).toUpperCase() + t.slice(1).toLowerCase() : t);
 
+/**
+ * VIP, from the record itself. A guest carries no VIP flag — what it carries is the free-text
+ * tags the floor attaches, and a tag reading "vip" IS the guest's classification. That one tag is
+ * drawn in violet, the colour this product reserves for VIP and nothing else; every other tag
+ * stays a neutral chip, and a guest without the tag gets no violet anywhere.
+ */
+export const tagsOf = (c: Pick<Customer, 'tags'>) => (c.tags ?? '').split(',').map((t) => t.trim()).filter(Boolean);
+export const isVipTag = (t: string) => t.trim().toLowerCase() === 'vip';
+export const isVipGuest = (c: Pick<Customer, 'tags'>) => tagsOf(c).some(isVipTag);
+export function TagBadge({ tag }: { tag: string }) {
+  return isVipTag(tag) ? <Badge size="sm" tone="accent">VIP</Badge> : <Badge size="sm">{tag}</Badge>;
+}
+
 export default function CustomersPage() {
   const ws = useWorkspace();
   const navigate = useNavigate();
@@ -120,7 +133,7 @@ export default function CustomersPage() {
     { key: 'consent', header: 'Marketing', sortValue: (c) => (c.consentMarketing ? 1 : 0), render: (c) => (c.consentMarketing
       ? <Badge size="sm" tone="success" icon={<ShieldCheck className="h-3 w-3" aria-hidden />}>Opted in</Badge>
       : <Badge size="sm" tone="neutral">Not opted in</Badge>) },
-    { key: 'tags', header: 'Tags', hideBelow: 'lg', render: (c) => <span className="flex flex-wrap gap-1">{(c.tags ?? '').split(',').map((t) => t.trim()).filter(Boolean).map((t) => <Badge key={t} size="sm">{t}</Badge>)}</span> },
+    { key: 'tags', header: 'Tags', hideBelow: 'lg', render: (c) => <span className="flex flex-wrap gap-1">{tagsOf(c).map((t) => <TagBadge key={t} tag={t} />)}</span> },
     ...(canManage ? [{ key: 'actions', header: '', align: 'right' as const, render: rowActions }] : []),
   ];
 
@@ -148,9 +161,9 @@ export default function CustomersPage() {
     { key: 'spend', header: 'Total spend', align: 'right', sortValue: (c) => c.totalSpend, render: (c) => <span className="tabular-nums font-medium">{money(c.totalSpend)}</span> },
     { key: 'points', header: 'Points', align: 'right', sortValue: (c) => c.loyaltyPoints, render: (c) => <span className="tabular-nums">{c.loyaltyPoints}</span> },
     { key: 'tags', header: 'Tags', hideBelow: 'md', render: (c) => {
-      const tags = (c.tags ?? '').split(',').map((t) => t.trim()).filter(Boolean);
+      const tags = tagsOf(c);
       return tags.length
-        ? <span className="flex flex-wrap gap-1">{tags.map((t) => <Badge key={t} size="sm">{t}</Badge>)}</span>
+        ? <span className="flex flex-wrap gap-1">{tags.map((t) => <TagBadge key={t} tag={t} />)}</span>
         : <span className="text-neutral-400">—</span>;
     } },
     { key: 'last', header: 'Last visit', sortValue: (c) => c.lastVisitAt ?? '', render: (c) => (c.lastVisitAt ? <span title={fmtDate(c.lastVisitAt)} className="text-neutral-700">{fmtRelative(c.lastVisitAt)}</span> : <span className="text-neutral-400">Never visited</span>) },
@@ -166,7 +179,10 @@ export default function CustomersPage() {
             <span className="block font-medium text-neutral-900 truncate">{c.fullName}</span>
             <span className="block text-caption text-neutral-500 truncate">{c.email ?? c.phone}</span>
           </span>
-          {tierBadge(c)}
+          <span className="flex flex-wrap justify-end gap-1 shrink-0">
+            {isVipGuest(c) && <TagBadge tag="vip" />}
+            {tierBadge(c)}
+          </span>
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-neutral-600">
           <span className="tabular-nums">{c.totalVisits} visit{c.totalVisits === 1 ? '' : 's'}</span>

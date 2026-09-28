@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Bell, Check, ChefHat, Wine, Clock, ChevronRight } from 'lucide-react';
 import { useOrders, useOrderMutations } from '@/features/orders/hooks';
 import { useNow } from '@/hooks/useRealtime';
-import { PageHeader, Button, Card, CardHeader, LoadingState, ErrorState, EmptyState, SegmentedControl, Badge } from '@/components/ui';
+import { PageHeader, Button, Card, CardHeader, LoadingState, ErrorState, EmptyState, SegmentedControl } from '@/components/ui';
 import { EmptyPlate } from '@/components/graphics';
 import { elapsedClock, elapsedMinutes } from '@/utils/date';
 import { DELAY_THRESHOLDS } from '@/config/statuses';
@@ -14,12 +14,16 @@ type Station = 'ALL' | 'KITCHEN' | 'BAR';
 
 interface QueueRow { o: Order; it: OrderItem; since: string; mins: number }
 
+/**
+ * Waiting tone per row — the left rule, the chip and the word, so the state is never colour
+ * alone. Same construction as the kitchen board's chip: `-50` fill, `-200` hairline, `-700` text.
+ */
 const waitTone = (mins: number) =>
   mins >= DELAY_THRESHOLDS.late
-    ? { text: 'text-danger-700', edge: 'border-l-danger-500', label: 'Going cold' }
+    ? { text: 'text-danger-700', edge: 'border-l-danger-500', chip: 'bg-danger-50 text-danger-700 border-danger-200', label: 'Going cold' }
     : mins >= DELAY_THRESHOLDS.warn
-      ? { text: 'text-warning-700', edge: 'border-l-warning-500', label: 'Waiting' }
-      : { text: 'text-success-700', edge: 'border-l-success-500', label: 'Just up' };
+      ? { text: 'text-warning-700', edge: 'border-l-warning-500', chip: 'bg-warning-50 text-warning-700 border-warning-200', label: 'Waiting' }
+      : { text: 'text-success-700', edge: 'border-l-success-500', chip: 'bg-success-50 text-success-700 border-success-200', label: 'Just up' };
 
 /**
  * Everything READY across the waiter's tables, as one queue rather than a per-table list:
@@ -117,9 +121,9 @@ export default function ReadyItemsPage() {
                 key={it.id}
                 className={cn('border-l-4 p-3 sm:p-4 flex flex-wrap items-center gap-3', tone.edge)}
               >
+                {/* The station tile — same construction as the shared Badge: `-50` fill, `-700`
+                    glyph, the rung that stays legible on its own tint. */}
                 <span
-                  /* Same construction as the shared Badge: `-50` fill, `-700` glyph — the rung
-                     that stays legible on its own tint. */
                   className={cn('h-11 w-11 rounded-md flex items-center justify-center shrink-0 ring-1 ring-inset', bar ? 'bg-info-50 text-info-700 ring-info-200' : 'bg-warning-50 text-warning-700 ring-warning-200')}
                   aria-hidden
                 >
@@ -147,13 +151,12 @@ export default function ReadyItemsPage() {
                   </button>
                 </span>
 
-                <span className="shrink-0 text-right">
-                  <output className={cn('block text-kds tabular-nums font-semibold leading-none', tone.text)}>
-                    {elapsedClock(since, now)}
-                  </output>
-                  <Badge tone={mins >= DELAY_THRESHOLDS.late ? 'danger' : mins >= DELAY_THRESHOLDS.warn ? 'warning' : 'success'} size="sm" className="mt-1">
-                    {tone.label}
-                  </Badge>
+                {/* The elapsed chip: the clock and the word together, in the waiting tone. */}
+                <span className={cn('shrink-0 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-sm font-semibold whitespace-nowrap', tone.chip)}>
+                  <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  <output className="tnum">{elapsedClock(since, now)}</output>
+                  <span aria-hidden>·</span>
+                  <span>{tone.label}</span>
                 </span>
 
                 <Button

@@ -17,7 +17,12 @@ import type { ID, MenuCategory, CategoryInput } from '@/types';
 const schema = z.object({
   name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
   description: z.string().max(300).optional(),
-  imageUrl: z.string().url('Enter a valid URL').or(z.literal('')).optional(),
+  /* A web address, a path the app itself serves (`/img/menu/st01.jpg`, which is what the seeded
+     categories use) or empty. `.url()` alone rejected the local paths, so saving any seeded
+     category would have failed on its own picture. */
+  imageUrl: z.string().trim()
+    .refine((v) => v === '' || /^https?:\/\/\S+$/i.test(v) || /^\/\S+$/.test(v), 'Enter a web address (https://…) or a path starting with /')
+    .optional(),
   prepLocation: z.enum(['KITCHEN', 'BAR']),
   isActive: z.boolean(),
 });
@@ -40,7 +45,7 @@ function CategoryForm({ open, onClose, editing }: { open: boolean; onClose: () =
         <Input label="Category name" required autoFocus error={errors.name?.message} {...register('name')} />
         <Select label="Default preparation location" required hint="New items in this category default to this station." options={[{ value: 'KITCHEN', label: 'Kitchen' }, { value: 'BAR', label: 'Bar' }]} error={errors.prepLocation?.message} {...register('prepLocation')} />
         <Textarea label="Description" error={errors.description?.message} {...register('description')} />
-        <Input label="Image URL" placeholder="https://…" error={errors.imageUrl?.message} {...register('imageUrl')} />
+        <Input label="Image URL" placeholder="https://… or /img/…" error={errors.imageUrl?.message} {...register('imageUrl')} />
         <Switch checked={watch('isActive')} onChange={(v) => setValue('isActive', v)} label="Active" description="Inactive categories are hidden from the customer menu and from order entry." />
       </form>
     </Modal>
@@ -48,6 +53,23 @@ function CategoryForm({ open, onClose, editing }: { open: boolean; onClose: () =
 }
 
 type Tally = { total: number; unavailable: number; inactive: number };
+
+/**
+ * The category's picture. A real image wins; without one the category takes one drawn mark from
+ * the single glyph family, on a quiet tile with the bronze hairline — never a borrowed dish
+ * drawing standing in for a whole section of the menu.
+ */
+function CategoryTile({ c, size }: { c: MenuCategory; size: 'sm' | 'md' }) {
+  const dims = size === 'sm' ? 'h-14 w-14' : 'h-16 w-16';
+  if (c.imageUrl) {
+    return <ItemImage src={c.imageUrl} alt={c.name} prepLocation={c.prepLocation} category={c.name} rounded="rounded-md" className={cn(dims, 'shrink-0')} />;
+  }
+  return (
+    <span className={cn(dims, 'shrink-0 rounded-md flex items-center justify-center bg-neutral-100 text-primary-700 ring-1 ring-inset ring-bronze/30')} aria-hidden>
+      <CategoryGlyph name={glyphFor(c.name)} className={size === 'sm' ? 'h-6 w-6' : 'h-7 w-7'} />
+    </span>
+  );
+}
 
 /**
  * The sorts this screen ACTUALLY implements — nothing is offered that is not applied below.
@@ -269,15 +291,9 @@ export default function CategoriesPage() {
                         </span>
                       )}
 
-                      {/* A real image wins; without one the category gets its own drawing rather
-                          than a grey tile, which is what keeps the list image-led. */}
-                      <ItemImage
-                        src={c.imageUrl}
-                        alt={c.name}
-                        prepLocation={c.prepLocation}
-                        category={c.name}
-                        className="h-14 w-14 shrink-0"
-                      />
+                      {/* A real image wins; without one the category gets its own glyph on a
+                          framed tile rather than a grey square, which keeps the list image-led. */}
+                      <CategoryTile c={c} size="sm" />
 
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -337,7 +353,7 @@ export default function CategoriesPage() {
                 <li key={c.id} className="anim-reveal min-w-0" style={beat(idx)}>
                   <Card
                     className={cn(
-                      'relative h-full flex flex-col items-center text-center',
+                      'relative h-full flex flex-col items-center text-center material-gloss transition-[border-color,box-shadow] duration-control hover:border-neutral-300',
                       /* Room for the corner actions, so the glyph never sits under them on a
                          narrow two-up card. */
                       canManage && 'pt-9',
@@ -353,13 +369,9 @@ export default function CategoriesPage() {
                     )}
 
                     {/* One drawn mark from a single family — the reference's category cards are
-                        carried almost entirely by the glyph, so it must not be a borrowed icon. */}
-                    <span
-                      className={cn('h-12 w-12 rounded-md flex items-center justify-center shrink-0 ring-1 ring-inset', bar ? 'bg-info-50 text-info-700 ring-info-200' : 'bg-warning-50 text-warning-700 ring-warning-200')}
-                      aria-hidden
-                    >
-                      <CategoryGlyph name={glyphFor(c.name)} className="h-6 w-6" />
-                    </span>
+                        carried almost entirely by the glyph, so it must not be a borrowed icon.
+                        The station is named by the badge below, not by the tile's colour. */}
+                    <CategoryTile c={c} size="md" />
 
                     <h3 className={cn('mt-3 text-[15px] font-semibold break-words', c.isActive ? 'text-neutral-900' : 'text-neutral-500')}>{c.name}</h3>
                     {c.description && <p className="text-caption text-neutral-500 line-clamp-2 mt-0.5">{c.description}</p>}

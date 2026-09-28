@@ -8,7 +8,8 @@ import { useVipTables, useVipList, useVipSpend, useClubMutations, useCustomers, 
 import { usePermission } from '@/hooks/useAuth';
 import { useRealtimeInvalidate } from '@/hooks/useRealtime';
 import { useWorkspace } from '@/hooks/useSurface';
-import { PageHeader, Button, Card, CardHeader, Modal, ConfirmDialog, Input, Select, Textarea, Switch, StatusBadge, statusMeta, toneBg, Badge, SegmentedControl, LoadingState, ErrorState, EmptyState, KeyValue } from '@/components/ui';
+import { PageHeader, Button, Card, CardHeader, Modal, ConfirmDialog, Input, Select, Textarea, Switch, StatusBadge, StatusDot, statusMeta, toneBg, Badge, SegmentedControl, LoadingState, ErrorState, EmptyState, KeyValue } from '@/components/ui';
+import { TableShape, ProgressMeter } from '@/components/graphics';
 import { ApiError } from '@/services/api/client';
 import { money } from '@/utils/money';
 import { fmtDate, fmtDateTime, todayInput } from '@/utils/date';
@@ -51,6 +52,30 @@ export function VipBookingForm({ editing, tables, defaultTable, onClose }: { edi
 }
 
 /**
+ * THE VIP CHIP. Violet is the VIP classification and nothing else, so this is the one chip that
+ * wears it: a `-500` wash at 15 %, a `-500` hairline at 40 %, and the `-700` legible rung for the
+ * word. The word is always printed — the colour is never the only signal. Shared by the floor
+ * plan, the host desk and the reservations list so a VIP table is marked the same way everywhere.
+ */
+export function VipChip({ className }: { className?: string }) {
+  return (
+    <span className={cn('inline-flex items-center gap-1 rounded-full border border-accent-500/40 bg-accent-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] leading-none text-accent-700 whitespace-nowrap', className)}>
+      <Crown className="h-3 w-3 shrink-0" aria-hidden />
+      VIP
+    </span>
+  );
+}
+
+/**
+ * The mark drawn inside a booth top on the plan. The full name is always printed beside the
+ * shape; this is only the short form that fits inside it ("VIP Booth 2" → "2", "VIP 1" as is).
+ */
+const boothMark = (name: string): string => {
+  const parts = name.trim().split(/\s+/);
+  return name.length > 5 && parts.length > 1 ? parts[parts.length - 1] : name;
+};
+
+/**
  * A minimum-spend meter is drawn ONLY when a party is actually seated on the booking and a real
  * minimum was committed. Every caller — this page's table cards, the host desk and the club
  * dashboard — is gated on this one predicate, so a booked-but-empty table never draws a 0 % bar
@@ -66,10 +91,9 @@ export function showMinimumSpend(b: VipReservation | null | undefined): boolean 
  * the deposit was collected. The committed figure itself is printed by the caller's own heading in
  * the wide layout and by this block's own caption in the compact one.
  *
- * The bar is a real `progressbar` and everything it encodes is also printed beside it, so nothing
- * here depends on the colour of the fill. Fills use the `-500` rung, the designated stroke value
- * on the dark ground; the track is the raised fill with an inset hairline so an empty bar is still
- * a visible trough rather than a gap in the card.
+ * The bar is the shared `ProgressMeter` — a real `progressbar` cut into the surface — and
+ * everything it encodes is also printed beside it, so nothing here depends on the colour of the
+ * fill. Fills use the `-500` rung, the designated stroke value on the dark ground.
  */
 export function MinimumSpendMeter({ booking: b, tableName, compact, showDeposit, className }: {
   booking: VipReservation; tableName: string; compact?: boolean; showDeposit?: boolean; className?: string;
@@ -79,20 +103,15 @@ export function MinimumSpendMeter({ booking: b, tableName, compact, showDeposit,
   const outcome = met ? 'minimum met' : `${money(b.remainingSpend)} short`;
   return (
     <div className={className}>
-      <div
-        role="progressbar"
-        aria-label={`Spend against minimum on ${tableName}`}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.round(pct)}
-        aria-valuetext={`${money(b.currentSpend)} of ${money(b.minSpend)} — ${outcome}`}
-        className={cn('rounded-full bg-neutral-100 ring-1 ring-inset ring-neutral-200 overflow-hidden', compact ? 'h-1.5' : 'h-2')}
-      >
-        <div
-          className={cn('h-full rounded-full transition-[width] duration-control ease-out-soft', met ? 'bg-success-500' : pct >= 60 ? 'bg-warning-500' : 'bg-danger-500')}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
+      <ProgressMeter
+        value={b.currentSpend}
+        max={b.minSpend}
+        label={`Spend against minimum on ${tableName}`}
+        valueText={`${money(b.currentSpend)} of ${money(b.minSpend)} — ${outcome}`}
+        tone={met ? 'success' : pct >= 60 ? 'warning' : 'danger'}
+        size={compact ? 'sm' : 'md'}
+        hideText
+      />
       <p className="mt-1.5 flex flex-wrap items-baseline justify-between gap-x-2 text-caption tabular-nums">
         <span className="text-neutral-700 font-medium">{money(b.currentSpend)}{compact ? ` of ${money(b.minSpend)}` : ' spent'}</span>
         <span className={cn('inline-flex items-center gap-1 font-medium', met ? 'text-success-700' : 'text-danger-700')}>
@@ -146,18 +165,27 @@ function PlanTile({ table, selected, onSelect }: { table: VipTable; selected: bo
       aria-label={`${table.tableName}. Current service: ${svc.label}. Table minimum spend ${money(table.minSpendDefault)}.`}
       onClick={onSelect}
       className={cn(
-        'w-full min-w-0 text-left rounded-md border-2 p-3 fill-vip material-gloss press',
-        'transition-[border-color,box-shadow] duration-control hover:shadow-panel',
-        selected ? 'border-accent-500 shadow-panel' : 'border-neutral-200 hover:border-neutral-300',
+        /* A booth on the plan: the raised surface with the violet wash, a drawn banquette, and
+           the VIP chip. SELECTED is the bronze lift (`shadow-vip`) with a violet edge — a
+           150 ms border-and-shadow transition, no pulse. Resting tiles take a bronze hairline
+           only on hover. */
+        'relative w-full min-w-0 min-h-touch text-left rounded-lg border p-3 bg-surface-raised fill-vip material-gloss press',
+        'transition-[border-color,box-shadow] duration-control',
+        selected ? 'border-accent-500/60 shadow-vip' : 'border-neutral-200 hover:border-bronze/40 hover:shadow-panel',
       )}
     >
-      {/* Current service, drawn as the `-500` edge rule the floor plan uses everywhere else. */}
-      <span className={cn('block h-1.5 rounded-full mb-2', toneBg[svc.tone])} aria-hidden />
-      <span className="flex items-center gap-1.5 min-w-0">
-        <Crown className="h-3.5 w-3.5 text-accent-500 shrink-0" aria-hidden />
-        <span className="font-semibold text-neutral-900 truncate">{table.tableName}</span>
+      <span className="flex items-start justify-between gap-2 min-w-0">
+        <span className="font-semibold text-neutral-900 truncate min-w-0">{table.tableName}</span>
+        <VipChip className="shrink-0" />
       </span>
-      <span className="block text-caption text-neutral-500 truncate mt-0.5">{svc.label}</span>
+      <span className="mt-1 flex justify-center">
+        <TableShape label={boothMark(table.tableName)} capacity={table.capacity} tone={svc.tone} shape="booth" hideStatusLabel ariaLabel={table.tableName} shapeClassName="h-20 w-20" />
+      </span>
+      {/* Current service in words beside its tone — the colour is never the only signal. */}
+      <span className="mt-1 flex items-center gap-1.5 text-caption min-w-0">
+        <StatusDot tone={svc.tone} />
+        <span className="truncate text-neutral-700">{svc.label}</span>
+      </span>
       <span className="block text-caption text-neutral-900 font-medium tabular-nums mt-1">min {money(table.minSpendDefault)}</span>
     </button>
   );
@@ -181,18 +209,25 @@ function ManagerPlanTile({ table, selected, onSelect }: { table: VipTable; selec
       aria-label={`${table.tableName}. ${table.capacity} seats. Current service: ${svc.label}. Table minimum spend ${money(table.minSpendDefault)}.`}
       onClick={onSelect}
       className={cn(
-        'w-full min-w-0 text-left rounded-md border-2 p-3 fill-vip material-gloss press',
-        'transition-[border-color,box-shadow] duration-control hover:shadow-panel',
-        selected ? 'border-accent-500 shadow-panel' : 'border-neutral-200 hover:border-neutral-300',
+        'relative w-full min-w-0 min-h-touch text-left rounded-lg border p-3 bg-surface-raised fill-vip material-gloss press',
+        'transition-[border-color,box-shadow] duration-control',
+        selected ? 'border-accent-500/60 shadow-vip' : 'border-neutral-200 hover:border-bronze/40 hover:shadow-panel',
       )}
     >
-      <span className={cn('block h-1.5 rounded-full mb-2', toneBg[svc.tone])} aria-hidden />
-      <span className="flex items-center gap-1.5 min-w-0">
-        <Crown className="h-3.5 w-3.5 text-accent-500 shrink-0" aria-hidden />
-        <span className="font-semibold text-neutral-900 truncate">{table.tableName}</span>
+      <span className="flex items-start justify-between gap-2 min-w-0">
+        <span className="min-w-0">
+          <span className="block font-semibold text-neutral-900 truncate">{table.tableName}</span>
+          <span className="block text-caption text-neutral-500 truncate tabular-nums">{table.capacity} seats</span>
+        </span>
+        <VipChip className="shrink-0" />
       </span>
-      <span className="block text-caption text-neutral-500 truncate mt-0.5 tabular-nums">{table.capacity} seats</span>
-      <span className="block text-caption text-neutral-500 truncate mt-0.5">{svc.label}</span>
+      <span className="mt-1 flex justify-center">
+        <TableShape label={boothMark(table.tableName)} capacity={table.capacity} tone={svc.tone} shape="booth" hideStatusLabel ariaLabel={table.tableName} shapeClassName="h-20 w-20" />
+      </span>
+      <span className="mt-1 flex items-center gap-1.5 text-caption min-w-0">
+        <StatusDot tone={svc.tone} />
+        <span className="truncate text-neutral-700">{svc.label}</span>
+      </span>
       <span className="block text-caption text-neutral-900 font-medium tabular-nums mt-1">min {money(table.minSpendDefault)}</span>
     </button>
   );
@@ -209,17 +244,15 @@ function SpendPanel({ booking, onClose }: { booking: VipReservation; onClose: ()
       {s.minSpend > 0 ? (
         <div className="mb-4">
           <div className="flex justify-between text-sm mb-1.5"><span className="text-neutral-500">Spend progress</span><span className="tabular-nums font-semibold text-neutral-900">{money(s.currentSpend)} / {money(s.minSpend)}</span></div>
-          <div
-            role="progressbar"
-            aria-label="Spend against minimum"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(pct)}
-            aria-valuetext={`${money(s.currentSpend)} of ${money(s.minSpend)}`}
-            className="h-3 rounded-full bg-neutral-100 ring-1 ring-inset ring-neutral-200 overflow-hidden"
-          >
-            <div className={cn('h-full rounded-full transition-[width] duration-control ease-out-soft', pct >= 100 ? 'bg-success-500' : pct >= 60 ? 'bg-warning-500' : 'bg-danger-500')} style={{ width: `${pct}%` }} />
-          </div>
+          <ProgressMeter
+            value={s.currentSpend}
+            max={s.minSpend}
+            label="Spend against minimum"
+            valueText={`${money(s.currentSpend)} of ${money(s.minSpend)}`}
+            tone={pct >= 100 ? 'success' : pct >= 60 ? 'warning' : 'danger'}
+            size="md"
+            hideText
+          />
           <p className={cn('text-caption mt-1 inline-flex items-center gap-1', s.remainingSpend > 0 ? 'text-danger-700' : 'text-success-700')}>
             {s.remainingSpend > 0 ? <><AlertTriangle className="h-3.5 w-3.5" aria-hidden />{pct.toFixed(0)}% reached · {money(s.remainingSpend)} to go</> : <><CheckCircle2 className="h-3.5 w-3.5" aria-hidden />Minimum met</>}
           </p>
@@ -314,7 +347,9 @@ export default function VipTablesPage() {
             <p className="text-caption text-neutral-500 mb-4 leading-relaxed">
               The venue records no coordinates for a table, so the tiles are arranged in a fixed order around the zones rather than by where the booth physically stands. The colour on each tile is the table&rsquo;s current service, and the figure under it is that table&rsquo;s own minimum spend.
             </p>
-            <div className="space-y-3">
+            {/* THE PLAN is a sunken ground — the floor the booths sit on, cut a step below the
+                card with an inset hairline — so the raised tiles read as furniture on it. */}
+            <div className="rounded-lg bg-surface-sunken shadow-inset ring-1 ring-inset ring-neutral-200 p-3 sm:p-4 space-y-3">
               <Zone icon={<Disc3 className="h-5 w-5" />} label="DJ booth" className="py-3" />
               <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)_minmax(0,1fr)]">
                 <ul className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-1 gap-3 min-w-0">
@@ -345,19 +380,28 @@ export default function VipTablesPage() {
             const inService = t.status !== 'AVAILABLE' && t.status !== 'CLOSED';
             const seatedHere = b?.status === 'SEATED';
             const showProgress = showMinimumSpend(b);
+            /* THE SELECTED BOOTH. The one card on this screen that takes the bronze hairline:
+               it is the booth the operator has picked, so it carries the same lift the tile
+               does. The header is the concept's — table, VIP chip, and the current service
+               as a badge at the right — and the two axes below stay two axes. */
             return (
-              <Card padded={false} className="fill-vip material-gloss min-w-0">
-                <CardHeader
-                  className="p-5 pb-0"
-                  title={<span className="flex items-center gap-2 min-w-0"><Crown className="h-4 w-4 text-accent-500 shrink-0" aria-hidden /><span className="truncate">{t.tableName}</span></span>}
-                  subtitle={`${t.floorName} · ${t.capacity} seats`}
-                />
+              <Card padded={false} className="fill-vip material-gloss min-w-0 border-bronze/30 shadow-panel">
+                <div className="p-5 pb-0 flex flex-wrap items-start justify-between gap-3 min-w-0">
+                  <div className="min-w-0">
+                    <span className="flex items-center gap-2 min-w-0">
+                      <h3 className="text-subheading text-neutral-900 truncate">{t.tableName}</h3>
+                      <VipChip className="shrink-0" />
+                    </span>
+                    <p className="text-sm text-neutral-500 mt-1 leading-snug tabular-nums">{t.floorName} · {t.capacity} seats</p>
+                  </div>
+                  <span className="shrink-0"><StatusBadge kind="table" status={t.status} size="sm" /></span>
+                </div>
                 <div className="p-5 pt-4 space-y-4">
                   {/* ------------------------------------------ axis 1: right now */}
                   <section>
                     <p className="text-label uppercase text-neutral-500">Current service</p>
-                    <p className="mt-1.5"><StatusBadge kind="table" status={t.status} size="sm" /></p>
-                    <p className="text-caption text-neutral-500 mt-1.5">
+                    <p className="text-sm text-neutral-900 mt-1.5">{svc.label}</p>
+                    <p className="text-caption text-neutral-500 mt-0.5">
                       {seatedHere
                         ? `VIP party seated${b?.orderNumber ? ` · ${b.orderNumber}` : ''}`
                         : inService
@@ -379,17 +423,16 @@ export default function VipTablesPage() {
                     <p className="text-label uppercase text-neutral-500">Reservation {b ? `for ${fmtDate(b.date)}` : periodLabel}</p>
                     {b ? (
                       <>
-                        <span className="flex items-center gap-2 flex-wrap mt-1.5">
-                          <span className="font-medium text-neutral-900 truncate">{b.guestName}</span>
+                        {/* The guest leads, as on the concept card; the booking's own state sits
+                            beside the name and the party under it. */}
+                        <span className="flex items-center gap-2 flex-wrap mt-1.5 min-w-0">
+                          <span className="text-subheading text-neutral-900 truncate">{b.guestName}</span>
                           <StatusBadge kind="vip" status={b.status} size="sm" />
                         </span>
-                        <div className="mt-2.5">
+                        <p className="text-caption text-neutral-500 mt-0.5 tabular-nums">{b.guests} guest{b.guests === 1 ? '' : 's'} · {b.vipNumber}{b.hostName ? ` · host ${b.hostName}` : ''}</p>
+                        <div className="mt-3 well p-3">
                           <KeyValue items={[
-                            { label: 'Booking', value: <span className="tabular-nums">{b.vipNumber}</span> },
-                            { label: 'Guests', value: <span className="tabular-nums">{b.guests}</span> },
-                            { label: 'Host', value: b.hostName ?? '—' },
-                            { label: 'Booked', value: <span className="tabular-nums">{fmtDateTime(b.createdAt)}</span> },
-                            { label: 'Committed minimum', value: <span className="tabular-nums font-semibold">{money(b.minSpend)}</span> },
+                            { label: 'Minimum spend', value: <span className="tabular-nums font-semibold">{money(b.minSpend)}</span> },
                             {
                               label: 'Current spend',
                               value: ['SEATED', 'COMPLETED'].includes(b.status)
@@ -397,11 +440,12 @@ export default function VipTablesPage() {
                                 : <span className="text-neutral-500">nobody seated on this booking</span>,
                             },
                             ...(b.depositAmount > 0 ? [{ label: 'Deposit', value: <Badge size="sm" tone={b.depositPaid ? 'success' : 'warning'}>{money(b.depositAmount)}{b.depositPaid ? ' paid' : ' due'}</Badge> }] : []),
+                            { label: 'Booked', value: <span className="tabular-nums">{fmtDateTime(b.createdAt)}</span> },
                           ]} />
+                          {showProgress
+                            ? <MinimumSpendMeter booking={b} tableName={t.tableName} className="mt-3 pt-3 border-t border-neutral-200" />
+                            : <p className="text-caption text-neutral-500 mt-3 pt-3 border-t border-neutral-200">{b.status === 'BOOKED' ? 'Not seated yet — no spend recorded' : b.minSpend > 0 ? 'Spend tracked once the table is seated' : 'No minimum on this booking'}</p>}
                         </div>
-                        {showProgress
-                          ? <MinimumSpendMeter booking={b} tableName={t.tableName} className="mt-3" />
-                          : <p className="text-caption text-neutral-500 mt-3">{b.status === 'BOOKED' ? 'Not seated yet — no spend recorded' : b.minSpend > 0 ? 'Spend tracked once the table is seated' : 'No minimum on this booking'}</p>}
                       </>
                     ) : (
                       <>
@@ -487,9 +531,9 @@ export default function VipTablesPage() {
                     It belongs to axis 1 alone and claims nothing about the booking. */}
                 <span className={cn('h-1.5 shrink-0', toneBg[svc.tone])} aria-hidden />
                 <div className="p-4 flex-1 flex flex-col">
-                  <div className="flex items-center gap-2">
-                    <Crown className="h-4 w-4 text-accent-500 shrink-0" aria-label="VIP table" />
+                  <div className="flex items-center gap-2 min-w-0">
                     <h3 className="font-bold text-lg text-neutral-900 truncate">{t.tableName}</h3>
+                    <VipChip className="shrink-0" />
                   </div>
                   <p className="text-caption text-neutral-500 mt-0.5">{t.floorName} · {t.capacity} seats</p>
 

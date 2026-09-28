@@ -116,7 +116,7 @@ export function DiscountDialog({ bill, open, onClose, onApply, loading }: { bill
         />
 
         {/* ------------------------------------------------- what it does to the bill */}
-        <section aria-label="Effect on this bill" className="rounded-md border border-neutral-200 bg-surface p-3">
+        <section aria-label="Effect on this bill" className="well p-3">
           <p className="text-label text-neutral-700 uppercase mb-2">Effect on this bill</p>
           <KeyValue
             items={[

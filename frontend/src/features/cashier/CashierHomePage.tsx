@@ -159,6 +159,12 @@ export default function CashierHomePage() {
   const averageBill = paidToday.length ? takings / paidToday.length : null;
   const oldest = queue.length ? elapsedMinutes(queue[0].since, now) : 0;
   const overdue = queue.filter((r) => elapsedMinutes(r.since, now) >= DELAY_THRESHOLDS.late);
+  /**
+   * Gold is the act of taking money. A row whose next step is "Take payment" carries it; a row
+   * that still has to open or generate its bill takes the outline — the same routes and the
+   * same conditions as before, only the weight differs.
+   */
+  const rowVariant = (r: WaitingRow) => (r.action === 'Take payment' ? 'primary' as const : 'outline' as const);
 
   const hits = dq
     ? [
@@ -239,7 +245,9 @@ export default function CashierHomePage() {
       {!failed && ws === 'manager' && (
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] xl:items-start">
           <div className="min-w-0 space-y-4">
-            <Card padded={false} className="anim-reveal" style={beat(0)}>
+            {/* The queue is the hero of this screen — money waiting — so it alone takes the
+                bronze hairline; the panels beside it stay on the plain card. */}
+            <Card padded={false} className="card-premium border-bronze/30 anim-reveal" style={beat(0)}>
               <div className="px-4 py-3 border-b border-neutral-200 flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-subheading flex items-center gap-2">
                   <Wallet className="h-5 w-5 text-primary-700" aria-hidden />Settlement queue
@@ -298,7 +306,7 @@ export default function CashierHomePage() {
                             <span className="block text-caption text-neutral-500">{r.amountLabel}</span>
                           </span>
                           <Button
-                            variant={r.kind === 'BALANCE' ? 'success' : 'primary'}
+                            variant={rowVariant(r)}
                             className="shrink-0 min-h-touch"
                             onClick={() => navigate(r.to)}
                           >
@@ -407,7 +415,7 @@ export default function CashierHomePage() {
 
       {/* ---------------------------------------------------------------- the queue */}
       {!failed && ws !== 'manager' && (
-      <Card padded={false} className="mb-5 anim-reveal" style={beat(0)}>
+      <Card padded={false} className="card-premium border-bronze/30 mb-5 anim-reveal" style={beat(0)}>
         <div className="px-4 py-3 border-b border-neutral-200 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-subheading flex items-center gap-2">
             <Wallet className="h-5 w-5 text-primary-700" aria-hidden />Settlement queue
@@ -470,7 +478,7 @@ export default function CashierHomePage() {
                       </span>
                       <Button
                         size="pos"
-                        variant={r.kind === 'BALANCE' ? 'success' : 'primary'}
+                        variant={rowVariant(r)}
                         className="shrink-0"
                         onClick={() => navigate(r.to)}
                       >

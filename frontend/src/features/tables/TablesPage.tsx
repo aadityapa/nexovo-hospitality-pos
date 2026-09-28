@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { Plus, Pencil, Trash2, QrCode, ClipboardList, Wrench, Users, Clock, X } from 'lucide-react';
 import { useFloors, useTables, useTableMutations, useWaiters } from './hooks';
 import { useOrder } from '@/features/orders/hooks';
+import { VipChip } from '@/features/club/VipTablesPage';
 import { usePermission } from '@/hooks/useAuth';
 import { useWorkspace } from '@/hooks/useSurface';
 import { canAddItems } from '@/utils/orderStatus';
@@ -119,20 +120,25 @@ function TableTile({ t, selected, onSelect }: { t: DiningTable; selected: boolea
       aria-pressed={selected}
       aria-label={label}
       className={cn(
-        'group w-full min-w-0 rounded-md border bg-surface-raised px-2 py-3 flex flex-col items-center text-center gap-1',
-        'transition-[border-color,box-shadow] duration-control press hover:shadow-panel',
-        /* A VIP table carries the one violet in the system, as a barely-there wash. */
-        t.isVip && 'bg-vip-sheen bg-surface-raised',
-        selected ? 'border-primary-500 ring-2 ring-primary-500/30' : 'border-neutral-200 hover:border-neutral-300',
+        'group relative w-full min-w-0 rounded-md border bg-surface-raised px-2 py-3 flex flex-col items-center text-center gap-1',
+        'transition-[border-color,box-shadow] duration-control press',
+        /* A VIP table carries the one violet in the system, as a barely-there token wash, and
+           the chip that says so in words. */
+        t.isVip && 'fill-vip material-gloss',
+        /* SELECTED: a VIP booth takes the bronze lift and a violet edge (`shadow-vip`, 150 ms,
+           no pulse); every other table keeps the gold ring it has always had. */
+        selected
+          ? (t.isVip ? 'border-accent-500/60 shadow-vip' : 'border-primary-500 ring-2 ring-primary-500/30 shadow-panel')
+          : 'border-neutral-200 hover:border-neutral-300 hover:shadow-panel',
       )}
     >
+      {t.isVip && <VipChip className="absolute top-1.5 right-1.5" />}
       <TableShape
         label={t.number}
         capacity={t.capacity}
         tone={meta.tone}
         statusLabel={meta.label}
-        selected={selected}
-        vip={t.isVip}
+        selected={selected && !t.isVip}
         hideStatusLabel
         ariaLabel={t.name}
         shapeClassName="h-20 w-20"
@@ -179,9 +185,11 @@ function TableDetailPanel({ table, onClose }: { table: DiningTable; onClose: () 
 
   return (
     <>
-      <Card className="xl:sticky xl:top-[76px]">
+      {/* A VIP table's panel takes the violet wash and the bronze hairline — it is the selected
+          booth's card, the one premium edge on this screen. Every other table's panel is plain. */}
+      <Card className={cn('xl:sticky xl:top-[76px]', table.isVip && 'fill-vip material-gloss border-bronze/30')}>
         <CardHeader
-          title={table.name}
+          title={<span className="flex items-center gap-2 min-w-0"><span className="truncate">{table.name}</span>{table.isVip && <VipChip className="shrink-0" />}</span>}
           subtitle={`${table.floorName} · ${table.capacity} seat${table.capacity === 1 ? '' : 's'}`}
           action={<IconButton size="sm" label={`Close details for ${table.name}`} onClick={onClose}><X className="h-4 w-4" /></IconButton>}
         />
@@ -301,9 +309,9 @@ function ManagerTableDetailPanel({ table, onClose }: { table: DiningTable; onClo
 
   return (
     <>
-      <Card className="xl:sticky xl:top-[76px]">
+      <Card className={cn('xl:sticky xl:top-[76px]', table.isVip && 'fill-vip material-gloss border-bronze/30')}>
         <CardHeader
-          title={table.name}
+          title={<span className="flex items-center gap-2 min-w-0"><span className="truncate">{table.name}</span>{table.isVip && <VipChip className="shrink-0" />}</span>}
           subtitle={`${table.floorName} · ${table.capacity} seat${table.capacity === 1 ? '' : 's'}`}
           action={<IconButton size="sm" label={`Close details for ${table.name}`} onClick={onClose}><X className="h-4 w-4" /></IconButton>}
         />
@@ -502,7 +510,9 @@ export default function TablesPage() {
                 action={canManage ? <Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => setFormOpen(true)}>New table</Button> : undefined}
               />
             ) : (
-              <div className="space-y-7">
+              /* THE PLAN is a sunken ground — the floor the tables stand on, cut a step below the
+                 card with an inset hairline — so the raised tiles read as furniture on it. */
+              <div className="rounded-lg bg-surface-sunken shadow-inset ring-1 ring-inset ring-neutral-200 p-3 sm:p-4 space-y-7">
                 {groups.map((g) => {
                   const free = g.tables.filter((t) => t.status === 'AVAILABLE').length;
                   return (

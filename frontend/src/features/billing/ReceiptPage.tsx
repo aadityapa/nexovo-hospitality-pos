@@ -3,7 +3,7 @@ import { Printer, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { useReceipt, useBillMutations } from './hooks';
 import { ReceiptView, browserPrinter } from './ReceiptView';
 import { usePermission } from '@/hooks/useAuth';
-import { PageHeader, Button, LoadingState, ErrorState, StatusBadge } from '@/components/ui';
+import { PageHeader, Button, LoadingState, ErrorState, StatusBadge, Alert } from '@/components/ui';
 
 /**
  * Receipt / bill copy.
@@ -35,7 +35,7 @@ export default function ReceiptPage() {
             {canClose && b.paymentStatus === 'PAID' && b.status !== 'CLOSED' && <Button variant="success" className="col-span-2 w-full sm:col-span-1 sm:w-auto min-h-touch sm:min-h-0" leftIcon={<CheckCircle2 className="h-4 w-4" />} loading={m.close.isPending} onClick={() => m.close.mutate(b.id, { onSuccess: () => navigate('/cashier') })}>Close order</Button>}
           </div>
         } />
-      {b.paymentStatus !== 'PAID' && <p className="mb-3 text-sm text-warning-700 bg-warning-50 border border-warning-200 rounded-sm px-3 py-2">This is a bill copy — payment is still pending.</p>}
+      {b.paymentStatus !== 'PAID' && <Alert tone="warning" className="mb-3" title="This is a bill copy — payment is still pending." />}
       {/* Names the narrow column on a phone, so the 80 mm paper width reads as intentional. */}
       <p className="sm:hidden text-caption text-neutral-500 text-center mb-2">80 mm thermal preview</p>
       {/*
@@ -53,9 +53,18 @@ export default function ReceiptPage() {
 
         It plays on mount only. A refetch of the receipt re-renders the same element and animates
         nothing; there is no entrance on a data update anywhere in this product.
+
+        THE DESK. The paper sits on a sunken, hairlined slab so an ivory document reads as a
+        document laid on the obsidian counter rather than a white hole in the page. The slab is
+        a plain block on purpose: no `material-*` treatment and no transform, because those set
+        `position: relative` and would become the containing block for `#receipt-print` when it
+        goes absolute under `@media print`. `body *` is hidden in print anyway, so the desk never
+        reaches the printer.
       */}
       <div className="anim-enter print:!animate-none">
-        <ReceiptView receipt={r} />
+        <div className="rounded-lg border border-neutral-200 bg-surface-sunken p-4 sm:p-8">
+          <ReceiptView receipt={r} />
+        </div>
       </div>
     </div>
   );

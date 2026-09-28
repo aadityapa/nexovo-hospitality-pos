@@ -16,6 +16,91 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Luxury redesign — "The Night Collection"
+
+> Verified 25-09-2026: typecheck 0 · 156/156 tests · build clean · 810 route checks with 0
+> overflow / 0 contrast / 0 unnamed · 7/7 end-to-end flows. All against the in-browser demo
+> backend; see `docs/VERIFICATION.md` §0.
+
+#### Changed
+
+- **Palette.** Obsidian `#0B0E11` / smoked charcoal `#171C21` / champagne `#D6BA83` / warm ivory
+  `#F3EFE6`, in both themes; new `bronze` token for premium hairlines and `shadow-vip`; violet kept
+  strictly for VIP. `theme-color` metas follow. (`styles/index.css`, `tailwind.config.ts`,
+  `index.html`, `store/uiStore.ts`)
+- **Type.** Cormorant Garamond (Georgia fallback) as `font-serif`, set only in `PageHeader`,
+  `DashboardHero`, the login "Welcome back" and one hospitality line per screen. Brand mark is a
+  serif N with a tracked wordmark built from `appName`.
+- **Login** re-composed: full-bleed drawn room (`LoungeScene`) with a 900 ms lighting reveal,
+  floating glass card, no authenticated navigation before sign-in.
+- **Shell.** Venue card (drawn room + venue + branch) at the foot of the rail. `DashboardHero`
+  gained a `venue` prop that draws the room behind the head; used on the manager command centre,
+  host desk and club dashboard.
+- **Motion timings** aligned to the brief: controls 110–150 ms, navigation 180–240 ms, overlays
+  240 ms, stagger 30 ms capped at 300 ms, success 480 ms. **Monetary totals no longer animate**
+  (`CountUp` removed from both dashboards' sales figure).
+- **Every workflow screen** restyled to the system — floor/VIP (sunken plan, violet chip, selected
+  booth `shadow-vip`, spend meter), host desk (banner, per-area availability, arrivals table),
+  reservations (concept card), bottle service (bronze cards, `BottleArt`, stock dot + text), menu,
+  guest QR menu (serif venue name, featured dish per section), waiter order entry (image tiles,
+  gold "+", bronze order panel, data-derived send label), kitchen/bar boards (tone-ruled columns,
+  elapsed chip, full-width actions, entrance keyed by ticket id), cashier/billing (hero bill card,
+  tender rows for the seven existing methods, gold "Take payment · ₹"), inventory/purchasing
+  (framed thumbnails, lifecycle chips with real counts, selected-PO card with one gold next step),
+  guests/loyalty (VIP chip from the guest's own tag), users/roles (matrix on the shared
+  `Checkbox`), settings/branches (`money()` for every rupee). Full list per route:
+  `docs/ROUTE_CHECKLIST.md`.
+
+#### Real photos everywhere
+
+- 15 more licensed photos (57 in total): 14 stock items and the Hyderabad branch. Categories,
+  offers, recipes, the stock list and detail, and the branch cards now all show real photos.
+- Categories are seeded with a photo of one of their own dishes (mock DB version 6 → 7). The
+  category form now accepts local `/img/…` paths as well as web addresses (before this, saving a
+  seeded category would have failed on its own picture).
+- White rum keeps its drawn bottle; no accurate unbranded photo exists (`docs/IMAGERY.md`).
+- Re-verified: typecheck 0 · 156/156 tests · build clean · 7/7 end-to-end flows · 0 layout, contrast
+  or labelling problems in the two theme/width combinations re-audited (dark 390, light 1440).
+
+#### Security
+
+- `react-router-dom` 6.26.2 → 6.30.6 (GHSA-2w69-qvjg-hvjx, GHSA-2j2x-hqr9-3h42: open redirect / XSS
+  via protocol-relative redirects). Typecheck, 156 tests, build and the 7 end-to-end flows re-run
+  clean on the new version.
+
+#### Fixed
+
+- Found in the review of the rendered screens (25-09-2026): serif page titles colliding with
+  their subtitles (tailwind-merge dropped `leading-*` when a later `text-[…]` size followed); a
+  see-through "0 items" cart bar over dish names on the waiter's phone; the Jack Daniel's
+  bottle photo showing Tennessee Honey; the capture script photographing the login page as the
+  guest menu.
+- **Dark-mobile captures showing light surfaces** — a deliberate phone-ivory rule
+  (`PHONE_SURFACE`) painted the management shell paper below `lg` in the dark theme. Removed; the
+  theme holds at every width.
+- **Guest QR "Menu unavailable" in the screenshot archive** — the capture script used an invented
+  table code. It now reads a real link off `/admin/qr`. App behaviour was correct.
+- **Roles page 436 px document at ≤ 390 px** — `sr-only` (`position: absolute`) spans inside the
+  permission matrix escaped an unpositioned `.table-scroll`. `position: relative` on the wrapper,
+  product-wide. No `overflow-x: hidden`.
+- Invalid `/12` opacity modifier (emitted no CSS) in `FilterChips`, `ReadOnlyPill`/`ReadOnlyBanner`
+  and `ConnectionStatus` → `/[.12]`.
+- `ReservationsPage` row declared as a component inside the render body remounted every row on
+  the 60 s tick → render function.
+
+#### Added
+
+- **Licensed, local photography.** `frontend/assets.manifest.json` lists 43 pictures (Pexels /
+  Unsplash, free for commercial use) with what each depicts; `scripts/fetch-assets.mjs`
+  downloads them once into `frontend/public/img/` and a Vite plugin runs it at the start of
+  `dev`/`build`. The seed's 33 hot-linked Unsplash URLs are replaced by local paths (mock DB
+  version 5 → 6); nine of them had been the wrong dish or dead links (`docs/IMAGERY.md`). New
+  `Photo` component (photo over a drawn understudy); `BottleServiceItem.imageUrl` (optional,
+  additive) echoes the linked menu item's picture.
+- `docs/DESIGN_SPEC.md` (design + motion specification as implemented),
+  `docs/LUXURY_HOUSE_RULES.md`, `docs/ROUTE_CHECKLIST.md`, `docs/IMAGERY.md`; `verify.bat`,
+  `package.bat`.
+
 ### Added
 
 - **Manager workspace.** A dedicated command centre for the floor manager (`/manager`), plus a live

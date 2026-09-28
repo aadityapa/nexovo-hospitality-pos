@@ -1,14 +1,15 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Wine, Plus, Pencil, Trash2, PackageOpen, CheckCircle2, AlertTriangle, XCircle, Link2Off } from 'lucide-react';
+import { Wine, Plus, Pencil, Trash2, PackageOpen } from 'lucide-react';
 import { useBottleService, useClubMutations, useInventoryItems } from '@/features/p2/hooks';
 import { useMenuItems } from '@/features/menu/hooks';
 import { usePermission } from '@/hooks/useAuth';
-import { PageHeader, Button, IconButton, Card, Modal, ConfirmDialog, Input, Select, Textarea, Switch, Badge, FilterChips, SearchInput, LoadingState, ErrorState, EmptyState } from '@/components/ui';
-import { BottleArt } from '@/components/graphics';
+import { PageHeader, Button, IconButton, Card, Modal, ConfirmDialog, Input, Select, Textarea, Switch, StatusDot, FilterChips, SearchInput, LoadingState, ErrorState, EmptyState } from '@/components/ui';
+import { BottleArt, Photo } from '@/components/graphics';
+import { staggerDelay } from '@/components/motion';
 import { ApiError } from '@/services/api/client';
 import { money } from '@/utils/money';
 import { cn } from '@/utils/cn';
@@ -43,19 +44,20 @@ function BottleForm({ editing, onClose }: { editing: BottleServiceItem | null; o
   );
 }
 
-type Availability = { tone: 'success' | 'warning' | 'danger' | 'neutral'; label: string; icon: ReactNode; orderable: boolean };
+type Availability = { tone: 'success' | 'warning' | 'danger' | 'neutral'; label: string; orderable: boolean };
 
 /**
  * One honest answer to "can I sell this bottle right now?", built only from what the
- * bottle-service query already returns. Stock is only claimed when it is actually tracked.
+ * bottle-service query already returns. Stock is only claimed when it is actually tracked, and
+ * the count printed is the count the record carries — never a guess.
  */
 function availabilityOf(b: BottleServiceItem): Availability {
-  if (!b.isActive) return { tone: 'neutral', label: 'Not offered', icon: <XCircle className="h-3.5 w-3.5" aria-hidden />, orderable: false };
-  if (!b.isAvailable) return { tone: 'danger', label: 'Off the menu', icon: <XCircle className="h-3.5 w-3.5" aria-hidden />, orderable: false };
-  if (b.bottlesInStock == null) return { tone: 'neutral', label: 'Stock not tracked', icon: <Link2Off className="h-3.5 w-3.5" aria-hidden />, orderable: true };
-  if (b.bottlesInStock <= 0) return { tone: 'danger', label: 'Out of stock', icon: <XCircle className="h-3.5 w-3.5" aria-hidden />, orderable: false };
-  if (b.bottlesInStock <= 3) return { tone: 'warning', label: `Only ${b.bottlesInStock} left`, icon: <AlertTriangle className="h-3.5 w-3.5" aria-hidden />, orderable: true };
-  return { tone: 'success', label: `${b.bottlesInStock} in stock`, icon: <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />, orderable: true };
+  if (!b.isActive) return { tone: 'neutral', label: 'Not offered', orderable: false };
+  if (!b.isAvailable) return { tone: 'danger', label: 'Off the menu', orderable: false };
+  if (b.bottlesInStock == null) return { tone: 'neutral', label: 'Stock not tracked', orderable: true };
+  if (b.bottlesInStock <= 0) return { tone: 'danger', label: 'Out of stock', orderable: false };
+  if (b.bottlesInStock <= 3) return { tone: 'warning', label: `Low stock (${b.bottlesInStock})`, orderable: true };
+  return { tone: 'success', label: `In stock (${b.bottlesInStock})`, orderable: true };
 }
 
 /**
@@ -82,6 +84,9 @@ function matchesFacet(facet: Facet, b: BottleServiceItem): boolean {
     default: return true;
   }
 }
+
+/** The `--d` beat of a staged reveal — a function of position in the grid, never of the data. */
+const beat = (i: number) => ({ '--d': `${staggerDelay(i)}ms` }) as CSSProperties;
 
 export default function BottleServicePage() {
   const navigate = useNavigate();
@@ -139,62 +144,72 @@ export default function BottleServicePage() {
           <EmptyState compact icon={<Wine className="h-6 w-6" />} title="No bottles match" description="Clear the search or switch back to all bottles." action={<Button variant="outline" onClick={() => { setSearch(''); setFilter('ALL'); }}>Show all bottles</Button>} />
         </Card>
       ) : (
-        /* Base `grid-cols-1`, and every prefixed track is `minmax(0,1fr)` — an implicit auto
-           track sizes to the widest bottle name and drags the grid past a 360 px viewport. */
-        <ul className="grid grid-cols-1 xs:grid-cols-[repeat(2,minmax(0,1fr))] lg:grid-cols-[repeat(3,minmax(0,1fr))] xl:grid-cols-[repeat(4,minmax(0,1fr))] gap-4">
-          {shown.map((b) => {
+        /* Base `grid-cols-1`; Tailwind's prefixed tracks are `repeat(n, minmax(0,1fr))`, so no
+           bottle name can drag the grid past a 360 px viewport. Three across at most — the
+           reference shelf is three bottles wide and each card is tall. */
+        <ul className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          {shown.map((b, idx) => {
             const a = availabilityOf(b);
             return (
-              <li key={b.id} className="min-w-0">
+              <li key={b.id} className="anim-reveal min-w-0" style={beat(idx)}>
                 {/*
-                  A bottle that cannot be poured recedes to the page's own ground instead of
-                  taking a tint: on the dark palette a quieter card is a darker one.
-
-                  MATERIAL. The gloss is part of that same signal and is spent only on the
-                  bottles that can actually be sold — a pourable bottle catches light, a blocked
-                  one is a flat card on the page ground. It is gloss alone: `.material-edge` is a
-                  `box-shadow` and would replace the `shadow-card` these cards sit on, and the
-                  grain belongs to one large slab per screen, not to a grid of tiles.
+                  THE BOTTLE CARD — the one place in the product a bronze hairline sits on a
+                  grid card. A bottle that cannot be poured recedes to the page's own ground and
+                  loses the gloss: a pourable bottle catches light, a blocked one is a flat card.
 
                   Deliberately NOT `.fill-vip`: violet means VIP CLASSIFICATION in this product
                   (a VIP table, a VIP booking), and a bottle-service item is a menu item that any
-                  guest can order. Washing the list violet would claim a tier the data does not
+                  guest can order. Washing the shelf violet would claim a tier the data does not
                   carry.
                 */}
-                <Card padded={false} className={cn('h-full flex flex-col overflow-hidden', a.orderable ? 'material-gloss' : 'bg-surface')}>
-                  {/* A DRAWN bottle on a quiet tinted ground — `neutral-50` is the rung that
-                      sits BELOW the card in both themes, so the image area reads as a recess
-                      rather than a second card. The drawing is deterministic on the item's own
-                      name, so the same bottle is the same picture everywhere it appears. */}
-                  <div className={cn('aspect-[3/4] border-b border-neutral-200 bg-neutral-50 overflow-hidden', !a.orderable && 'opacity-60')}>
-                    <BottleArt name={b.menuItemName} />
+                <Card padded={false} className={cn('h-full flex flex-col overflow-hidden border-bronze/30', a.orderable ? 'material-gloss' : 'bg-surface')}>
+                  {/* The bottle's photograph — the linked menu item's own picture, a local file
+                      checked against the brand it names (assets.manifest.json) — on a recessed
+                      ground (`neutral-50` sits BELOW the card in both themes). The drawn bottle
+                      is its understudy: deterministic on the item's own name, typed by the stock
+                      item it is linked to, and a blank label rather than a counterfeit of a brand,
+                      so a record without a photo never borrows another bottle's. */}
+                  <div className={cn('aspect-square sm:aspect-[4/5] border-b border-bronze/20 bg-neutral-50 overflow-hidden', !a.orderable && 'opacity-60')}>
+                    <Photo
+                      src={b.imageUrl ?? undefined}
+                      alt=""
+                      fallback={<BottleArt name={b.menuItemName} category={b.invItemName} className="p-6" />}
+                      className="h-full w-full"
+                    />
                   </div>
 
                   <div className="p-4 flex-1 flex flex-col min-w-0">
                     <h3 className="font-semibold text-neutral-900 leading-snug break-words">{b.menuItemName}</h3>
-                    {/* The record carries no category, so this line is what it DOES carry. */}
-                    <p className="text-[12px] text-neutral-500 mt-0.5 leading-snug">{b.bottleSizeMl} ml bottle{b.invItemName ? ` · ${b.invItemName}` : ''}</p>
+                    {/* The record carries no vintage or category, so this line is what it DOES
+                        carry: the pour size and the stock bottle it is linked to. */}
+                    <p className="text-caption text-neutral-500 mt-0.5 leading-snug break-words tnum">{b.bottleSizeMl} ml{b.invItemName ? ` · ${b.invItemName}` : ''}</p>
 
-                    <p className={cn('mt-2 text-lg font-semibold tabular-nums leading-6', a.orderable ? 'text-neutral-900' : 'text-neutral-500')}>
+                    <p className={cn('mt-2.5 text-lg font-semibold tnum leading-6', a.orderable ? 'text-neutral-900' : 'text-neutral-500')}>
                       {money(b.price)}<span className="text-caption font-normal text-neutral-500"> per bottle</span>
                     </p>
 
-                    <p className="mt-2.5">
-                      <Badge tone={a.tone} icon={a.icon}>{a.label}</Badge>
+                    {/* Status is a dot AND a label — never the colour on its own. */}
+                    <p className={cn('mt-2 flex items-center gap-2 text-sm', a.orderable ? 'text-neutral-700' : 'text-neutral-500')}>
+                      <StatusDot tone={a.tone} />
+                      <span className="tnum">{a.label}</span>
                       {!b.isActive && b.isAvailable && <span className="sr-only">This item is not currently offered as bottle service.</span>}
                     </p>
 
-                    {b.includes && <p className="mt-2 text-sm text-neutral-600 leading-snug">Includes: {b.includes}</p>}
+                    {b.includes && <p className="mt-2 text-sm text-neutral-600 leading-snug break-words">Includes: {b.includes}</p>}
 
-                    <p className="mt-auto pt-3 text-caption text-neutral-500">
+                    <p className="mt-auto pt-3 text-caption text-neutral-500 leading-snug">
                       {b.invItemName ? <>Stock: {b.invItemName} — 1 bottle deducted per unit sold</> : 'Not linked to inventory — sales do not move stock'}
                     </p>
                   </div>
 
+                  {/* The card's real action. This is the management shelf, not order entry, so
+                      the full-width button edits the bottle; it is the secondary fill because the
+                      screen's ONE gold action is `Add item` in the page head — twelve gold buttons
+                      would make none of them read as primary. Both stay behind `club:manage`. */}
                   {canManage && (
-                    <div className="border-t border-neutral-200 px-3 py-2 flex items-center justify-end gap-1">
-                      <IconButton label={`Edit ${b.menuItemName}`} size="sm" onClick={() => setForm({ editing: b })}><Pencil className="h-4 w-4" /></IconButton>
-                      <IconButton label={`Remove ${b.menuItemName} from bottle service`} size="sm" className="text-danger-700" onClick={() => setToRemove(b)}><Trash2 className="h-4 w-4" /></IconButton>
+                    <div className="px-4 pb-4 flex items-center gap-2">
+                      <Button variant="secondary" block className="min-h-touch" leftIcon={<Pencil className="h-4 w-4" />} onClick={() => setForm({ editing: b })}>Edit bottle</Button>
+                      <IconButton label={`Remove ${b.menuItemName} from bottle service`} className="text-danger-700 min-h-touch min-w-touch" onClick={() => setToRemove(b)}><Trash2 className="h-4 w-4" /></IconButton>
                     </div>
                   )}
                 </Card>

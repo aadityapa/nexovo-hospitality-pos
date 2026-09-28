@@ -1,9 +1,11 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { Plus, Trash2, Save, ChefHat, Wine, ChevronLeft, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useRecipe, useRecipeMutations, useInventoryItems, useInventoryUnits } from '@/features/p2/hooks';
 import { usePermission } from '@/hooks/useAuth';
-import { Button, Card, CardHeader, CardDivider, Input, IconButton, ItemImage, Switch, SegmentedControl, LoadingState, ErrorState, EmptyState, Badge, KeyValue, InlineError } from '@/components/ui';
+import { Button, Card, CardHeader, CardDivider, Input, IconButton, Switch, SegmentedControl, LoadingState, ErrorState, EmptyState, Badge, KeyValue, InlineError } from '@/components/ui';
+import { DishArt, dishKindFor, Photo } from '@/components/graphics';
+import { useMenuItems } from '@/features/menu/hooks';
 import { money } from '@/utils/money';
 import { ApiError } from '@/services/api/client';
 import { cn } from '@/utils/cn';
@@ -29,8 +31,10 @@ function MetaChip({ children }: { children: ReactNode }) {
 export default function RecipeEditorPage() {
   const { menuItemId } = useParams();
   const id = Number(menuItemId);
-  const navigate = useNavigate();
   const q = useRecipe(id);
+  /* The dish's own menu photograph, from the cached menu query. */
+  const menu = useMenuItems({ includeInactive: true });
+  const photo = menu.data?.find((m) => m.id === id)?.imageUrl ?? undefined;
   const items = useInventoryItems({});
   const units = useInventoryUnits();
   const { save, remove } = useRecipeMutations();
@@ -103,9 +107,12 @@ export default function RecipeEditorPage() {
        * dish's cuisine, its prep time or whether it is vegetarian, because the product stores none
        * of those.
        */}
-      <Card className="mb-4">
-        <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-          <ItemImage alt={r.menuItemName} prepLocation={r.prepLocation} className="h-24 w-24 shrink-0" rounded="rounded-md" />
+      <Card className="mb-4 border-bronze/30 material-gloss">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-4 min-w-0">
+          {/* The dish's own menu photograph, with its drawing as understudy. */}
+          <div className="h-24 w-24 shrink-0 overflow-hidden rounded-md bg-neutral-100 ring-1 ring-inset ring-neutral-200" aria-hidden>
+            <Photo src={photo} fallback={<DishArt name={r.menuItemName} kind={dishKindFor(r.menuItemName, { prepLocation: r.prepLocation })} />} className="h-full w-full" />
+          </div>
           <div className="min-w-0 flex-1">
             <h1 className="text-heading sm:text-display text-neutral-900 font-semibold tracking-[-0.02em] leading-tight break-words">{r.menuItemName}</h1>
             <p className="text-[13px] text-neutral-500 mt-1 leading-snug">
@@ -182,18 +189,18 @@ export default function RecipeEditorPage() {
                             </select>
                           </td>
                           {/* The item's own average cost, which is what the line is costed at. */}
-                          <td className="px-2 py-2.5 text-right align-top leading-10 tabular-nums text-neutral-600">
+                          <td className="px-2 py-2.5 text-right align-top leading-10 tnum text-neutral-600 whitespace-nowrap">
                             {inv ? <>{money(inv.avgCost, { decimals: true })} <span className="text-neutral-400">/ {inv.unitCode}</span></> : '—'}
                           </td>
                           <td className="px-2 py-2.5 align-top"><input aria-label={`Wastage percent for ingredient ${i + 1}`} type="number" step="any" min={0} max={100} className={cn(cellInput, 'text-right')} value={l.wastagePct} disabled={!canManage} onChange={(e) => update(i, { wastagePct: e.target.value })} /></td>
-                          <td className="px-4 py-2.5 text-right tabular-nums font-medium align-top leading-10">{money(lineCost(l) / portions, { decimals: true })}</td>
+                          <td className="px-4 py-2.5 text-right tnum font-medium align-top leading-10 text-neutral-900 whitespace-nowrap">{money(lineCost(l) / portions, { decimals: true })}</td>
                           <td className="px-2 py-2.5 align-top">{canManage && <IconButton label={`Remove ingredient ${i + 1}`} size="sm" className="text-danger-700" onClick={() => removeLine(i)}><Trash2 className="h-4 w-4" /></IconButton>}</td>
                         </tr>); })}
                     </tbody>
                     <tfoot className="bg-neutral-50 border-t border-neutral-200">
                       <tr>
-                        <td colSpan={5} className="px-4 py-2.5 text-right text-neutral-600">Cost per portion ({lines.length} ingredient{lines.length === 1 ? '' : 's'} · yield {portions})</td>
-                        <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-neutral-900">{money(total, { decimals: true })}</td>
+                        <td colSpan={5} className="px-4 py-2.5 text-right text-neutral-600 tnum">Cost per portion ({lines.length} ingredient{lines.length === 1 ? '' : 's'} · yield {portions})</td>
+                        <td className="px-4 py-2.5 text-right tnum font-semibold text-neutral-900 whitespace-nowrap">{money(total, { decimals: true })}</td>
                         <td />
                       </tr>
                     </tfoot>
@@ -222,15 +229,15 @@ export default function RecipeEditorPage() {
         <div className="min-w-0 lg:sticky lg:top-4">
           <Card>
             <CardHeader title="Cost breakdown" subtitle="Cost per portion against the 30 % target — recalculated as you edit, not saved until you save" />
-            <p className="text-metric text-neutral-900 tabular-nums">{money(total, { decimals: true })}</p>
-            <p className="text-caption text-neutral-500 mt-1">{label || 'Portion'} · yield {portions} per run</p>
+            <p className="text-metric text-neutral-900 tnum">{money(total, { decimals: true })}</p>
+            <p className="text-caption text-neutral-500 mt-1 tnum">{label || 'Portion'} · yield {portions} per run</p>
             <CardDivider />
             <KeyValue items={[
-              { label: 'Ingredients total (per run)', value: <span className="tabular-nums">{money(runTotal, { decimals: true })}</span> },
-              { label: 'Total food cost (per portion)', value: <span className="tabular-nums font-semibold">{money(total, { decimals: true })}</span> },
-              { label: 'Selling price', value: <span className="tabular-nums">{money(r.sellingPrice)}</span> },
-              { label: 'Gross margin', value: <span className={cn('tabular-nums font-semibold', margin <= 0 ? 'text-danger-700' : 'text-neutral-900')}>{money(margin)}</span> },
-              { label: 'Suggested price @ 30 %', value: <span className="tabular-nums">{total > 0 ? money(Math.round(total / 0.3)) : '—'}</span> },
+              { label: 'Ingredients total (per run)', value: <span className="tnum">{money(runTotal, { decimals: true })}</span> },
+              { label: 'Total food cost (per portion)', value: <span className="tnum font-semibold">{money(total, { decimals: true })}</span> },
+              { label: 'Selling price', value: <span className="tnum">{money(r.sellingPrice)}</span> },
+              { label: 'Gross margin', value: <span className={cn('tnum font-semibold', margin <= 0 ? 'text-danger-700' : 'text-neutral-900')}>{money(margin)}</span> },
+              { label: 'Suggested price @ 30 %', value: <span className="tnum">{total > 0 ? money(Math.round(total / 0.3)) : '—'}</span> },
             ]} />
             <CardDivider />
             <div className="flex items-baseline justify-between gap-3">

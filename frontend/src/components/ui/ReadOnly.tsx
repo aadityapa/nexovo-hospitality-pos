@@ -34,7 +34,7 @@ export function useReadOnly(managePermission: Permission): boolean {
 export function ReadOnlyPill({ className }: { className?: string }) {
   return (
     <span className={cn(
-      'inline-flex items-center gap-1.5 rounded-md border border-primary-500/35 bg-primary-500/12 px-2.5 h-8 text-[13px] font-medium text-primary-700',
+      'inline-flex items-center gap-1.5 rounded-md border border-primary-500/35 bg-primary-500/[.12] px-2.5 h-8 text-[13px] font-medium text-primary-700',
       className,
     )}>
       <Lock className="h-3.5 w-3.5" aria-hidden />
@@ -58,7 +58,7 @@ export function ReadOnlyBanner({ title, managedBy = 'your system administrator',
 }) {
   return (
     <div className={cn('well flex items-start gap-3 p-3.5', className)} role="note">
-      <span className="h-8 w-8 shrink-0 rounded-md grid place-items-center bg-primary-500/12 ring-1 ring-inset ring-primary-500/30" aria-hidden>
+      <span className="h-8 w-8 shrink-0 rounded-md grid place-items-center bg-primary-500/[.12] ring-1 ring-inset ring-primary-500/30" aria-hidden>
         <Lock className="h-4 w-4 text-primary-700" />
       </span>
       <div className="min-w-0">

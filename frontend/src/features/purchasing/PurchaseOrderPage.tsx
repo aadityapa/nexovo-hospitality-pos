@@ -16,7 +16,12 @@ interface Line { invItemId: ID | ''; qty: string; unitId: ID | ''; unitPrice: st
 /** The states a purchase order in this product actually passes through, in order. */
 const LIFECYCLE: PoStatus[] = ['DRAFT', 'SENT', 'APPROVED', 'ORDERED', 'PARTIALLY_RECEIVED', 'RECEIVED'];
 
-function ReceiveModal({ po, onClose }: { po: PurchaseOrder; onClose: () => void }) {
+/**
+ * Receiving goods, line by line. Exported because the purchase-order LIST offers the same step
+ * from its selected-order card — one dialog, one mutation, one permission check, wherever it is
+ * opened from.
+ */
+export function ReceiveModal({ po, onClose }: { po: PurchaseOrder; onClose: () => void }) {
   const { receive } = usePurchasingMutations();
   const [invoiceNo, setInvoiceNo] = useState('');
   const [notes, setNotes] = useState('');
@@ -33,7 +38,7 @@ function ReceiveModal({ po, onClose }: { po: PurchaseOrder; onClose: () => void 
       <div className="table-scroll rounded-md border border-neutral-200"><table className="w-full text-sm">
         <thead className="bg-neutral-50 text-label uppercase text-neutral-600"><tr><th className="text-left px-3 py-2">Item</th><th className="text-right px-2 py-2">Pending</th><th className="text-right px-2 py-2 w-28">Received</th><th className="text-right px-2 py-2 w-24">Damaged</th><th className="text-right px-2 py-2 w-28">Unit cost</th></tr></thead>
         <tbody className="divide-y divide-neutral-200">{rows.map((r, i) => (
-          <tr key={r.poItemId}><td className="px-3 py-2 font-medium">{r.itemName}</td><td className="px-2 py-2 text-right tabular-nums text-neutral-600">{r.pending} {r.unitCode}</td>
+          <tr key={r.poItemId}><td className="px-3 py-2 font-medium text-neutral-900">{r.itemName}</td><td className="px-2 py-2 text-right tnum text-neutral-600 whitespace-nowrap">{r.pending} {r.unitCode}</td>
             <td className="px-2 py-2"><input aria-label="Received" type="number" step="any" min={0} className="input-base min-h-[36px] text-right" value={r.receivedQty} onChange={(e) => setRows((rs) => rs.map((x, idx) => (idx === i ? { ...x, receivedQty: e.target.value } : x)))} /></td>
             <td className="px-2 py-2"><input aria-label="Damaged" type="number" step="any" min={0} className="input-base min-h-[36px] text-right" value={r.damagedQty} onChange={(e) => setRows((rs) => rs.map((x, idx) => (idx === i ? { ...x, damagedQty: e.target.value } : x)))} /></td>
             <td className="px-2 py-2"><input aria-label="Unit cost" type="number" step="0.01" min={0} className="input-base min-h-[36px] text-right" value={r.unitCost} onChange={(e) => setRows((rs) => rs.map((x, idx) => (idx === i ? { ...x, unitCost: e.target.value } : x)))} /></td></tr>))}</tbody>
@@ -243,30 +248,50 @@ export default function PurchaseOrderPage() {
         <ChevronLeft className="h-4 w-4" aria-hidden />All purchase orders
       </Link>
 
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-heading sm:text-display text-neutral-900 font-semibold tabular-nums tracking-[-0.02em] leading-tight break-words">{p ? p.poNumber : 'New purchase order'}</h1>
-            {p && <StatusBadge kind="po" status={p.status} size="lg" />}
+      {/*
+       * THE DOCUMENT'S HEAD — the reference's order summary: the number and its status, who it
+       * is with and when, and the total set large, because that is the figure a buyer signs off.
+       * The total is the same `grand` the lines and the totals card are printed from. This is the
+       * one card on the screen that takes the bronze hairline. The secondary actions sit beneath
+       * it; the one action that moves the order forward stays in the sticky bar below, in gold.
+       */}
+      <Card className="mb-4 border-bronze/30 material-gloss">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between min-w-0">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-heading sm:text-display text-neutral-900 font-semibold tnum tracking-[-0.02em] leading-tight break-words">{p ? p.poNumber : 'New purchase order'}</h1>
+              {p && <StatusBadge kind="po" status={p.status} size="lg" />}
+            </div>
+            {/* The manager board names the supplier and whoever raised the order; the admin board
+                names the supplier and the date it was placed. Both are fields on the record, and
+                neither is printed when the record does not hold it. */}
+            <p className="text-[13px] text-neutral-500 mt-1 leading-snug">
+              {!p ? 'Draft is editable until approved'
+                : ws === 'manager'
+                  ? `${p.supplierName}${p.createdByName ? ` · raised by ${p.createdByName}` : ''}${p.approvedByName ? ` · approved by ${p.approvedByName}` : ''}`
+                  : `${p.supplierName} · ordered ${fmtDate(p.createdAt)}${p.approvedByName ? ` · approved by ${p.approvedByName}` : ''}`}
+            </p>
           </div>
-          {/* The manager board names the supplier and whoever raised the order; the admin board
-              names the supplier and the date it was placed. Both are fields on the record, and
-              neither is printed when the record does not hold it. */}
-          <p className="text-[13px] text-neutral-500 mt-1 leading-snug">
-            {!p ? 'Draft is editable until approved'
-              : ws === 'manager'
-                ? `${p.supplierName}${p.createdByName ? ` · raised by ${p.createdByName}` : ''}${p.approvedByName ? ` · approved by ${p.approvedByName}` : ''}`
-                : `${p.supplierName} · ordered ${fmtDate(p.createdAt)}${p.approvedByName ? ` · approved by ${p.approvedByName}` : ''}`}
-          </p>
+          <div className="shrink-0 sm:text-right">
+            <p className="text-label uppercase text-neutral-500">Total amount</p>
+            <p className="text-metric tnum text-neutral-900">{money(grand)}</p>
+            <p className="text-caption text-neutral-500 tnum">
+              {p && !editable
+                ? `${p.items.length} line${p.items.length === 1 ? '' : 's'} · ${receivedPct}% received`
+                : `${filledLines.length} line${filledLines.length === 1 ? '' : 's'} · tax ${money(round2(grand - subtotal))}`}
+            </p>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          {p && <Button variant="outline" leftIcon={<Printer className="h-4 w-4" />} onClick={() => window.print()}>Print</Button>}
-          {p && !editable && canManage && ['DRAFT', 'SENT'].includes(p.status) && <Button variant="outline" onClick={() => setEditing(true)}>Edit</Button>}
-          {p && p.status === 'DRAFT' && canApprove && !editable && <Button variant="outline" leftIcon={<ThumbsUp className="h-4 w-4" />} loading={transitionPo.isPending} onClick={() => void act('APPROVE')}>Approve directly</Button>}
-          {p && p.status === 'APPROVED' && canReceive && <Button variant="outline" leftIcon={<PackageCheck className="h-4 w-4" />} onClick={() => setReceiveOpen(true)}>Receive goods</Button>}
-          {p && !['RECEIVED', 'CANCELLED'].includes(p.status) && canManage && <Button variant="ghost" className="text-danger-700" leftIcon={<XCircle className="h-4 w-4" />} onClick={() => setCancelOpen(true)}>Cancel</Button>}
-        </div>
-      </div>
+        {p && (
+          <div className="mt-4 flex flex-wrap items-center gap-2 sm:justify-end">
+            <Button variant="outline" leftIcon={<Printer className="h-4 w-4" />} onClick={() => window.print()}>Print</Button>
+            {!editable && canManage && ['DRAFT', 'SENT'].includes(p.status) && <Button variant="outline" onClick={() => setEditing(true)}>Edit</Button>}
+            {p.status === 'DRAFT' && canApprove && !editable && <Button variant="outline" leftIcon={<ThumbsUp className="h-4 w-4" />} loading={transitionPo.isPending} onClick={() => void act('APPROVE')}>Approve directly</Button>}
+            {p.status === 'APPROVED' && canReceive && <Button variant="outline" leftIcon={<PackageCheck className="h-4 w-4" />} onClick={() => setReceiveOpen(true)}>Receive goods</Button>}
+            {!['RECEIVED', 'CANCELLED'].includes(p.status) && canManage && <Button variant="ghost" className="text-danger-700" leftIcon={<XCircle className="h-4 w-4" />} onClick={() => setCancelOpen(true)}>Cancel</Button>}
+          </div>
+        )}
+      </Card>
 
       {/* The one action that moves this order forward, pinned so it stays reachable while the
           lines scroll. Blocked reasons are printed, never hidden behind a disabled control.
@@ -433,20 +458,20 @@ export default function PurchaseOrderPage() {
               {lines.map((l, i) => { const it = inv(l.invItemId); const poi = p?.items[i]; const unitCode = units.data?.find((u) => u.id === l.unitId)?.code; return (
                 <tr key={i} className="transition-colors duration-control hover:bg-neutral-100">
                   <td className="px-4 py-2">{editable ? <select aria-label="Item" className="input-base min-h-[36px]" value={l.invItemId} onChange={(e) => { const v = e.target.value ? Number(e.target.value) : ''; const x = inv(v); update(i, { invItemId: v, unitId: x ? x.unitId : '', unitPrice: x ? String(x.costPrice) : l.unitPrice }); }}><option value="">Select…</option>{(items.data ?? []).map((x) => <option key={x.id} value={x.id}>{x.name} ({x.unitCode})</option>)}</select> : <span className="font-medium">{it?.name ?? poi?.itemName}</span>}{it && editable && <span className="block text-caption text-neutral-500 mt-1">stock {it.currentQty} {it.unitCode} · last {money(it.costPrice, { decimals: true })}</span>}</td>
-                  <td className="px-2 py-2 text-right">{editable ? <input aria-label="Qty" type="number" step="any" min={0} className="input-base min-h-[36px] text-right" value={l.qty} onChange={(e) => update(i, { qty: e.target.value })} /> : <span className="tabular-nums">{l.qty}{unitCode ? ` ${unitCode}` : ''}</span>}</td>
+                  <td className="px-2 py-2 text-right">{editable ? <input aria-label="Qty" type="number" step="any" min={0} className="input-base min-h-[36px] text-right" value={l.qty} onChange={(e) => update(i, { qty: e.target.value })} /> : <span className="tnum whitespace-nowrap">{l.qty}{unitCode ? ` ${unitCode}` : ''}</span>}</td>
                   {editable
                     ? <td className="px-2 py-2"><select aria-label="Unit" className="input-base min-h-[36px]" value={l.unitId} onChange={(e) => update(i, { unitId: e.target.value ? Number(e.target.value) : '' })}>{(units.data ?? []).map((u) => <option key={u.id} value={u.id}>{u.code}</option>)}</select></td>
-                    : <td className="px-2 py-2 text-right tabular-nums">{poi ? <span className={poi.pendingQty > 0 ? 'inline-flex items-center gap-1 font-medium text-warning-700' : 'inline-flex items-center gap-1 font-medium text-success-700'}>{poi.pendingQty > 0 ? <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden /> : <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden />}{poi.receivedQty} / {poi.qty}</span> : '—'}</td>}
-                  <td className="px-2 py-2 text-right">{editable ? <input aria-label="Unit price" type="number" step="0.01" min={0} className="input-base min-h-[36px] text-right" value={l.unitPrice} onChange={(e) => update(i, { unitPrice: e.target.value })} /> : <span className="tabular-nums">{money(Number(l.unitPrice), { decimals: true })}</span>}</td>
-                  <td className="px-2 py-2 text-right">{editable ? <input aria-label="Tax" type="number" step="any" min={0} className="input-base min-h-[36px] text-right" value={l.taxPercent} onChange={(e) => update(i, { taxPercent: e.target.value })} /> : <span className="tabular-nums">{l.taxPercent}%</span>}</td>
-                  <td className="px-4 py-2 text-right tabular-nums font-medium">{money(lineTotal(l))}</td>
+                    : <td className="px-2 py-2 text-right tnum whitespace-nowrap">{poi ? <span className={poi.pendingQty > 0 ? 'inline-flex items-center gap-1 font-medium text-warning-700' : 'inline-flex items-center gap-1 font-medium text-success-700'}>{poi.pendingQty > 0 ? <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden /> : <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden />}{poi.receivedQty} / {poi.qty}</span> : '—'}</td>}
+                  <td className="px-2 py-2 text-right">{editable ? <input aria-label="Unit price" type="number" step="0.01" min={0} className="input-base min-h-[36px] text-right" value={l.unitPrice} onChange={(e) => update(i, { unitPrice: e.target.value })} /> : <span className="tnum whitespace-nowrap">{money(Number(l.unitPrice), { decimals: true })}</span>}</td>
+                  <td className="px-2 py-2 text-right">{editable ? <input aria-label="Tax" type="number" step="any" min={0} className="input-base min-h-[36px] text-right" value={l.taxPercent} onChange={(e) => update(i, { taxPercent: e.target.value })} /> : <span className="tnum">{l.taxPercent}%</span>}</td>
+                  <td className="px-4 py-2 text-right tnum font-medium text-neutral-900 whitespace-nowrap">{money(lineTotal(l))}</td>
                   {editable && <td className="px-2 py-2"><IconButton label={`Remove line ${i + 1}`} size="sm" className="text-danger-700" onClick={() => setLines((ls) => ls.filter((_, idx) => idx !== i))}><Trash2 className="h-4 w-4" /></IconButton></td>}
                 </tr>); })}
             </tbody>
             <tfoot className="bg-neutral-50 border-t border-neutral-200">
               <tr>
                 <td className="px-4 py-2.5 text-label uppercase text-neutral-500" colSpan={5}>Order total</td>
-                <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-neutral-900">{money(grand)}</td>
+                <td className="px-4 py-2.5 text-right tnum font-semibold text-neutral-900 whitespace-nowrap">{money(grand)}</td>
                 {editable && <td />}
               </tr>
             </tfoot>
@@ -464,9 +489,9 @@ export default function PurchaseOrderPage() {
             {/* The same computation the lines above are printed from. A purchase order in this
                 product carries no discount field, so no discount line is drawn. */}
             <div className="space-y-1.5 text-sm">
-              <div className="flex justify-between"><span className="text-neutral-600">Subtotal</span><span className="tabular-nums">{money(subtotal)}</span></div>
-              <div className="flex justify-between"><span className="text-neutral-600">Tax</span><span className="tabular-nums">{money(round2(grand - subtotal))}</span></div>
-              <div className="flex justify-between text-lg font-bold border-t border-neutral-200 pt-2 mt-2"><span>Total</span><span className="tabular-nums">{money(grand)}</span></div>
+              <div className="flex justify-between gap-3"><span className="text-neutral-600">Subtotal</span><span className="tnum text-neutral-900">{money(subtotal)}</span></div>
+              <div className="flex justify-between gap-3"><span className="text-neutral-600">Tax</span><span className="tnum text-neutral-900">{money(round2(grand - subtotal))}</span></div>
+              <div className="flex justify-between gap-3 text-lg font-semibold text-neutral-900 border-t border-neutral-200 pt-2 mt-2"><span>Total</span><span className="tnum">{money(grand)}</span></div>
             </div>
           </Card>
           <Card>

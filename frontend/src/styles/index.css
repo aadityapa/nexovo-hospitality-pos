@@ -50,44 +50,62 @@
   .chrome-dark {
     color-scheme: dark;
 
-    --c-primary-50:   35 27 14;    --c-primary-100:  51 39 15;   --c-primary-200: 77 58 20;
-    --c-primary-300: 122 93 34;    --c-primary-400: 169 131 55;  --c-primary-500: 214 168 79;
-    --c-primary-600: 214 168 79;   --c-primary-700: 233 199 120; --c-primary-800: 241 218 164;
-    --c-primary-900: 248 236 209;
+    /*
+     * THE NIGHT COLLECTION — obsidian, smoked charcoal, champagne.
+     *
+     * Champagne gold is #D6BA83: a pale, warm metal rather than a saturated yellow, which is
+     * what lets it sit on obsidian without shouting. It is the action colour and the active
+     * navigation colour and nothing else; the label on it is always near-black (on-primary),
+     * because #D6BA83 is light enough that white on it reads at under 2:1.
+     * `-700` is the gold as TEXT (lighter still, so it clears AA on charcoal);
+     * `-400` is the pressed / lower stop of the gold gradient.
+     */
+    --c-primary-50:   38  32  20;  --c-primary-100:  56  46  27;  --c-primary-200:  86  70  40;
+    --c-primary-300: 138 114  70;  --c-primary-400: 189 162 108;  --c-primary-500: 214 186 131;
+    --c-primary-600: 214 186 131;  --c-primary-700: 232 212 168;  --c-primary-800: 241 228 197;
+    --c-primary-900: 248 240 222;
 
-    /* Warm charcoal, not blue-black: the references' operational screens are a neutral
-       graphite that lets the gold read as gold rather than as yellow on navy. */
-    --c-neutral-50:   17  19  21;  --c-neutral-100:  26  29  32;  --c-neutral-200:  41  45  50;
-    --c-neutral-300:  56  61  67;  --c-neutral-400: 126 136 146;  --c-neutral-500: 142 152 163;
-    --c-neutral-600: 167 176 186;  --c-neutral-700: 198 204 211;  --c-neutral-800: 227 230 233;
-    --c-neutral-900: 244 245 246;  --c-neutral-950:   8  10  12;
+    /*
+     * The neutral ramp is WARM. Every rung carries a little of the champagne, so a border on
+     * charcoal reads as bronze rather than as the grey of a spreadsheet; `-200` is the hairline
+     * ("subtle bronze border"), `-900` is warm ivory text (#F3EFE6), and the middle rungs are
+     * measured against surface-raised (#171C21) to clear AA.
+     */
+    --c-neutral-50:   19  23  27;  --c-neutral-100:  29  34  39;  --c-neutral-200:  52  46  38;
+    --c-neutral-300:  74  66  54;  --c-neutral-400: 142 134 119;  --c-neutral-500: 163 155 140;
+    --c-neutral-600: 186 178 163;  --c-neutral-700: 212 205 191;  --c-neutral-800: 230 225 214;
+    --c-neutral-900: 243 239 230;  --c-neutral-950:  11  14  17;
 
-    --c-accent-50:  27 22 48;      --c-accent-100: 37 30 69;     --c-accent-200: 53 43 99;
-    --c-accent-300: 78 63 147;     --c-accent-400: 110 87 201;   --c-accent-500: 154 123 255;
-    --c-accent-600: 154 123 255;   --c-accent-700: 180 155 255;  --c-accent-800: 205 189 255;
-    --c-accent-900: 228 219 255;
+    /* Violet — VIP classification only. Never an action, never a generic highlight. */
+    --c-accent-50:   30  26  48;   --c-accent-100:  42  36  70;   --c-accent-200:  62  52 104;
+    --c-accent-300:  90  76 152;   --c-accent-400: 116  99 196;   --c-accent-500: 142 123 224;
+    --c-accent-600: 142 123 224;   --c-accent-700: 180 166 238;   --c-accent-800: 208 199 246;
+    --c-accent-900: 231 226 250;
 
-    --c-success-50: 12 42 31;   --c-success-100: 18 58 43;  --c-success-200: 27 87 65;
-    --c-success-500: 57 201 138; --c-success-600: 57 201 138; --c-success-700: 111 220 171;
+    /* Emerald for settled and successful, amber for pending, a muted red for errors. */
+    --c-success-50:  13  44  34;  --c-success-100:  18  60  46;  --c-success-200:  27  88  67;
+    --c-success-500:  47 191 138; --c-success-600:  47 191 138; --c-success-700: 110 220 176;
 
-    --c-warning-50: 46 36 17;   --c-warning-100: 64 51 22;  --c-warning-200: 94 74 31;
-    --c-warning-500: 242 184 75; --c-warning-600: 242 184 75; --c-warning-700: 247 206 124;
+    --c-warning-50:  50  38  16;  --c-warning-100:  70  53  20;  --c-warning-200: 102  77  28;
+    --c-warning-500: 229 169  61; --c-warning-600: 229 169  61; --c-warning-700: 240 199 122;
 
-    --c-danger-50:  47 20 24;   --c-danger-100: 67 27 33;   --c-danger-200: 99 39 47;
-    --c-danger-500: 232 93 104; --c-danger-600: 232 93 104; --c-danger-700: 242 140 148;
+    --c-danger-50:   50  24  22;  --c-danger-100:  70  31  28;  --c-danger-200: 104  45  41;
+    --c-danger-500: 201  88  79;  --c-danger-600: 201  88  79;  --c-danger-700: 228 138 130;
 
-    --c-info-50:    16 35 58;   --c-info-100:   21 49 80;   --c-info-200:   30 71 118;
-    --c-info-500:   92 169 255; --c-info-600:   92 169 255; --c-info-700:  140 196 255;
+    --c-info-50:     18  34  54;  --c-info-100:    24  48  76;  --c-info-200:   34  70 112;
+    --c-info-500:    92 154 230;  --c-info-600:    92 154 230;  --c-info-700:  148 190 240;
 
-    /* Four steps, each just far enough apart to be read as a step: the rail sits below the
-       page, the page below a card, a card below a popover. */
-    --c-surface:        10 11 12;
-    --c-surface-raised: 20 22 24;
-    --c-surface-high:   27 30 33;
-    --c-surface-sunken:  7  8  9;
+    /* Obsidian page, smoked-charcoal cards, a step lighter for popovers, and the rail below all. */
+    --c-surface:        11  14  17;
+    --c-surface-raised: 23  28  33;
+    --c-surface-high:   30  36  42;
+    --c-surface-sunken:  8  10  13;
 
-    /* A very quiet warm wash behind the application background. */
-    --app-wash: radial-gradient(1200px 600px at 50% -10%, rgba(214, 168, 79, 0.045), transparent 70%);
+    /* Bronze — the edge that catches light on a selected VIP booth or a premium panel. */
+    --c-bronze: 122  96  56;
+
+    /* A very quiet champagne wash behind the application background. */
+    --app-wash: radial-gradient(1200px 600px at 50% -10%, rgba(214, 186, 131, 0.05), transparent 70%);
     /* The grain itself: SVG fractal noise, rendered by the browser, no network request.
        Declared once — the two themes differ only in how strongly it is mixed in. */
     --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
@@ -106,45 +124,50 @@
   .chrome-light {
     color-scheme: light;
 
-    --c-primary-50:  252 246 232;  --c-primary-100: 247 233 201; --c-primary-200: 239 215 155;
-    --c-primary-300: 224 188 99;   --c-primary-400: 201 155 51;  --c-primary-500: 214 168 79;
-    --c-primary-600: 192 143 51;   --c-primary-700: 138 98 18;   --c-primary-800: 107 75 14;
-    --c-primary-900: 74 52 10;
+    /* The same champagne as a fill; as TEXT on ivory it deepens to bronze, because #D6BA83 on
+       cream is under 2:1. `-700` #7A5C1E measures 5.5:1 on the raised ivory. */
+    --c-primary-50:  250 245 234;  --c-primary-100: 244 234 212; --c-primary-200: 235 219 184;
+    --c-primary-300: 222 200 152;  --c-primary-400: 192 160 100; --c-primary-500: 214 186 131;
+    --c-primary-600: 178 146  88;  --c-primary-700: 122  92  30; --c-primary-800:  96  72  22;
+    --c-primary-900:  68  50  14;
 
-    /* WARM IVORY. The references' light workspaces are a cream-white paper, not a cool
-       grey UI chrome — the neutrals carry a little yellow so they sit under the gold
-       instead of fighting it. The dark rungs are warmed to match, which is what stops a
-       heading on ivory reading as blue-black. */
-    --c-neutral-50:  248 245 239;  --c-neutral-100: 242 238 230; --c-neutral-200: 232 227 217;
-    /* `-400` measured 4.43:1 on the ivory workspace — under AA by seven hundredths, on real text
-       (the "to" in a date range). Darkened until it clears: 4.70:1 on `surface` #F7F4EE. */
-    --c-neutral-300: 214 207 195;  --c-neutral-400: 118 108  94; --c-neutral-500: 106  97  84;
-    --c-neutral-600:  88  80  69;  --c-neutral-700:  66  59  50; --c-neutral-800:  46  40  33;
-    --c-neutral-900:  26  22  17;  --c-neutral-950:   8  10  12;
+    /*
+     * WARM IVORY, #F3EFE6, throughout. The light theme is not "the dark theme inverted" — it is
+     * cream paper with dark readable text, and the neutrals carry the same warmth so a heading
+     * never reads as blue-black. Borders are a pale bronze, measured so they still separate.
+     * `-400` and `-500` are measured against surface #F3EFE6 (the darker of the two grounds):
+     * 5.0:1 and 5.9:1.
+     */
+    --c-neutral-50:  247 243 235;  --c-neutral-100: 240 235 225; --c-neutral-200: 223 214 198;
+    --c-neutral-300: 201 190 169;  --c-neutral-400: 110 100  87; --c-neutral-500:  98  89  76;
+    --c-neutral-600:  80  72  61;  --c-neutral-700:  60  54  45; --c-neutral-800:  42  37  30;
+    --c-neutral-900:  26  22  17;  --c-neutral-950:  11  14  17;
 
-    --c-accent-50:  242 238 255;   --c-accent-100: 228 220 255; --c-accent-200: 201 186 255;
-    --c-accent-300: 166 143 250;   --c-accent-400: 128 100 236; --c-accent-500: 109 77 230;
-    --c-accent-600:  91 59 209;    --c-accent-700:  74 46 173;  --c-accent-800:  58 35 137;
-    --c-accent-900:  41 24 99;
+    --c-accent-50:  241 238 252;   --c-accent-100: 226 220 249; --c-accent-200: 200 190 242;
+    --c-accent-300: 164 148 230;   --c-accent-400: 128 108 214; --c-accent-500: 108  86 200;
+    --c-accent-600:  90  70 178;   --c-accent-700:  72  54 148; --c-accent-800:  56  42 116;
+    --c-accent-900:  40  30  84;
 
-    --c-success-50: 233 249 241; --c-success-100: 207 242 225; --c-success-200: 159 229 195;
-    --c-success-500: 18 183 106; --c-success-600:  3 152 85;   --c-success-700:   2 122 72;
+    --c-success-50: 232 247 240; --c-success-100: 204 239 224; --c-success-200: 156 224 194;
+    --c-success-500:  30 158 108; --c-success-600:  18 132  88; --c-success-700:   9 104  68;
 
-    --c-warning-50: 255 248 232; --c-warning-100: 252 239 199; --c-warning-200: 247 223 155;
-    --c-warning-500: 232 163 23; --c-warning-600: 196 134 14;  --c-warning-700: 138 93 8;
+    --c-warning-50: 253 246 230; --c-warning-100: 250 235 198; --c-warning-200: 243 218 150;
+    --c-warning-500: 214 150  40; --c-warning-600: 178 122  26; --c-warning-700: 128  86  14;
 
-    --c-danger-50:  253 240 240; --c-danger-100: 251 220 220;  --c-danger-200: 245 185 187;
-    --c-danger-500: 224 65 76;   --c-danger-600: 198 44 55;    --c-danger-700: 155 31 40;
+    --c-danger-50:  251 238 236; --c-danger-100: 247 220 216;  --c-danger-200: 236 186 180;
+    --c-danger-500: 190  76  66; --c-danger-600: 164  58  50;  --c-danger-700: 128  40  34;
 
-    --c-info-50:    237 245 255; --c-info-100:   214 232 255;  --c-info-200:   175 209 255;
-    --c-info-500:    46 125 224; --c-info-600:    26 102 196;  --c-info-700:    20 83 158;
+    --c-info-50:    236 243 252; --c-info-100:   212 228 248;  --c-info-200:   172 203 240;
+    --c-info-500:    54 118 196; --c-info-600:    36  96 170;  --c-info-700:    26  76 136;
 
-    --c-surface:        247 244 238;
-    --c-surface-raised: 255 255 255;
+    --c-surface:        243 239 230;
+    --c-surface-raised: 251 249 244;
     --c-surface-high:   255 255 255;
-    --c-surface-sunken: 240 236 228;
+    --c-surface-sunken: 234 228 216;
 
-    --app-wash: radial-gradient(1200px 600px at 50% -10%, rgba(214, 168, 79, 0.10), transparent 70%);
+    --c-bronze: 168 138  88;
+
+    --app-wash: radial-gradient(1200px 600px at 50% -10%, rgba(214, 186, 131, 0.14), transparent 70%);
     /* On white, a white specular is invisible and grain turns to dirt — both drop hard. */
     --gloss-strength: 0.55;
     --grain-strength: 0.18;
@@ -388,7 +411,18 @@
    * column instead of scrolling. With min-width: 0 the table scrolls inside the box, which is
    * the entire point. Verified at 390 px on /admin/roles.
    */
-  .table-scroll { @apply overflow-x-auto overscroll-x-contain min-w-0; }
+  /*
+   * `position: relative` is load-bearing. Tailwind's `sr-only` is `position: absolute`, and a
+   * scroll container only clips descendants whose containing block lies inside it. An
+   * unpositioned scroll wrapper let the sr-only spans inside a 760 px permission matrix escape
+   * the clip and sit at their static offset in the UNSCROLLED table — a 1×1 px box at ~436 px
+   * that widened `document.scrollWidth` on phones with nothing visible past the edge. Positioning
+   * the wrapper makes it the containing block, and the boxes scroll and clip with the table.
+   */
+  .table-scroll {
+    position: relative;
+    @apply overflow-x-auto overscroll-x-contain min-w-0;
+  }
   /*
    * DENSITY. 13 px body, 11 px header, 10 px of vertical padding. Measured off the reference
    * boards, where a table row is about 44 px and eight rows fit above the fold on a laptop —
@@ -460,14 +494,21 @@
      collapses all of them, and because each animation ends on the natural
      state, collapsing them leaves the interface fully correct.
      ========================================================================== */
-  .anim-enter      { animation: enter-rise 240ms cubic-bezier(0.16, 1, 0.3, 1) both; }
-  .anim-enter-soft { animation: enter-fade 200ms cubic-bezier(0.16, 1, 0.3, 1) both; }
-  /* A staged reveal: set `--d` per child (capped in config/motion.ts). */
-  .anim-reveal     { animation: enter-rise 260ms cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: var(--d, 0ms); }
-  /* The page transition. Short, and only ever on the content region. */
-  .anim-page       { animation: page-in 240ms cubic-bezier(0.16, 1, 0.3, 1) both; }
-  /* One controlled overshoot, for a success mark. */
-  .anim-pop        { animation: pop-in 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+  .anim-enter      { animation: enter-rise 220ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .anim-enter-soft { animation: enter-fade 180ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+  /* A staged reveal: set `--d` per child (30ms steps, capped in config/motion.ts). */
+  .anim-reveal     { animation: enter-rise 240ms cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: var(--d, 0ms); }
+  /* The navigation transition: 180–240ms, and only ever on the content region. */
+  .anim-page       { animation: page-in 210ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+  /* One controlled overshoot, for a success mark (350–600ms, once, after confirmation). */
+  .anim-pop        { animation: pop-in 480ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+  /*
+   * THE LOGIN REVEAL. A single lighting pass: the scene starts a stop darker and slightly
+   * closer, and settles to its true exposure over 900ms — the room being lit for the evening.
+   * Once. It is the only entrance in the product that is allowed to take most of a second, and
+   * it is allowed because nobody on that screen is mid-service.
+   */
+  .anim-light-reveal { animation: light-reveal 900ms cubic-bezier(0.22, 1, 0.36, 1) both; }
   /* A stroke that draws itself — used on the success tick and the login mark. */
   .anim-draw       { stroke-dasharray: var(--len, 120); stroke-dashoffset: var(--len, 120); animation: draw 700ms cubic-bezier(0.65, 0, 0.35, 1) both; animation-delay: var(--d, 0ms); }
   /* A single sweep of light across a surface, once, when a moment lands. */
@@ -479,6 +520,7 @@
     animation: sheen 900ms cubic-bezier(0.65, 0, 0.35, 1) 120ms both;
   }
 
+  @keyframes light-reveal { from { opacity: 0.55; filter: brightness(0.55) saturate(0.85); transform: scale(1.04); } to { opacity: 1; filter: none; transform: none; } }
   @keyframes enter-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
   @keyframes enter-fade { from { opacity: 0; } to { opacity: 1; } }
   @keyframes page-in    { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -526,10 +568,11 @@
    * Entrances collapse to their end state rather than disappearing: `both` fill would otherwise
    * leave an element stuck at opacity 0 when the animation is clamped to 0.01ms.
    */
-  .anim-enter, .anim-enter-soft, .anim-reveal, .anim-page, .anim-pop {
+  .anim-enter, .anim-enter-soft, .anim-reveal, .anim-page, .anim-pop, .anim-light-reveal {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
+    filter: none !important;
   }
   .anim-draw { animation: none !important; stroke-dashoffset: 0 !important; }
   .anim-sheen::after { display: none !important; }

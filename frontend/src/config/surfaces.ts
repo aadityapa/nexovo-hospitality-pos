@@ -25,13 +25,10 @@
  *
  * PHONES
  * ------
- * The boards draw the phone application as ivory — dashboard, orders and More are the three
- * screens shown, and all three are this shell. The ivory is applied to the WHOLE management shell
- * below `lg` rather than to those three routes, because the header and the bottom navigation are
- * shared chrome: a rail that turned from cream to charcoal as you moved between tabs would read
- * as a fault, not as a design. The in-service tools keep their charcoal at every width — the
- * waiter and cashier shells and the kitchen and bar boards are used in a dim room and are not
- * management screens.
+ * A route's surface holds at every width. An earlier revision painted the whole management shell
+ * ivory below `lg` because a set of reference mock-ups drew their phones that way; it meant a
+ * dark-theme operator got a light phone, which a later audit correctly reported as a defect. The
+ * theme is the operator's choice and the viewport does not override it.
  */
 
 import type { Workspace } from './workspace';
@@ -50,8 +47,6 @@ export const DARK_SURFACE: RouteSurface = { shell: 'dark', content: 'dark' };
 export const PAPER_CONTENT: RouteSurface = { shell: 'dark', content: 'light' };
 /** The whole window becomes the document. */
 export const PAPER_SHELL: RouteSurface = { shell: 'light', content: 'light' };
-/** Phones: the management shell is ivory end to end. */
-export const PHONE_SURFACE: RouteSurface = PAPER_SHELL;
 
 /**
  * Screens the reference boards paint as warm ivory. Anything not listed is charcoal.

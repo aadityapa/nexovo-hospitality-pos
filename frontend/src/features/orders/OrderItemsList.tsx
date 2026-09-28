@@ -175,8 +175,8 @@ export function OrderItemsList({ order, showPrices = true, canServe, canCancel, 
                         <div className="flex items-start justify-between gap-2">
                           <p className="flex items-baseline gap-2 min-w-0">
                             <span className={cn(
-                              'shrink-0 rounded-sm px-1.5 py-0.5 text-sm font-semibold tabular-nums',
-                              cancelled ? 'bg-neutral-100 text-neutral-400' : 'bg-neutral-100 text-neutral-800',
+                              'shrink-0 rounded-sm px-1.5 py-0.5 text-sm font-semibold tnum ring-1 ring-inset',
+                              cancelled ? 'bg-neutral-100 text-neutral-400 ring-neutral-200' : 'bg-neutral-100 text-neutral-900 ring-neutral-300',
                             )}>
                               {it.quantity}×
                             </span>
@@ -236,8 +236,8 @@ export function OrderItemsList({ order, showPrices = true, canServe, canCancel, 
                     <tr key={it.id} className={cn(cancelled && 'bg-neutral-50')}>
                       <td className="align-top">
                         <span className={cn(
-                          'inline-block rounded-sm px-1.5 py-0.5 text-sm font-semibold tabular-nums',
-                          cancelled ? 'bg-neutral-100 text-neutral-400' : 'bg-neutral-100 text-neutral-800',
+                          'inline-block rounded-sm px-1.5 py-0.5 text-sm font-semibold tnum ring-1 ring-inset',
+                          cancelled ? 'bg-neutral-100 text-neutral-400 ring-neutral-200' : 'bg-neutral-100 text-neutral-900 ring-neutral-300',
                         )}>
                           {it.quantity}×
                         </span>

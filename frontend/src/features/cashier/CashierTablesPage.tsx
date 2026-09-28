@@ -74,7 +74,11 @@ export default function CashierTablesPage() {
         className={cn(
           'group relative overflow-hidden text-left rounded-md border bg-surface-raised shadow-card p-4 pt-5 min-h-pos w-full',
           'transition-[box-shadow,border-color] duration-control press hover:shadow-panel focus-visible:shadow-panel',
-          lead ? 'border-warning-200 hover:border-warning-500' : 'border-neutral-200 hover:border-neutral-300',
+          /* The lane that carries money takes the lit surface wash (`fill-surface` is a
+             background-image, so it layers over `bg-surface-raised` instead of replacing it
+             under tailwind-merge); the dining lane stays matte. The amber edge and the
+             "Open bill" line keep saying WHY it is lit — never colour alone. */
+          lead ? 'fill-surface border-warning-200 hover:border-warning-500' : 'border-neutral-200 hover:border-neutral-300',
         )}
       >
         {/* `neutral-300` is a border value on this ramp and disappears as a 6 px rule — the

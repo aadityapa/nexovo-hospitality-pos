@@ -63,11 +63,13 @@ export default function BillingScreenPage() {
   ];
 
   /* The same decisions in the same order as the desktop rail — conditions are not merged, so
-     which action is offered never depends on where it is rendered. */
+     which action is offered never depends on where it is rendered. The three states are
+     mutually exclusive (open / finalized-and-owing / paid), so exactly one of them takes the
+     gold: it is the single primary action this screen offers at any moment. */
   const actions = (
     <>
       {open && <Button size="pos" block className="lg:col-span-2" leftIcon={<Lock className="h-5 w-5" />} loading={m.finalize.isPending} onClick={() => setConfirmFinalize(true)}>Finalize bill</Button>}
-      {!open && b.balanceDue > 0 && canPay && <Button size="pos" block variant="success" className="lg:col-span-2" leftIcon={<CreditCard className="h-5 w-5" />} onClick={() => navigate(`/cashier/bills/${b.id}/pay`)}>Take payment · {money(b.balanceDue)}</Button>}
+      {!open && b.balanceDue > 0 && canPay && <Button size="pos" block variant="primary" className="lg:col-span-2" leftIcon={<CreditCard className="h-5 w-5" />} onClick={() => navigate(`/cashier/bills/${b.id}/pay`)}>Take payment · {money(b.balanceDue)}</Button>}
       {b.paymentStatus === 'PAID' && b.status !== 'CLOSED' && canClose && <Button size="pos" block variant="primary" className="lg:col-span-2" leftIcon={<CheckCircle2 className="h-5 w-5" />} loading={m.close.isPending} onClick={() => setConfirmClose(true)}>Close order &amp; free table</Button>}
       {b.status === 'CLOSED' && <div className="lg:col-span-2 rounded-sm bg-success-50 border border-success-200 text-success-700 text-sm font-medium px-3 py-2 text-center">Order completed · {fmtDateTime(b.closedAt)}</div>}
     </>
@@ -87,30 +89,53 @@ export default function BillingScreenPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_400px]">
         {/* LEFT */}
         <div className="space-y-4">
-          <Card padded={false}>
-            {/* Every block on this screen wears the same `CardHeader` the manager's panels do —
-                title, one supporting line, and the block's own action on the right. */}
-            <CardHeader
-              className="p-4 pb-3 mb-0 border-b border-neutral-200"
-              title="Items"
-              subtitle={`${b.items.length} line${b.items.length === 1 ? '' : 's'} · prices as ordered`}
-            />
+          {/*
+            THE BILL CARD — the hero of this screen, so it alone wears the bronze hairline. The
+            bill's own number leads, its state chips sit beside it and the table and time read
+            underneath; every line below is qty · name · amount in tabular figures so the column
+            can be reconciled by eye. Nothing pictorial sits behind a bill.
+          */}
+          <Card padded={false} className="card-premium border-bronze/30">
+            <div className="p-4 pb-3 border-b border-neutral-200">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-subheading tnum text-neutral-900">{b.billNumber}</h2>
+                <StatusBadge kind="bill" status={b.status} size="sm" />
+                <StatusBadge kind="payment" status={b.paymentStatus} size="sm" hideIcon />
+              </div>
+              <p className="text-sm text-neutral-500 mt-1 leading-snug">
+                {b.tableName} · {fmtDateTime(b.createdAt)} · {b.items.length} line{b.items.length === 1 ? '' : 's'} · prices as ordered
+              </p>
+            </div>
             <ul className="divide-y divide-neutral-200">
               {b.items.map((it) => (
-                <li key={it.id} className="px-4 py-3 flex items-start gap-3">
-                  <span className={cn('mt-0.5 h-8 w-8 rounded-sm flex items-center justify-center shrink-0 ring-1 ring-inset', it.prepLocation === 'BAR' ? 'bg-info-50 text-info-700 ring-info-200' : 'bg-warning-50 text-warning-700 ring-warning-200')}>{it.prepLocation === 'BAR' ? <Wine className="h-4 w-4" /> : <ChefHat className="h-4 w-4" />}</span>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-neutral-900">{it.itemName} <span className="text-neutral-500 font-normal">× {it.quantity}</span></p>
-                    <p className="text-caption text-neutral-500 tnum">{money(it.unitPrice)} each · tax {it.taxPercent}%{it.notes ? ` · ${it.notes}` : ''}</p>
+                <li key={it.id} className="px-4 py-3 grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3">
+                  <span className="mt-0.5 h-7 min-w-[1.75rem] px-1.5 rounded-sm bg-neutral-100 ring-1 ring-inset ring-neutral-200 grid place-items-center text-sm font-semibold tnum text-neutral-700">
+                    <span className="sr-only">Qty </span>{it.quantity}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="font-medium text-neutral-900 break-words">{it.itemName}</p>
+                    <p className="text-caption text-neutral-500 tnum flex flex-wrap items-center gap-x-1.5">
+                      <span className="inline-flex items-center gap-1">
+                        {it.prepLocation === 'BAR' ? <Wine className="h-3 w-3 text-neutral-400" aria-hidden /> : <ChefHat className="h-3 w-3 text-neutral-400" aria-hidden />}
+                        {it.prepLocation === 'BAR' ? 'Bar' : 'Kitchen'}
+                      </span>
+                      <span aria-hidden>·</span>
+                      <span>{money(it.unitPrice)} each</span>
+                      <span aria-hidden>·</span>
+                      <span>tax {it.taxPercent}%</span>
+                      {it.notes && <><span aria-hidden>·</span><span className="min-w-0 break-words">{it.notes}</span></>}
+                    </p>
                     {it.discountAmount > 0 && <Badge tone="success" size="sm" icon={<Tag className="h-3 w-3" />} className="mt-1">Offer −{money(it.discountAmount)}</Badge>}
                   </div>
-                  <span className="font-semibold tnum text-neutral-900">{money(it.lineTotal)}</span>
+                  <span className="font-semibold tnum text-neutral-900 text-right">{money(it.lineTotal)}</span>
                 </li>
               ))}
             </ul>
             <p className="px-4 py-2 text-caption text-neutral-500 border-t border-neutral-200">Quantities are locked once items are sent to the kitchen/bar. Use item cancellation on the order (manager approval) to remove items.</p>
           </Card>
           <Card padded={false}>
+            {/* The supporting blocks wear the same `CardHeader` the manager's panels do —
+                title, one supporting line, and the block's own action on the right. */}
             <CardHeader
               className="p-4 pb-3 mb-0 border-b border-neutral-200"
               title={<span className="flex items-center gap-2"><Percent className="h-4 w-4" aria-hidden />Discounts</span>}
@@ -153,7 +178,9 @@ export default function BillingScreenPage() {
         </div>
         {/* RIGHT — the sticky rail is a desktop affordance only; on a phone it would cover the bill. */}
         <div className="hidden lg:block space-y-4 lg:sticky lg:top-20 self-start">
-          <Card>
+          {/* The totals panel carries the sheen, not the hairline — the gold on this rail is the
+              action beneath the figure, and two premium edges would compete with it. */}
+          <Card className="card-premium">
             <BillSummary bill={b} />
             <div className="mt-5 grid grid-cols-2 gap-2">
               {actions}
@@ -172,7 +199,7 @@ export default function BillingScreenPage() {
         into its natural place at the end of the scroll, so the final card is always reachable.
       */}
       <div className="lg:hidden save-bar mt-4">
-        <div className="card shadow-panel overflow-hidden">
+        <div className="card-premium shadow-panel overflow-hidden">
           <div id="bill-summary-sheet" hidden={!dockOpen} className="max-h-64 overflow-y-auto overscroll-contain px-4 py-3 border-b border-neutral-200">
             <BillSummary bill={b} compact />
           </div>

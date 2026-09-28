@@ -23,13 +23,15 @@
 /** Durations, in milliseconds. Mirrors the Tailwind `duration-*` tokens. */
 export const DUR = {
   /** Colour and border changes on a control. */
-  fast: 120,
-  /** Buttons, chips, rows, inputs — the direct feedback of a touch. */
-  control: 160,
-  /** Drawers, modals, popovers entering or leaving. */
-  overlay: 220,
-  /** Page entry. Capped below the 250ms the brief sets, because it is on the critical path. */
-  page: 240,
+  fast: 110,
+  /** Buttons, chips, rows, inputs — the direct feedback of a touch (100–160). */
+  control: 150,
+  /** Drawers, modals, popovers entering or leaving (200–280). */
+  overlay: 240,
+  /** Navigation (180–240). On the critical path, so it sits low in its band. */
+  page: 210,
+  /** A one-time success mark (350–600). Plays once, after the server has confirmed. */
+  success: 480,
   /** A staged reveal of a list or a grid, from first item to last. */
   reveal: 260,
   /** A moment worth marking: payment taken, shift started. */
@@ -51,8 +53,8 @@ export const EASE = {
  * take two seconds to finish arriving. Past the cap every remaining row simply appears together —
  * the choreography is a nicety, and a long list must never feel slow because of it.
  */
-export const STAGGER_STEP = 40;
-export const MAX_STAGGER = 320;
+export const STAGGER_STEP = 30;
+export const MAX_STAGGER = 300;
 
 export const staggerDelay = (index: number): number => Math.min(index * STAGGER_STEP, MAX_STAGGER);
 

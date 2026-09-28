@@ -1,9 +1,10 @@
-import { Users, Clock, Crown, UserRound } from 'lucide-react';
+import { Users, Clock, UserRound } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { money } from '@/utils/money';
 import { elapsedMinutes } from '@/utils/date';
 import { TABLE_STATUS, type Tone } from '@/config/statuses';
 import { StatusBadge, toneBg, EmptyState } from '@/components/ui';
+import { VipChip } from '@/features/club/VipTablesPage';
 import type { DiningTable, Floor } from '@/types';
 
 /**
@@ -49,7 +50,9 @@ export function TableGrid({ tables, floors, onSelect, selectedId, size = 'md', e
     .filter((g) => g.tables.length);
 
   return (
-    <div className="space-y-7">
+    /* THE PLAN is a sunken ground — the floor the tables stand on, cut a step below whatever
+       card holds it, with an inset hairline — so the raised tiles read as furniture on it. */
+    <div className="rounded-lg bg-surface-sunken shadow-inset ring-1 ring-inset ring-neutral-200 p-3 sm:p-4 space-y-7">
       {groups.map((g) => {
         const free = g.tables.filter((t) => t.status === 'AVAILABLE').length;
         return (
@@ -76,13 +79,15 @@ export function TableGrid({ tables, floors, onSelect, selectedId, size = 'md', e
                     aria-label={`${t.name}, ${meta.label}, seats ${t.capacity}${t.activeOrderTotal != null ? `, running total ${money(t.activeOrderTotal)}` : ''}`}
                     className={cn(
                       'group relative overflow-hidden text-left rounded-md border bg-surface-raised shadow-card',
-                      'transition-[box-shadow,border-color] duration-control press hover:shadow-panel',
-                      /* A VIP table carries the one violet in the system, as a barely-there wash
-                         rather than a fill — violet means VIP and nothing else. */
-                      t.isVip && 'bg-vip-sheen bg-surface-raised',
+                      'transition-[box-shadow,border-color] duration-control press',
+                      /* A VIP table carries the one violet in the system, as a barely-there token
+                         wash rather than a fill — violet means VIP and nothing else. */
+                      t.isVip && 'fill-vip material-gloss',
+                      /* SELECTED: a VIP booth takes the bronze lift and a violet edge (`shadow-vip`,
+                         150 ms, no pulse); every other table keeps its gold ring. */
                       selected
-                        ? 'border-primary-500 ring-2 ring-primary-500/30'
-                        : cn('border-neutral-200', HOVER_EDGE[meta.tone]),
+                        ? (t.isVip ? 'border-accent-500/60 shadow-vip' : 'border-primary-500 ring-2 ring-primary-500/30 shadow-panel')
+                        : cn('border-neutral-200 hover:shadow-panel', HOVER_EDGE[meta.tone]),
                       size === 'lg' ? 'p-4 pt-5 min-h-[132px]' : 'p-3 pt-4 min-h-[108px]',
                     )}
                   >
@@ -90,13 +95,13 @@ export function TableGrid({ tables, floors, onSelect, selectedId, size = 'md', e
                         rung reads at 1.5 px against both the card and the page behind it. */}
                     <span className={cn('absolute inset-x-0 top-0 h-1.5', toneBg[meta.tone])} aria-hidden />
 
-                    <div className="flex items-start justify-between gap-2">
-                      <span className={cn('font-bold tracking-tight text-neutral-900 truncate', size === 'lg' ? 'text-xl' : 'text-lg')}>
+                    <div className="flex items-start justify-between gap-2 min-w-0">
+                      <span className={cn('font-bold tracking-tight text-neutral-900 truncate min-w-0', size === 'lg' ? 'text-xl' : 'text-lg')}>
                         {t.name}
                       </span>
-                      <span className="inline-flex items-center gap-1 text-caption text-neutral-500 shrink-0">
-                        {t.isVip && <Crown className="h-3.5 w-3.5 text-accent-500" aria-label="VIP table" />}
-                        <Users className="h-3.5 w-3.5" aria-hidden />{t.capacity}
+                      <span className="inline-flex items-center gap-1.5 text-caption text-neutral-500 shrink-0">
+                        {t.isVip && <VipChip />}
+                        <span className="inline-flex items-center gap-1 tnum"><Users className="h-3.5 w-3.5" aria-hidden />{t.capacity}</span>
                       </span>
                     </div>
 

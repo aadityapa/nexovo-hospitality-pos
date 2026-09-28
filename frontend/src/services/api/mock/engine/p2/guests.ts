@@ -329,7 +329,7 @@ export function bottleList(ctx: Ctx): BottleServiceItem[] {
   return ctx.db.p2.bottleService.map((b) => {
     const mi = ctx.db.items.find((x) => x.id === b.menuItemId);
     const inv = ctx.db.p2.invItems.find((x) => x.id === b.invItemId);
-    return { id: b.id, menuItemId: b.menuItemId, menuItemName: mi?.name ?? '', price: mi?.price ?? 0, isAvailable: mi?.isAvailable ?? false, bottleSizeMl: b.bottleSizeMl, invItemId: b.invItemId ?? null, invItemName: inv?.name ?? null, bottlesInStock: inv?.currentQty ?? null, includes: b.includes ?? null, isActive: b.isActive };
+    return { id: b.id, menuItemId: b.menuItemId, menuItemName: mi?.name ?? '', imageUrl: mi?.imageUrl ?? null, price: mi?.price ?? 0, isAvailable: mi?.isAvailable ?? false, bottleSizeMl: b.bottleSizeMl, invItemId: b.invItemId ?? null, invItemName: inv?.name ?? null, bottlesInStock: inv?.currentQty ?? null, includes: b.includes ?? null, isActive: b.isActive };
   }).filter((b) => b.menuItemName).sort((a, b) => a.menuItemName.localeCompare(b.menuItemName));
 }
 

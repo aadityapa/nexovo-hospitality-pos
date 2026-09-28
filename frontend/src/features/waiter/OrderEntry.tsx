@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Search, Plus, ShoppingCart, ChefHat, Wine, StickyNote, Send, Save, X, Trash2, CheckCircle2 } from 'lucide-react';
+import { Search, Plus, ShoppingCart, ChefHat, Wine, StickyNote, Send, Save, X, Trash2, CheckCircle2, Users } from 'lucide-react';
 import { useCategories, useMenuItems } from '@/features/menu/hooks';
 import { useCartStore, cartToItems, type CartLine } from '@/store/cartStore';
 import { useDebounce } from '@/hooks/useRealtime';
@@ -17,6 +17,8 @@ export interface OrderEntryProps {
   tableId: number;
   tableName: string;
   orderNumber?: string;
+  /** Covers on the live order, printed beside the table name. Absent on a brand-new order. */
+  guestCount?: number;
   /** existing confirmed order: "Send" adds a new batch; draft: send = confirm */
   mode: 'new' | 'draft' | 'append';
   /** lines already sent to the kitchen/bar, shown read-only so the two are never confused */
@@ -54,7 +56,7 @@ function NoteModal({ line, tableId, onClose }: { line: CartLine | null; tableId:
 
 /** POS-style order entry: menu on the left, a persistent order panel on the right. Mobile: sheet. */
 export function OrderEntry({
-  tableId, tableName, orderNumber, mode, existingItems = [], onSend, onSaveDraft, sending, saving, onCancel,
+  tableId, tableName, orderNumber, guestCount, mode, existingItems = [], onSend, onSaveDraft, sending, saving, onCancel,
 }: OrderEntryProps) {
   const cats = useCategories(false);
   const [catId, setCatId] = useState<number | 'ALL' | 'POPULAR'>('POPULAR');
@@ -87,14 +89,31 @@ export function OrderEntry({
   const send = async () => { await onSend(cartToItems(lines)); clear(tableId); setCartOpen(false); };
   const saveDraft = async () => { if (onSaveDraft) { await onSaveDraft(cartToItems(lines)); clear(tableId); } };
 
+  /**
+   * The primary action names where the selection is actually going, read from the lines in the
+   * cart: "Send to kitchen & bar" only when both stations have something coming. With nothing
+   * selected yet it falls back to the plain verb for this mode.
+   */
+  const destination = kitchen > 0 && bar > 0 ? 'kitchen & bar' : bar > 0 ? 'bar' : kitchen > 0 ? 'kitchen' : null;
+  const sendLabel = destination ? `Send to ${destination}` : mode === 'append' ? 'Send items' : 'Send order';
+
   const orderPanel = (
-    /* The panel paints its own surface because it is rendered twice: inside the desktop `card`
+    /* The panel paints its own surface because it is rendered twice: inside the desktop raised
        rail and as a full-screen sheet on a phone. `surface-raised` keeps both readings identical,
        so `hover:bg-neutral-100` (one rung above it) stays a visible hover in either place. */
     <div className="flex flex-col h-full bg-surface-raised">
       <div className="px-4 py-3 border-b border-neutral-200 flex items-center gap-2 shrink-0">
         <div className="min-w-0 flex-1">
-          <p className="font-bold text-lg leading-tight truncate">{tableName}</p>
+          <p className="font-bold text-lg leading-tight text-neutral-900 truncate">
+            {tableName}
+            {guestCount != null && (
+              <span className="font-medium text-base text-neutral-500">
+                {' · '}
+                <Users className="inline h-4 w-4 -mt-0.5" aria-hidden />
+                {' '}<span className="tnum">{guestCount}</span> cover{guestCount === 1 ? '' : 's'}
+              </span>
+            )}
+          </p>
           <p className="text-caption text-neutral-500 truncate">
             {orderNumber ? `${orderNumber} · ${mode === 'append' ? 'adding to this order' : 'draft — not sent'}` : 'New order'}
           </p>
@@ -104,7 +123,7 @@ export function OrderEntry({
             Clear
           </Button>
         )}
-        <button type="button" onClick={() => setCartOpen(false)} aria-label="Close order panel" className="lg:hidden h-10 w-10 flex items-center justify-center rounded-sm text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 transition-colors duration-control -mr-1">
+        <button type="button" onClick={() => setCartOpen(false)} aria-label="Close order panel" className="lg:hidden h-11 w-11 flex items-center justify-center rounded-sm text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 transition-colors duration-control -mr-1">
           <X className="h-5 w-5" />
         </button>
       </div>
@@ -122,7 +141,7 @@ export function OrderEntry({
             <ul className="divide-y divide-neutral-200">
               {sentItems.map((i) => (
                 <li key={i.id} className="px-4 py-2.5 flex items-start gap-2 bg-neutral-50/70">
-                  <span className="tabular-nums text-neutral-500 text-sm w-6 shrink-0">{i.quantity}×</span>
+                  <span className="tnum text-neutral-500 text-sm w-6 shrink-0">{i.quantity}×</span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm text-neutral-700 truncate">{i.itemName}</span>
                     {i.notes && <span className="block text-caption text-warning-700 uppercase tracking-wide">{i.notes}</span>}
@@ -146,19 +165,29 @@ export function OrderEntry({
             description="Tap items on the menu to add them."
           />
         ) : (
+          /*
+            MOTION. A line takes `anim-enter` once, when it joins the order. The key is the
+            line's own identity (`l.key`), so a quantity change or a re-render of the panel never
+            replays it; only a genuinely new line rises into the list.
+          */
           <ul className="divide-y divide-neutral-200">
             {lines.map((l) => (
-              <li key={l.key} className="px-4 py-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="font-medium leading-snug text-neutral-900">{l.name}</p>
-                    <p className="text-caption text-neutral-500">
+              <li key={l.key} className="px-4 py-3 anim-enter">
+                <div className="flex items-start gap-2.5">
+                  {/* The quantity badge the reference draws at the head of every line. The
+                      stepper below is the control; this is the readout, so it is not announced twice. */}
+                  <span className="shrink-0 mt-0.5 h-6 min-w-6 px-1.5 rounded-sm bg-neutral-100 ring-1 ring-inset ring-neutral-300 text-neutral-900 text-sm font-semibold tnum inline-flex items-center justify-center" aria-hidden>
+                    {l.qty}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium leading-snug text-neutral-900 break-words">{l.name}</p>
+                    <p className="text-caption text-neutral-500 tnum">
                       {money(l.price)} · {l.prepLocation === 'BAR' ? 'Bar' : 'Kitchen'}
                     </p>
+                    {l.notes && <p className="mt-1 text-caption font-semibold text-warning-700 uppercase tracking-wide break-words">{l.notes}</p>}
                   </div>
                   <p className="font-semibold tnum text-neutral-900 shrink-0">{money(l.price * l.qty)}</p>
                 </div>
-                {l.notes && <p className="mt-1.5 text-caption font-semibold text-warning-700 uppercase tracking-wide">{l.notes}</p>}
                 <div className="mt-2.5 flex items-center gap-2">
                   <QuantitySelector value={l.qty} min={1} onChange={(q) => setQty(tableId, l.key, q)} onRemove={() => remove(tableId, l.key)} />
                   <Button size="sm" variant="ghost" leftIcon={<StickyNote className="h-4 w-4" />} onClick={() => setNoteLine(l)}>
@@ -171,27 +200,36 @@ export function OrderEntry({
         )}
       </div>
 
+      {/*
+        THE TOTALS BLOCK. Only what the cart can honestly state: how many lines, where they are
+        going, and their subtotal. Tax and service charge are computed on the bill, not here, so
+        no such rows are drawn. The figure prints final — money never counts up.
+      */}
       <div className="border-t border-neutral-200 p-4 space-y-3 safe-bottom bg-surface-raised shrink-0">
-        <div className="flex items-baseline justify-between gap-3">
-          <span className="text-neutral-600 text-sm">
-            New items
-            <span className="text-caption text-neutral-500 block">
-              {count} item{count === 1 ? '' : 's'}{kitchen > 0 && bar > 0 ? ` · ${kitchen} kitchen, ${bar} bar` : ''}
-            </span>
-          </span>
-          <span className="text-xl font-bold tnum text-neutral-900">{money(subtotal)}</span>
-        </div>
+        <dl className="text-sm">
+          <div className="flex items-baseline justify-between gap-3 py-1">
+            <dt className="text-neutral-500 min-w-0 truncate">{sentItems.length > 0 ? 'New items' : 'Items'}</dt>
+            <dd className="tnum text-neutral-700 shrink-0">
+              {count}{kitchen > 0 && bar > 0 ? ` · ${kitchen} kitchen, ${bar} bar` : ''}
+            </dd>
+          </div>
+          <div className="flex items-baseline justify-between gap-3 pt-2 mt-1 border-t border-neutral-200">
+            <dt className="font-semibold text-neutral-900">Subtotal</dt>
+            <dd className="text-xl font-bold tnum text-neutral-900 shrink-0">{money(subtotal)}</dd>
+          </div>
+        </dl>
         <p className="text-caption text-neutral-500">Taxes and service charge are added on the bill.</p>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 gap-2">
           {mode !== 'append' && onSaveDraft ? (
-            <Button variant="outline" size="pos" leftIcon={<Save className="h-4 w-4" />} disabled={lines.length === 0} loading={saving} onClick={() => void saveDraft()}>
+            <Button variant="outline" size="lg" block leftIcon={<Save className="h-4 w-4" />} disabled={lines.length === 0} loading={saving} onClick={() => void saveDraft()}>
               Save draft
             </Button>
           ) : (
-            <Button variant="outline" size="pos" onClick={onCancel}>Back</Button>
+            <Button variant="outline" size="lg" block onClick={onCancel}>Back</Button>
           )}
-          <Button size="pos" leftIcon={<Send className="h-4 w-4" />} disabled={lines.length === 0} loading={sending} onClick={() => void send()}>
-            {mode === 'append' ? 'Send items' : 'Send order'}
+          {/* The one gold action on the screen: the existing send / confirm path, full width. */}
+          <Button size="pos" block leftIcon={<Send className="h-5 w-5" />} disabled={lines.length === 0} loading={sending} onClick={() => void send()}>
+            {sendLabel}
           </Button>
         </div>
       </div>
@@ -214,9 +252,9 @@ export function OrderEntry({
   return (
     <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-4 lg:h-[calc(100dvh-8.5rem)]">
       {/* MENU */}
-      <div className="flex flex-col min-h-0">
+      <div className="flex flex-col min-h-0 min-w-0">
         <div className="flex gap-2 mb-3">
-          <div className="relative flex-1">
+          <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 pointer-events-none" aria-hidden />
             <input
               type="search"
@@ -255,6 +293,8 @@ export function OrderEntry({
           {items.data && (visible.length === 0 ? (
             <EmptyState compact title="No items" description={dq ? `Nothing matches “${search}”.` : 'No items in this category.'} />
           ) : (
+            /* Two tiles at 360 px: a 4:3 picture with the name and price beneath it. Every
+               track is `minmax(0,1fr)`, so a long dish name wraps rather than widening the page. */
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2.5">
               {visible.map((it: MenuItem) => {
                 const q = qtyOf(it.id);
@@ -266,7 +306,7 @@ export function OrderEntry({
                     onClick={() => add(tableId, it)}
                     aria-label={`Add ${it.name}, ${money(it.price)}`}
                     className={cn(
-                      'group relative text-left rounded-md border bg-surface-raised overflow-hidden flex flex-col transition-[border-color,box-shadow] duration-control press',
+                      'group relative text-left rounded-md border bg-surface-raised overflow-hidden flex flex-col min-w-0 min-h-touch transition-[border-color,box-shadow] duration-control press',
                       'disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100',
                       /* Selected = a gold edge plus a gold halo; the tile itself never fills gold,
                          so a grid of chosen items stays readable. */
@@ -274,33 +314,45 @@ export function OrderEntry({
                     )}
                   >
                     <div className="relative">
-                      <ItemImage src={it.imageUrl} alt="" prepLocation={it.prepLocation} rounded="" className="h-20 w-full" />
+                      {/* A real photograph wins; a missing one becomes the dish's own drawing,
+                          typed by its station and category and varied by its name. The tile is
+                          the button, so the picture needs no name of its own — `aria-label`
+                          above is what is announced. */}
+                      <ItemImage
+                        src={it.imageUrl} alt={it.name} prepLocation={it.prepLocation} category={it.categoryName}
+                        rounded="rounded-none" className="aspect-[4/3] w-full"
+                      />
                       {q > 0 && (
-                        <span className="absolute top-1.5 right-1.5 h-6 min-w-6 px-1.5 rounded-full bg-primary-500 text-on-primary text-xs font-bold flex items-center justify-center tabular-nums ring-2 ring-surface-raised">
+                        <span className="absolute top-1.5 left-1.5 h-6 min-w-6 px-1.5 rounded-full bg-primary-500 text-on-primary text-xs font-bold flex items-center justify-center tnum ring-2 ring-surface-raised">
                           {q}
                         </span>
                       )}
-                      {!it.isAvailable && (
+                      {it.isAvailable ? (
+                        /* The add affordance: a small gold disc with a dark glyph, sitting on the
+                           picture. Decorative — the whole tile is the 44 px+ target that adds. */
+                        <span className="absolute bottom-1.5 right-1.5 h-7 w-7 rounded-full bg-gold-sheen bg-primary-500 text-on-primary ring-1 ring-primary-400 shadow-gold flex items-center justify-center" aria-hidden>
+                          <Plus className="h-4 w-4" strokeWidth={2.5} />
+                        </span>
+                      ) : (
                         /* App-black at 70%: a light veil is impossible on this ramp. */
                         <span className="absolute inset-0 bg-neutral-950/70 flex items-center justify-center">
                           <Badge tone="danger" size="sm">Sold out</Badge>
                         </span>
                       )}
                     </div>
-                    <div className="p-2.5 flex flex-col flex-1 min-h-[76px]">
-                      <span className="text-[11px] text-neutral-500 flex items-center gap-1 truncate">
-                        {it.prepLocation === 'BAR' ? <Wine className="h-3 w-3 shrink-0" aria-hidden /> : <ChefHat className="h-3 w-3 shrink-0" aria-hidden />}
-                        <span className="truncate">{it.categoryName}</span>
-                      </span>
-                      <span className="font-semibold leading-snug mt-0.5 line-clamp-2 text-neutral-900">{it.name}</span>
+                    <div className="p-2.5 flex flex-col flex-1 min-w-0">
+                      <span className="font-semibold text-[13px] leading-snug line-clamp-2 break-words text-neutral-900">{it.name}</span>
                       {it.isBottleService && (
                         /* `accent` is violet and means VIP classification — a bottle is a menu
                            attribute, so it takes the gold emphasis tone instead. */
                         <span className="mt-1"><Badge tone="primary" size="sm">Bottle{it.bottleSizeMl ? ` · ${it.bottleSizeMl}ml` : ''}</Badge></span>
                       )}
-                      <span className="mt-auto pt-2 flex items-center justify-between">
-                        <span className="font-semibold tnum text-neutral-900">{money(it.price)}</span>
-                        {it.isAvailable && <Plus className="h-4 w-4 text-primary-500" aria-hidden />}
+                      <span className="mt-auto pt-1.5 flex items-center justify-between gap-2 min-w-0">
+                        <span className="font-semibold tnum text-neutral-900 shrink-0">{money(it.price)}</span>
+                        <span className="text-[11px] text-neutral-500 inline-flex items-center gap-1 min-w-0">
+                          {it.prepLocation === 'BAR' ? <Wine className="h-3 w-3 shrink-0" aria-hidden /> : <ChefHat className="h-3 w-3 shrink-0" aria-hidden />}
+                          <span className="truncate">{it.categoryName}</span>
+                        </span>
                       </span>
                     </div>
                   </button>
@@ -311,23 +363,31 @@ export function OrderEntry({
         </div>
       </div>
 
-      {/* ORDER PANEL — desktop */}
-      <aside className="hidden lg:flex flex-col card p-0 overflow-hidden min-h-0" aria-label="Current order">{orderPanel}</aside>
+      {/* ORDER PANEL — desktop. The one raised, bronze-edged card on the screen. */}
+      <aside className="hidden lg:flex flex-col panel border-bronze/30 p-0 overflow-hidden min-h-0" aria-label="Current order">{orderPanel}</aside>
 
-      {/* ORDER PANEL — mobile launcher + sheet */}
-      <div className="lg:hidden fixed bottom-[68px] inset-x-0 z-sticky px-3 pb-2 pointer-events-none">
-        <button
-          type="button"
-          onClick={() => setCartOpen(true)}
-          disabled={count === 0}
-          /* The single primary action on the phone layout, so it carries the gold fill and the
-             one shadow reserved for it. Its label is `on-primary`, never white. */
-          className="pointer-events-auto w-full min-h-pos rounded-md bg-gold-sheen bg-primary-500 text-on-primary border border-primary-400 shadow-gold flex items-center justify-between px-4 font-semibold transition-colors duration-control hover:bg-primary-700 disabled:opacity-60 disabled:shadow-none press"
-        >
-          <span className="inline-flex items-center gap-2"><ShoppingCart className="h-5 w-5" aria-hidden />{count} item{count === 1 ? '' : 's'}</span>
-          <span className="tnum">{money(subtotal)} · Review</span>
-        </button>
-      </div>
+      {/* ORDER PANEL — mobile launcher + sheet. The launcher is the single primary action on the
+          phone layout, so it carries the gold fill and the one shadow reserved for it; its label
+          is `on-primary`, never white. */}
+      {/*
+       * Shown only once there is something to review. The first revision rendered it empty and
+       * disabled at 60% opacity: a translucent gold bar printed over the dish names and prices
+       * ("0 items · ₹0 · Review" across French Fries and Chilli Chicken at 390 px). With nothing
+       * in the order the grid has the whole screen; the first add brings the bar in, opaque, with
+       * the standard entrance.
+       */}
+      {count > 0 && (
+        <div className="lg:hidden fixed bottom-[68px] inset-x-0 z-sticky px-3 pb-2 pointer-events-none anim-enter-soft">
+          <button
+            type="button"
+            onClick={() => setCartOpen(true)}
+            className="pointer-events-auto w-full min-h-pos rounded-md bg-gold-sheen bg-primary-500 text-on-primary border border-primary-400 shadow-gold flex items-center justify-between px-4 font-semibold transition-colors duration-control hover:bg-primary-700 press"
+          >
+            <span className="inline-flex items-center gap-2"><ShoppingCart className="h-5 w-5" aria-hidden />{count} item{count === 1 ? '' : 's'}</span>
+            <span className="tnum">{money(subtotal)} · Review</span>
+          </button>
+        </div>
+      )}
       {cartOpen && (
         <div className="lg:hidden fixed inset-0 z-modal flex flex-col" role="dialog" aria-modal="true" aria-label={`Order for ${tableName}`}>
           {orderPanel}

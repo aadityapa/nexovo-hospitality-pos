@@ -41,37 +41,40 @@ export default function SupplierDetailPage() {
        * them. The balance carries no action of its own: the outstanding figure is computed from
        * real unpaid orders, and the one flow that changes it (Record payment, which posts to
        * /suppliers/:id/payments) stays in the actions row where it has always been, spelled out.
+       * This head is the one card on the screen that takes the bronze hairline.
        */}
-      <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-start gap-4 min-w-0">
-          <Avatar name={s.name} variant="record" square size="lg" />
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-heading sm:text-display text-neutral-900 font-semibold tracking-[-0.02em] leading-tight break-words">{s.name}</h1>
-              <StatusBadge kind="supplier" status={s.status} />
+      <Card className="mb-5 border-bronze/30 material-gloss">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between min-w-0">
+          <div className="flex items-start gap-4 min-w-0">
+            <Avatar name={s.name} variant="record" square size="lg" />
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-heading sm:text-display text-neutral-900 font-semibold tracking-[-0.02em] leading-tight break-words">{s.name}</h1>
+                <StatusBadge kind="supplier" status={s.status} />
+              </div>
+              <p className="text-[13px] text-neutral-500 mt-1 leading-snug tnum">
+                {s.code} · payment terms {s.paymentTermsDays} days · {s.poCount} purchase order{s.poCount === 1 ? '' : 's'}
+                {s.lastReceiptAt ? ` · last goods receipt ${fmtRelative(s.lastReceiptAt)}` : ' · nothing received yet'}
+              </p>
             </div>
-            <p className="text-[13px] text-neutral-500 mt-1 leading-snug">
-              {s.code} · payment terms {s.paymentTermsDays} days · {s.poCount} purchase order{s.poCount === 1 ? '' : 's'}
-              {s.lastReceiptAt ? ` · last goods receipt ${fmtRelative(s.lastReceiptAt)}` : ' · nothing received yet'}
+          </div>
+          <div className="sm:text-right shrink-0">
+            <p className="text-label uppercase text-neutral-500">Outstanding balance</p>
+            <p className={cn('text-metric tnum mt-0.5', owes ? 'text-danger-700' : 'text-neutral-900')}>{money(s.outstanding)}</p>
+            <p className="text-caption text-neutral-500 mt-1">
+              {owes
+                ? `Due on ${s.paymentTermsDays}-day terms`
+                : <span className="inline-flex items-center gap-1 text-success-700"><CheckCircle2 className="h-3.5 w-3.5" aria-hidden />Account settled</span>}
             </p>
           </div>
         </div>
-        <div className="sm:text-right shrink-0">
-          <p className="text-label uppercase text-neutral-500">Outstanding balance</p>
-          <p className={cn('text-metric tabular-nums mt-0.5', owes ? 'text-danger-700' : 'text-neutral-900')}>{money(s.outstanding)}</p>
-          <p className="text-caption text-neutral-500 mt-1">
-            {owes
-              ? `Due on ${s.paymentTermsDays}-day terms`
-              : <span className="inline-flex items-center gap-1 text-success-700"><CheckCircle2 className="h-3.5 w-3.5" aria-hidden />Account settled</span>}
-          </p>
-        </div>
-      </div>
 
-      <div className="flex flex-wrap items-center gap-2 mb-5">
-        {canPay && <Button leftIcon={<ShoppingCart className="h-4 w-4" />} onClick={() => navigate(`/admin/purchases/new?supplierId=${s.id}`)}>New PO</Button>}
-        {canPay && <Button variant="outline" leftIcon={<IndianRupee className="h-4 w-4" />} onClick={() => setPayOpen(true)}>Record payment</Button>}
-        {canManage && <Button variant="outline" leftIcon={<Pencil className="h-4 w-4" />} onClick={() => setEdit(true)}>Edit</Button>}
-      </div>
+        <div className="flex flex-wrap items-center gap-2 mt-4">
+          {canPay && <Button leftIcon={<ShoppingCart className="h-4 w-4" />} onClick={() => navigate(`/admin/purchases/new?supplierId=${s.id}`)}>New PO</Button>}
+          {canPay && <Button variant="outline" leftIcon={<IndianRupee className="h-4 w-4" />} onClick={() => setPayOpen(true)}>Record payment</Button>}
+          {canManage && <Button variant="outline" leftIcon={<Pencil className="h-4 w-4" />} onClick={() => setEdit(true)}>Edit</Button>}
+        </div>
+      </Card>
 
       <SegmentedControl<Tab>
         className="mb-4"

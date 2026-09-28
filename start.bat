@@ -57,6 +57,21 @@ if not exist "node_modules" (
   echo  Dependencies already installed
 )
 
+rem --- 3b. Photography -------------------------------------------------------
+rem Every picture the app shows is a local file under public\img. This fetches any
+rem that are missing (once) from the licensed sources listed in assets.manifest.json.
+rem If it cannot reach the internet the app still runs, with drawn artwork in place
+rem of the missing photographs.
+echo.
+echo  Checking photographs...
+call node scripts\fetch-assets.mjs
+if errorlevel 1 (
+  echo.
+  echo  [WARN] Some photographs could not be downloaded. The app will use its drawn
+  echo         artwork for those. Re-run this script when you are online to fetch them.
+  echo.
+)
+
 rem --- 4. Show the LAN address (needed for QR codes / phones) -----------------
 set "LAN_IP="
 for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4 Address"') do (

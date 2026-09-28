@@ -32,7 +32,8 @@ export function applyTheme(pref: ThemePref): ResolvedTheme {
   const resolved = resolveTheme(pref);
   if (typeof document !== 'undefined') {
     document.documentElement.setAttribute('data-theme', resolved);
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', resolved === 'light' ? '#F4F6F8' : '#080A0C');
+    // Warm ivory / obsidian — the two `--c-surface` values, so the phone's browser chrome matches.
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', resolved === 'light' ? '#F3EFE6' : '#0B0E11');
   }
   return resolved;
 }

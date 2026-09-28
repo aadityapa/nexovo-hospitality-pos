@@ -25,6 +25,20 @@ const ALT_METHODS: { m: PaymentMethod; icon: typeof Banknote }[] = [
 const isAlt = (m: PaymentMethod) => ALT_METHODS.some((x) => x.m === m);
 
 /**
+ * A TENDER ROW — icon tile, label and, on the selected row only, the figure being keyed for it.
+ * The selected row takes the bronze edge and the soft lift (`shadow-vip`) over the gold tint,
+ * with its label on the legible `-700` rung; it never fills gold, because gold solid on this
+ * screen is the one button that takes the money. Colour and border change only — a 150 ms
+ * control transition, no pulse.
+ */
+const tenderRow = 'w-full min-h-touch px-3 py-2.5 rounded-md border flex items-center gap-3 text-sm font-semibold leading-tight text-left transition-[border-color,box-shadow,background-color] duration-control disabled:opacity-40 disabled:shadow-none';
+const tenderOn = 'border-primary-500/60 bg-primary-50 text-primary-700 shadow-vip';
+const tenderOff = 'border-neutral-200 bg-surface text-neutral-700 hover:border-neutral-400 hover:bg-neutral-100';
+const tenderIcon = 'h-9 w-9 shrink-0 rounded-md grid place-items-center ring-1 ring-inset';
+const tenderIconOn = 'bg-primary-100 text-primary-700 ring-primary-200';
+const tenderIconOff = 'bg-neutral-100 text-neutral-600 ring-neutral-200';
+
+/**
  * Payment screen: large method buttons, keypad-style amount, split payments, no overpayment
  * (server-enforced too).
  *
@@ -146,33 +160,45 @@ export default function PaymentPage() {
               reconciled against a receipt, and a settled total is exactly that — it is printed
               straight, in tabular figures, legible from the first frame.
             */
-            <Card className="fill-success text-center py-10">
+            <Card className="fill-success border-success-200 text-center py-10">
               <div className="flex justify-center"><SuccessMark className="h-14 w-14" /></div>
               <h2 className="text-heading mt-3">Fully paid</h2>
               <p className="text-metric tnum text-success-700 leading-tight mt-1">{money(b.paidAmount, { decimals: true })}</p>
               <p className="text-neutral-500 mt-1">Print the receipt and close the order.</p>
+              {/* Both are real routes; the receipt is the quieter of the two, and the bill is
+                  where the order gets closed, so it keeps the gold. */}
               <div className="mt-5 flex flex-col sm:flex-row sm:justify-center gap-2"><Button variant="outline" block className="sm:w-auto" leftIcon={<Printer className="h-4 w-4" />} onClick={() => navigate(`/cashier/bills/${b.id}/receipt`)}>Receipt</Button><Button block className="sm:w-auto" onClick={() => navigate(`/cashier/bills/${b.id}`)}>Back to bill</Button></div>
             </Card>
           ) : (
             <>
               <Card>
                 <p className="text-label text-neutral-500 uppercase mb-2">Payment method</p>
-                {/* Two full-width tender cells per row on a phone, four across from `sm` up. */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {METHODS.map(({ m: mm, icon: Icon, needsRef }) => { const disabled = mm === 'COMPLIMENTARY' && !canComp; return (
-                    <button key={mm} type="button" disabled={disabled} aria-pressed={method === mm} onClick={() => { setMethod(mm); if (!needsRef) setReference(''); }} title={disabled ? 'Requires manager authorization' : undefined}
-                      /* Selected = a gold edge over the gold tint, label on the legible `-700`
-                         rung. The cell never fills gold: gold solid is the confirm button. */
-                      className={cn('w-full min-h-[72px] px-1 rounded-md border-2 flex flex-col items-center justify-center gap-1 text-sm font-semibold leading-tight text-center transition-colors duration-control disabled:opacity-40', method === mm ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-neutral-200 bg-surface text-neutral-700 hover:border-neutral-400 hover:bg-neutral-100')}>
-                      <Icon className="h-6 w-6" />{PAYMENT_METHOD_LABELS[mm]}
+                {/*
+                  THE TENDER ROWS. Only the tenders this screen can actually record — the four
+                  generic methods here, the three module-backed tenders below. Full-width rows on
+                  a phone, two across from `sm` up. The selected row alone prints a figure: the
+                  amount being keyed for it. Unselected rows carry no amount, because this screen
+                  records ONE tender at a time and a "₹0.00" beside the others would read as an
+                  allocation nothing has made.
+                */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {METHODS.map(({ m: mm, icon: Icon, needsRef }) => { const disabled = mm === 'COMPLIMENTARY' && !canComp; const on = method === mm; return (
+                    <button key={mm} type="button" disabled={disabled} aria-pressed={on} onClick={() => { setMethod(mm); if (!needsRef) setReference(''); }} title={disabled ? 'Requires manager authorization' : undefined}
+                      className={cn(tenderRow, on ? tenderOn : tenderOff)}>
+                      <span className={cn(tenderIcon, on ? tenderIconOn : tenderIconOff)} aria-hidden><Icon className="h-5 w-5" /></span>
+                      <span className="min-w-0 flex-1 truncate">{PAYMENT_METHOD_LABELS[mm]}</span>
+                      {on && <span className="shrink-0 tnum">{money(amt, { decimals: true })}</span>}
                     </button>); })}
                 </div>
                 <p className="text-label text-neutral-500 uppercase mt-4 mb-2">Credits &amp; charges</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {ALT_METHODS.map(({ m: mm, icon: Icon }) => { const av = altAvailable[mm]; return (
-                    <button key={mm} type="button" disabled={!av.ok} aria-pressed={method === mm} onClick={() => setMethod(mm)} title={av.ok ? undefined : av.why}
-                      className={cn('w-full min-h-[64px] px-1 rounded-md border-2 flex flex-col items-center justify-center gap-1 text-xs sm:text-sm font-semibold leading-tight text-center transition-colors duration-control disabled:opacity-40', method === mm ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-neutral-200 bg-surface text-neutral-700 hover:border-neutral-400 hover:bg-neutral-100')}>
-                      <Icon className="h-5 w-5" />{PAYMENT_METHOD_LABELS[mm]}
+                {/* These tenders size themselves inside their own panel (points, cover left, the
+                    folio), so no figure is printed on the row — the panel states the check. */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {ALT_METHODS.map(({ m: mm, icon: Icon }) => { const av = altAvailable[mm]; const on = method === mm; return (
+                    <button key={mm} type="button" disabled={!av.ok} aria-pressed={on} onClick={() => setMethod(mm)} title={av.ok ? undefined : av.why}
+                      className={cn(tenderRow, on ? tenderOn : tenderOff)}>
+                      <span className={cn(tenderIcon, on ? tenderIconOn : tenderIconOff)} aria-hidden><Icon className="h-5 w-5" /></span>
+                      <span className="min-w-0 flex-1 truncate">{PAYMENT_METHOD_LABELS[mm]}</span>
                     </button>); })}
                 </div>
               </Card>
@@ -184,7 +210,7 @@ export default function PaymentPage() {
                   {method === 'ROOM_CHARGE' && <RoomChargePanel bill={b} onDone={onAltDone} />}
                 </Card>
               ) : (
-              <Card>
+              <Card className="card-premium">
                 {/*
                   Two figures, one hierarchy: the balance due is what the screen exists to clear,
                   so it is the heaviest type here (`text-metric`) and carries the owed colour.
@@ -199,8 +225,7 @@ export default function PaymentPage() {
                 <div className="flex flex-wrap gap-2 mb-3">
                   {/* A quick amount is not the screen's action, so it never takes the gold: the
                       selected chip rises to the raised neutral instead. The gold on this screen
-                      belongs to the settled state's "Back to bill", and the act of taking money
-                      keeps the green it has always had. */}
+                      belongs to the one button that takes the money. */}
                   <Button size="sm" className="min-h-touch sm:min-h-0" variant={amount === '' ? 'secondary' : 'outline'} onClick={() => setAmount('')}>Full balance</Button>
                   {[0.5, 0.25].map((f) => <Button key={f} size="sm" className="min-h-touch sm:min-h-0" variant="outline" onClick={() => setAmount(String(round2(balance * f)))}>{f * 100}%</Button>)}
                   {[500, 1000, 2000].filter((n) => n < balance).map((n) => <Button key={n} size="sm" className="min-h-touch sm:min-h-0" variant="outline" onClick={() => setAmount(String(n))}>₹{n}</Button>)}
@@ -255,7 +280,11 @@ export default function PaymentPage() {
                     </p>
                   </div>
                 )}
-                <div className="mt-4"><Button size="pos" block variant="success" disabled={amt <= 0 || overpay} loading={m.addPayment.isPending} leftIcon={<CheckCircle2 className="h-5 w-5" />} onClick={() => (completes ? setConfirm(true) : void submit())}>{completes ? `Complete payment · ${money(amt)}` : `Add ${PAYMENT_METHOD_LABELS[method]} payment · ${money(amt)}`}</Button></div>
+                {/* THE ONE GOLD BUTTON. It carries the figure it commits, and it stays beside the
+                    figure, the overpayment warning and the inline error — never mirrored into
+                    the dock. Its label says "take" when this entry settles the bill and names
+                    the tender when it does not. */}
+                <div className="mt-4"><Button size="pos" block variant="primary" disabled={amt <= 0 || overpay} loading={m.addPayment.isPending} leftIcon={<CheckCircle2 className="h-5 w-5" />} onClick={() => (completes ? setConfirm(true) : void submit())}>{completes ? `Take payment · ${money(amt)}` : `Add ${PAYMENT_METHOD_LABELS[method]} payment · ${money(amt)}`}</Button></div>
                 {!completes && <p className="text-caption text-neutral-500 mt-2">Split payment: {money(round2(balance - amt))} will remain after this entry.</p>}
               </Card>
               )}
@@ -264,7 +293,7 @@ export default function PaymentPage() {
         </div>
         <div className="space-y-4 lg:sticky lg:top-20 self-start">
           {/* On a phone the same numbers live in the dock below, so the rail card would only repeat them. */}
-          <Card className="hidden lg:block"><BillSummary bill={b} compact /></Card>
+          <Card className="hidden lg:block card-premium"><BillSummary bill={b} compact /></Card>
           <Card padded={false}>
             <CardHeader
               className="p-4 pb-3 mb-0 border-b border-neutral-200"
@@ -288,7 +317,7 @@ export default function PaymentPage() {
         into its natural place at the end of the scroll, so the final card is always reachable.
       */}
       <div className="lg:hidden save-bar mt-4">
-        <div className="card shadow-panel overflow-hidden">
+        <div className="card-premium shadow-panel overflow-hidden">
           <div id="pay-summary-sheet" hidden={!dockOpen} className="max-h-64 overflow-y-auto overscroll-contain px-4 py-3 border-b border-neutral-200">
             <BillSummary bill={b} compact />
           </div>

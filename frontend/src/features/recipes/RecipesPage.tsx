@@ -3,11 +3,30 @@ import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, ArrowRight } from 'lucide-react';
 import { useRecipeCosting } from '@/features/p2/hooks';
 import { useDebounce } from '@/hooks/useRealtime';
-import { PageHeader, DataTable, SearchInput, SegmentedControl, Badge, StatCard, Alert, Button, LoadingState, ErrorState, ItemImage, type Column } from '@/components/ui';
+import { PageHeader, DataTable, SearchInput, SegmentedControl, Badge, StatCard, Alert, Button, LoadingState, ErrorState, type Column } from '@/components/ui';
+import { DishArt, dishKindFor, Photo } from '@/components/graphics';
+import { useMenuItems } from '@/features/menu/hooks';
 import { HeaderSearch } from '@/components/layout/Shell';
 import { money } from '@/utils/money';
 import { cn } from '@/utils/cn';
 import type { RecipeCostRow } from '@/types';
+
+/**
+ * THE THUMBNAIL. A 36 px tile in a bronze hairline holding the dish's own menu photograph (the
+ * same picture the menu grid and the guest menu show), with the dish's drawing as understudy for
+ * a dish that has no photo.
+ */
+function DishThumb({ r, src, className }: { r: Pick<RecipeCostRow, 'menuItemName' | 'prepLocation' | 'categoryName'>; src?: string | null; className?: string }) {
+  return (
+    <span className={cn('block shrink-0 overflow-hidden rounded-md border border-bronze/30 bg-neutral-100', className)} aria-hidden>
+      <Photo
+        src={src ?? undefined}
+        fallback={<DishArt name={r.menuItemName} kind={dishKindFor(r.menuItemName, { prepLocation: r.prepLocation, category: r.categoryName })} />}
+        className="h-full w-full"
+      />
+    </span>
+  );
+}
 
 /* The one threshold this screen judges against — the same pair of numbers the tiles, the filter
    and the badge all use. Nothing here invents a target: 30 / 40 % is what the page already
@@ -26,6 +45,9 @@ const marginPct = (r: RecipeCostRow) => (r.sellingPrice > 0 ? (r.grossMargin * 1
 export default function RecipesPage() {
   const navigate = useNavigate();
   const q = useRecipeCosting();
+  /* Each costed dish's own menu photograph, from the cached menu query. */
+  const menu = useMenuItems({ includeInactive: true });
+  const photoOf = useMemo(() => new Map((menu.data ?? []).map((m) => [m.id, m.imageUrl] as const)), [menu.data]);
   const [search, setSearch] = useState('');
   const dq = useDebounce(search, 200).toLowerCase();
   const [filter, setFilter] = useState<'ALL' | 'WITH' | 'WITHOUT' | 'HIGH'>('ALL');
@@ -41,9 +63,7 @@ export default function RecipesPage() {
       key: 'item', header: 'Dish', sortValue: (r) => r.menuItemName, className: 'max-w-[20rem]',
       render: (r) => (
         <span className="flex items-center gap-3 min-w-0">
-          {/* The dish's own drawing, typed by its station and category — the same picture it
-              carries on the menu grid and on the bill. */}
-          <ItemImage src={null} alt={r.menuItemName} prepLocation={r.prepLocation} category={r.categoryName} className="h-9 w-9 shrink-0" />
+          <DishThumb r={r} src={photoOf.get(r.menuItemId)} className="h-9 w-9" />
           <span className="min-w-0">
             <span className="block font-medium text-neutral-900 truncate">{r.menuItemName}</span>
             <span className="block text-caption text-neutral-500 truncate">{r.prepLocation === 'BAR' ? 'Bar' : 'Kitchen'}</span>
@@ -52,14 +72,14 @@ export default function RecipesPage() {
       ),
     },
     { key: 'category', header: 'Category', sortValue: (r) => r.categoryName, hideBelow: 'md', render: (r) => <span className="text-neutral-600">{r.categoryName}</span> },
-    { key: 'cost', header: 'Total cost', align: 'right', sortValue: (r) => r.recipeCost, render: (r) => <span className="tabular-nums">{r.ingredientCount === 0 ? '—' : money(r.recipeCost, { decimals: true })}</span> },
-    { key: 'price', header: 'Selling price', align: 'right', sortValue: (r) => r.sellingPrice, render: (r) => <span className="tabular-nums">{money(r.sellingPrice)}</span> },
+    { key: 'cost', header: 'Total cost', align: 'right', sortValue: (r) => r.recipeCost, render: (r) => <span className="tnum text-neutral-700">{r.ingredientCount === 0 ? '—' : money(r.recipeCost, { decimals: true })}</span> },
+    { key: 'price', header: 'Selling price', align: 'right', sortValue: (r) => r.sellingPrice, render: (r) => <span className="tnum text-neutral-900">{money(r.sellingPrice)}</span> },
     {
       // Food cost is the decision number, so it leads the two percentages.
       key: 'fc', header: 'Food cost %', align: 'right', sortValue: (r) => (r.ingredientCount === 0 ? -1 : r.foodCostPercent),
       render: (r) => (r.ingredientCount === 0
         ? <span className="text-neutral-400">—</span>
-        : <span className="tabular-nums font-semibold text-neutral-900">{r.foodCostPercent}%</span>),
+        : <span className="tnum font-semibold text-neutral-900">{r.foodCostPercent}%</span>),
     },
     {
       key: 'margin', header: 'Margin %', align: 'right', hideBelow: 'md',
@@ -69,8 +89,8 @@ export default function RecipesPage() {
         if (pct == null) return <span className="text-neutral-400">—</span>;
         return (
           <span className="block">
-            <span className={cn('block tabular-nums font-semibold', r.grossMargin <= 0 ? 'text-danger-700' : 'text-neutral-900')}>{pct.toFixed(1)}%</span>
-            <span className="block text-caption text-neutral-500 tabular-nums">{money(r.grossMargin)}</span>
+            <span className={cn('block tnum font-semibold', r.grossMargin <= 0 ? 'text-danger-700' : 'text-neutral-900')}>{pct.toFixed(1)}%</span>
+            <span className="block text-caption text-neutral-500 tnum">{money(r.grossMargin)}</span>
           </span>
         );
       },
@@ -123,25 +143,25 @@ export default function RecipesPage() {
           initialSort={{ key: 'fc', dir: 'desc' }}
           caption="Menu items with recipe cost, selling price, food cost percentage, margin percentage and a profitability band"
           onRowClick={(r) => navigate(`/admin/recipes/${r.menuItemId}`)}
-          toolbar={<p className="px-1 text-sm text-neutral-600"><span className="font-semibold text-neutral-900 tabular-nums">{rows.length}</span> menu item{rows.length === 1 ? '' : 's'} · highest food cost first</p>}
+          toolbar={<p className="px-1 text-sm text-neutral-600"><span className="font-semibold text-neutral-900 tnum">{rows.length}</span> menu item{rows.length === 1 ? '' : 's'} · highest food cost first</p>}
           emptyTitle={filter === 'ALL' && !dq ? 'No menu items' : 'Nothing matches this filter'}
           emptyDescription={filter === 'ALL' && !dq ? undefined : 'Clear the search or choose a different filter.'}
           emptyAction={filter !== 'ALL' || dq ? <Button variant="outline" onClick={() => { setFilter('ALL'); setSearch(''); }}>Clear filters</Button> : undefined}
           mobileCard={(r) => {
             const pct = r.ingredientCount === 0 ? null : marginPct(r);
             return (
-              <div className="space-y-2">
-                <div className="flex items-start gap-3">
-                  <ItemImage src={null} alt={r.menuItemName} prepLocation={r.prepLocation} category={r.categoryName} className="h-10 w-10 shrink-0" />
+              <div className="space-y-2 min-w-0">
+                <div className="flex items-start gap-3 min-w-0">
+                  <DishThumb r={r} src={photoOf.get(r.menuItemId)} className="h-10 w-10" />
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-neutral-900 truncate">{r.menuItemName}</p>
                     <p className="text-caption text-neutral-500 truncate">{r.categoryName}</p>
                   </div>
                   {r.ingredientCount === 0
-                    ? <Badge tone="warning" size="sm" icon={<AlertTriangle className="h-3.5 w-3.5" aria-hidden />}>No recipe</Badge>
-                    : <Badge tone={fcTone(r.foodCostPercent)} size="sm">{r.foodCostPercent}% {fcBand(r.foodCostPercent)}</Badge>}
+                    ? <Badge tone="warning" size="sm" className="shrink-0" icon={<AlertTriangle className="h-3.5 w-3.5" aria-hidden />}>No recipe</Badge>
+                    : <Badge tone={fcTone(r.foodCostPercent)} size="sm" className="shrink-0">{r.foodCostPercent}% {fcBand(r.foodCostPercent)}</Badge>}
                 </div>
-                <p className="text-caption text-neutral-600 tabular-nums">
+                <p className="text-caption text-neutral-600 tnum">
                   Cost {r.ingredientCount === 0 ? '—' : money(r.recipeCost, { decimals: true })} · price {money(r.sellingPrice)} · margin <span className="font-semibold">{money(r.grossMargin)}</span>{pct != null ? ` (${pct.toFixed(1)}%)` : ''}
                 </p>
               </div>

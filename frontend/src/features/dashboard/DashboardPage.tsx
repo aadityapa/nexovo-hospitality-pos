@@ -10,7 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useWorkspace } from '@/hooks/useSurface';
 import { StatCard, Card, CardHeader, DataTable, LoadingState, ErrorState, EmptyState, StatusBadge, Badge, Button, ItemImage, KeyValue, type Column } from '@/components/ui';
 import { EmptyPlate, EmptyReceipt, ProgressMeter } from '@/components/graphics';
-import { CountUp, staggerDelay } from '@/components/motion';
+import { staggerDelay } from '@/components/motion';
 import { money } from '@/utils/money';
 import { fmtTime, fmtRelative } from '@/utils/date';
 import { cn } from '@/utils/cn';
@@ -749,9 +749,11 @@ function ManagerOverview({ dr, cmp, d, isLoading, isError, error, onRetry }: {
            * value of it, so it carries none.
            */}
           <div className="grid grid-cols-1 xs:grid-cols-2 xl:grid-cols-4 gap-4">
+            {/* Printed final, never rolled: a monetary total is not animated through values it
+                never held. The tile's own entrance is the motion. */}
             <StatCard
               label="Total sales"
-              value={<CountUp value={d.sales.totalSales} format={(n) => money(n)} />}
+              value={money(d.sales.totalSales)}
               icon={<IndianRupee className="h-5 w-5" />}
               tone="primary"
               size="lg"
@@ -943,23 +945,15 @@ export default function DashboardPage() {
              */}
             <div className="grid grid-cols-1 xs:grid-cols-2 xl:grid-cols-4 gap-4">
               {/*
-               * THE ONE COUNT-UP IN THIS PRODUCT'S DASHBOARDS.
-               *
-               * `CountUp` is allowed on a single headline figure that a person is looking AT, and
-               * this is it: the takings for the period, the reason the screen was opened. It is
-               * barred from the tables, the lists, the settlement panel and every bill — anything
-               * that has to be reconciled — and those all print their figures directly.
-               *
-               * It cannot re-roll on a poll. `CountUp` rolls once per mounted component and hands
-               * every later value straight through, and this instance stays mounted across every
-               * refetch: the dashboard query keeps its data for the key it already has, so the
-               * subtree is never torn down when the numbers refresh. Asking a different QUESTION —
-               * changing the date range — is a different query and a genuinely different figure,
-               * and that one is allowed its entrance. Under reduced motion it prints the value.
+               * NO COUNT-UP ON MONEY. Earlier revisions rolled this one headline figure from zero
+               * on first paint. The luxury brief bars animating monetary totals through
+               * intermediate values, and it is right: a manager who glances mid-roll has read a
+               * takings figure that was never true. The tile's staged entrance is its motion;
+               * the value is printed final. `CountUp` remains available for counts elsewhere.
                */}
               <StatCard
                 label="Sales"
-                value={<CountUp value={d.sales.totalSales} format={(n) => money(n)} />}
+                value={money(d.sales.totalSales)}
                 icon={<IndianRupee className="h-5 w-5" />}
                 tone="primary"
                 size="lg"

@@ -162,7 +162,7 @@ export function FilterChips<V extends string>({ options, value, onChange, classN
             className={cn(
               'inline-flex items-center gap-1.5 rounded-md px-2.5 h-8 text-[13px] font-medium whitespace-nowrap border transition-colors duration-control touch-target',
               on
-                ? 'bg-primary-500/12 border-primary-500/35 text-primary-700'
+                ? 'bg-primary-500/[.12] border-primary-500/35 text-primary-700'
                 : 'bg-surface-raised border-neutral-200 text-neutral-600 hover:border-neutral-300 hover:text-neutral-900',
             )}
           >
@@ -258,10 +258,11 @@ export function PageHeader({ title, subtitle, actions, back, className, children
               <ChevronLeft className="h-5 w-5" />
             </button>
           )}
-          {/* Same treatment as `DashboardHero` — one page-head language across the product.
-              Never clamped: a title that ends in an ellipsis tells the operator nothing. */}
+          {/* Same treatment as `DashboardHero` — one page-head language across the product, and
+              the editorial serif is set in these two places only. Never clamped: a title that ends
+              in an ellipsis tells the operator nothing. */}
           <div className="min-w-0">
-            <h1 className="text-heading sm:text-display text-neutral-900 font-semibold tracking-[-0.02em] leading-tight break-words">{title}</h1>
+            <h1 className="font-serif font-medium text-[28px] sm:text-[34px] text-neutral-900 tracking-[-0.005em] leading-tight break-words">{title}</h1>
             {subtitle && <p className="text-[13px] text-neutral-500 mt-1 leading-snug">{subtitle}</p>}
           </div>
         </div>

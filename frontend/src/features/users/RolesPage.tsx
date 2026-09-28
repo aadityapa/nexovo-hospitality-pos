@@ -4,8 +4,8 @@ import { Shield, Save, Lock, Eye, Users, Check, Undo2, SearchX, Percent, PencilL
 import { rolesApi } from '@/services/api/endpoints';
 import { usePermission } from '@/hooks/useAuth';
 import { toast } from '@/store/uiStore';
-import { PageHeader, Button, Card, CardHeader, LoadingState, ErrorState, EmptyState, Badge, Input, SearchInput, Switch, Alert } from '@/components/ui';
-import { PERMISSIONS, PERMISSION_MODULES, permissionModule, type Permission } from '@/config/permissions';
+import { PageHeader, Button, Card, CardHeader, LoadingState, ErrorState, EmptyState, Badge, Input, SearchInput, Checkbox, Alert } from '@/components/ui';
+import { PERMISSIONS, PERMISSION_MODULES, PERMISSION_LABELS, permissionModule, type Permission } from '@/config/permissions';
 import { cn } from '@/utils/cn';
 import type { Role } from '@/types';
 
@@ -26,9 +26,10 @@ const TH = 'px-4 py-3 text-label uppercase text-neutral-500 font-semibold whites
  *     SELECTOR is therefore a single horizontally-scrollable chip row: it costs one line,
  *     it scrolls inside its own region (never the page), and the selected role is named by
  *     `aria-current` as well as by a filled chip.
- *   • Nothing here carries a negative margin or a fixed width that exceeds a 390 px column —
- *     that is what pushed the panel past the right edge before. The save bar uses the shared
- *     `.save-bar` rule, so it parks ABOVE the bottom navigation instead of on top of it.
+ *   • Both horizontal scroll regions on this page (the chip row and the matrix) are
+ *     `position: relative` — see the note on the matrix wrapper for why that, and nothing else,
+ *     is what keeps the document at viewport width. The save bar uses the shared `.save-bar`
+ *     rule, so it parks ABOVE the bottom navigation instead of on top of it.
  */
 
 /** One role's headline numbers, spelled the same way everywhere on the page. */
@@ -84,25 +85,31 @@ export default function RolesPage() {
   const users = selected?.userCount ?? 0;
 
   /**
-   * ONE PERMISSION, AS A SWITCH.
+   * ONE PERMISSION, AS A CHECKBOX — the shared control, whose checked state is already champagne.
    *
    * The accessible name is the permission code plus the module it belongs to, because "create"
-   * on its own is ambiguous across twenty-six rows. A permission changed since the last save
-   * carries an amber ring AND a spelled-out note, never colour alone.
+   * on its own is ambiguous across twenty-six rows; where the catalogue spells a permission out
+   * (`PERMISSION_LABELS` — the loyalty split), that sentence is part of the name and, in the
+   * "Other actions" column, printed under the box as well. In the View and Manage columns the
+   * column header already says the word, so the box's own label is not drawn a second time and
+   * the name is carried by `aria-label`. A permission changed since the last save carries an
+   * amber ring AND says so in its name, never colour alone.
    */
-  const permSwitch = (p: Permission, moduleLabel: string, text?: string) => {
+  const permBox = (p: Permission, moduleLabel: string, text?: string) => {
     const touched = changes.touched.has(p);
+    const meaning = PERMISSION_LABELS[p];
+    const name = `${p} — ${moduleLabel}${meaning ? `. ${meaning}` : ''}${touched ? '. Changed, not yet saved' : ''}`;
     return (
-      <span key={p} className={cn('inline-flex items-center gap-2 rounded-md min-w-0', touched && 'ring-2 ring-warning-500 px-1.5 -mx-1.5')}>
-        <Switch
-          size="sm"
+      <span key={p} className={cn('inline-flex items-start rounded-md min-w-0', touched && 'ring-2 ring-warning-500 px-1.5 -mx-1.5')}>
+        <Checkbox
+          label={text ?? actionOf(p)}
+          description={text ? meaning : undefined}
+          aria-label={name}
           checked={perms.includes(p)}
           disabled={locked}
           onChange={() => toggle(p)}
-          ariaLabel={`${p} — ${moduleLabel}`}
+          className={text ? undefined : '[&>span]:hidden'}
         />
-        {text && <span className="font-mono text-[11px] text-neutral-600 break-all min-w-0">{text}</span>}
-        {touched && <span className="sr-only"> — changed, not yet saved</span>}
       </span>
     );
   };
@@ -115,11 +122,8 @@ export default function RolesPage() {
   );
 
   return (
-    /* `min-w-0` on the page root: the permission matrix is a 760 px table inside a `.table-scroll`
-       box, and without a zero minimum somewhere above it the scroll container's own min-content
-       width propagates up and widens the document instead of scrolling. Measured at 390 px: the
-       document was 436 px wide with no element visibly outside the viewport, because everything
-       WAS inside the scroll region — the region itself was the thing that had grown. */
+    /* `min-w-0` on the page root is ordinary hygiene for a page that holds a wide table. It was
+       NOT the 436 px document — that cause is named on the matrix wrapper below. */
     <div className="min-w-0">
       <PageHeader
         title="Roles & permissions"
@@ -147,12 +151,10 @@ export default function RolesPage() {
             <div
               role="group"
               aria-labelledby="role-picker-label"
-              /* `w-full min-w-0` and NO negative margin. `-mx-1 px-1` was a focus-ring bleed
-                 trick that makes the row 8 px wider than its container, and a scroll container
-                 that is wider than its parent reports that width to the document — which is how
-                 this screen measured a 436 px document inside a 390 px viewport while every
-                 chip was correctly contained and scrollable. The ring has room without it. */
-              className="flex gap-2 overflow-x-auto overscroll-x-contain no-scrollbar py-1 w-full min-w-0"
+              /* `relative` for the same reason as the matrix wrapper below: the selected chip
+                 carries a `sr-only` span, and a scroll region must be the containing block of
+                 its own absolutely-positioned descendants or they escape its clip. */
+              className="relative flex gap-2 overflow-x-auto overscroll-x-contain no-scrollbar py-1 w-full min-w-0"
             >
               {roles.data.map((r) => {
                 const on = selected.id === r.id;
@@ -267,10 +269,10 @@ export default function RolesPage() {
               <Card padded={false}>
                 <CardHeader
                   className="p-5 pb-0"
-                  title="Permission matrix"
+                  title={`Role permissions — ${selected.name}`}
                   subtitle={locked
-                    ? 'One row per module. A switch that is on is a permission the server will allow.'
-                    : 'One row per module. Flip a switch to grant or revoke — a save bar appears as soon as something changes.'}
+                    ? 'One row per module. A ticked box is a permission the server will allow.'
+                    : 'One row per module. Tick a box to grant, clear it to revoke — a save bar appears as soon as something changes.'}
                 />
                 <div className="px-5 pt-3 pb-4">
                   <SearchInput value={filter} onChange={setFilter} placeholder="Find a permission or module" aria-label="Find a permission" />
@@ -286,12 +288,24 @@ export default function RolesPage() {
                   />
                 ) : (
                   /*
-                    THE MATRIX SCROLLS; THE PAGE NEVER DOES (defects B1 and F7).
-                    `.table-scroll` carries `min-width: 0`, so this 760 px table scrolls inside its
-                    own box instead of widening the grid column it sits in. No `overflow-x: hidden`
-                    is used anywhere to hide the symptom.
+                    THE MATRIX SCROLLS; THE PAGE NEVER DOES.
+
+                    THE 436 px DOCUMENT (O1), and its cause. `.table-scroll` clips this 760 px table
+                    correctly — but a scroll region only clips descendants whose containing block is
+                    the region or lies inside it. The `sr-only` spans in these cells ("no manage
+                    permission exists for…", "this module defines no further permissions") are
+                    `position: absolute`, and with no positioned ancestor nearer than the layout
+                    their containing block was ABOVE this wrapper, so each 1 × 1 px box escaped the
+                    clip and sat at its static position inside the unscrolled table: the "Other
+                    actions" column starts 382 px into the table, plus 16 px of cell padding and the
+                    em dash, plus 17 px of page padding and card border — right where the document
+                    ended, at every viewport narrower than that. At 768 px the same box lands inside
+                    the viewport, which is why the measurement "went away" there. Nothing visible was
+                    ever outside the viewport, no `min-w-0` could touch it, and `overflow-x: hidden`
+                    would only have hidden it. `relative` makes this wrapper the containing block, so
+                    the boxes belong to the scroll region and are clipped with it.
                   */
-                  <div className="table-scroll border-t border-neutral-200">
+                  <div className="relative table-scroll border-t border-neutral-200">
                     <table className="w-full min-w-[760px] text-sm border-collapse">
                       <caption className="sr-only">
                         Permissions held by {selected.name}, one row per module. The View and Manage columns are the two
@@ -319,37 +333,36 @@ export default function RolesPage() {
                           const others = list.filter((p) => p !== view && p !== manage);
                           return (
                             <tr key={m} className={cn('border-b border-neutral-200/70 last:border-b-0 align-top', none && 'bg-neutral-50/70')}>
-                              <th scope="row" className="px-4 py-3 text-left font-normal min-w-0">
+                              <th scope="row" className="px-4 py-2 text-left font-normal min-w-0 align-middle">
                                 {q ? (
                                   <span className="font-medium text-neutral-900">{label}</span>
                                 ) : (
-                                  <label className={cn('flex items-center gap-2 font-medium min-w-0', locked ? 'text-neutral-600' : 'cursor-pointer text-neutral-900')}>
-                                    <input
-                                      type="checkbox"
-                                      className="h-4 w-4 rounded-sm shrink-0"
-                                      disabled={locked}
-                                      checked={all}
-                                      aria-label={`Grant every ${label} permission`}
-                                      ref={(el) => { if (el) el.indeterminate = !all && granted > 0; }}
-                                      onChange={() => toggleModule(m)}
-                                    />
-                                    <span className="truncate">{label}</span>
-                                  </label>
+                                  /* The module's own box grants or revokes the whole row; half a row
+                                     shows as indeterminate. Same shared control as every cell. */
+                                  <Checkbox
+                                    ref={(el) => { if (el) el.indeterminate = !all && granted > 0; }}
+                                    label={label}
+                                    aria-label={`Grant every ${label} permission`}
+                                    disabled={locked}
+                                    checked={all}
+                                    onChange={() => toggleModule(m)}
+                                    className="font-medium"
+                                  />
                                 )}
                                 {q && <span className="block text-caption text-neutral-500 mt-0.5">showing {list.length} of {full.length}</span>}
                               </th>
-                              <td className="px-4 py-3">
-                                <span className="flex justify-center">{view ? permSwitch(view, label) : notApplicable(label, 'View')}</span>
+                              <td className="px-4 py-2 align-middle">
+                                <span className="flex justify-center">{view ? permBox(view, label) : notApplicable(label, 'View')}</span>
                               </td>
-                              <td className="px-4 py-3">
-                                <span className="flex justify-center">{manage ? permSwitch(manage, label) : notApplicable(label, 'Manage')}</span>
+                              <td className="px-4 py-2 align-middle">
+                                <span className="flex justify-center">{manage ? permBox(manage, label) : notApplicable(label, 'Manage')}</span>
                               </td>
-                              <td className="px-4 py-3 min-w-0">
+                              <td className="px-4 py-2 min-w-0 align-middle">
                                 {others.length === 0
                                   ? <span className="text-neutral-400">—<span className="sr-only">this module defines no further permissions</span></span>
-                                  : <div className="flex flex-wrap gap-x-5 gap-y-0.5 min-w-0">{others.map((p) => permSwitch(p, label, actionOf(p)))}</div>}
+                                  : <div className="flex flex-wrap gap-x-5 gap-y-0.5 min-w-0">{others.map((p) => permBox(p, label, actionOf(p)))}</div>}
                               </td>
-                              <td className="px-4 py-3 text-right">
+                              <td className="px-4 py-2 text-right align-middle">
                                 {/* The per-module count is the fastest read on the page: "granted x of y". */}
                                 <span className="inline-flex flex-wrap justify-end items-center gap-1.5">
                                   <Badge size="sm" tone={none ? 'neutral' : all ? 'success' : 'primary'}>
@@ -369,10 +382,10 @@ export default function RolesPage() {
                 <p className="px-5 py-3 text-caption text-neutral-500 border-t border-neutral-200 flex items-start gap-1.5">
                   <Eye className="h-3.5 w-3.5 mt-px shrink-0 text-neutral-400" aria-hidden />
                   <span className="min-w-0">
-                    A switch that is on is granted. “View” and “Manage” are the only two actions this system defines across
+                    A ticked box is granted. “View” and “Manage” are the only two actions this system defines across
                     modules, so a module that has neither prints an em dash rather than an inert control; everything else it
-                    defines is a named switch under “Other actions”. Modules with nothing granted are shaded and labelled “None granted”.
-                    {mode === 'editable' && ' A switch ringed in amber, in a row marked “Unsaved”, has been changed but not yet written.'}
+                    defines is a named box under “Other actions”. Modules with nothing granted are shaded and labelled “None granted”.
+                    {mode === 'editable' && ' A box ringed in amber, in a row marked “Unsaved”, has been changed but not yet written.'}
                   </span>
                 </p>
               </Card>

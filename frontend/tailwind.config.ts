@@ -56,10 +56,13 @@ export default {
           raised:  'rgb(var(--c-surface-raised) / <alpha-value>)',
           high:    'rgb(var(--c-surface-high) / <alpha-value>)',
           sunken:  'rgb(var(--c-surface-sunken) / <alpha-value>)',
-          /* Theme-independent: the kitchen and bar displays are dark chrome in both themes. */
-          board:   '#06080A',
+          /* Theme-independent: the kitchen and bar displays are obsidian in both themes. */
+          board:   '#0B0E11',
         },
-        /* Text on a bright fill (gold, danger, success, warning) — dark in both themes. */
+        /* The edge that catches light: selected VIP booths, premium panels. Follows the theme. */
+        bronze: 'rgb(var(--c-bronze) / <alpha-value>)',
+        /* Text on a bright fill (champagne, danger, success, warning) — dark in both themes.
+           #D6BA83 is a light metal: white on it is 1.9:1 and is never used. */
         'on-primary': '#140E03',
         /* Paper — receipts and print output stay dark-on-white whatever the screen theme is. */
         paper: '#FFFFFF',
@@ -68,6 +71,14 @@ export default {
       },
       fontFamily: {
         sans: ['Inter var', 'Inter', 'Geist', 'Manrope', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+        /*
+         * The editorial voice — used SPARINGLY: the welcome line, the greeting on a dashboard,
+         * a venue name over a photograph. Never navigation, never a table, never a bill, never
+         * a kitchen ticket. Stacked on fonts that ship with the operating system, so the product
+         * needs no font download and prints the same offline; a Cormorant or Playfair installed
+         * on the machine is picked up first if it is there.
+         */
+        serif: ['Cormorant Garamond', 'Playfair Display', 'Georgia', 'Iowan Old Style', 'Times New Roman', 'serif'],
         mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
       },
       fontSize: {
@@ -94,21 +105,25 @@ export default {
         'bar-bottom': '0 -8px 24px -8px rgb(var(--shadow-tint) / calc(var(--shadow-strength) * 1.4))',
         inset: 'inset 0 1px 2px rgb(var(--shadow-tint) / var(--shadow-strength))',
         /* Reserved for the single primary action on a screen. Never used for decoration. */
-        gold: '0 1px 0 rgba(255, 255, 255, 0.14) inset, 0 6px 18px -8px rgba(214, 168, 79, 0.55)',
+        gold: '0 1px 0 rgba(255, 255, 255, 0.16) inset, 0 6px 18px -8px rgba(214, 186, 131, 0.5)',
+        /* The restrained lift a selected VIP booth takes — a bronze edge and a soft drop. */
+        vip: '0 0 0 1px rgb(var(--c-bronze) / 0.7), 0 10px 28px -12px rgba(0, 0, 0, 0.6)',
       },
       backgroundImage: {
         /* Restrained tonal washes for premium surfaces — no rainbow gradients anywhere. */
         'surface-sheen': 'linear-gradient(180deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0) 42%)',
-        'gold-sheen':    'linear-gradient(180deg, #E4BC6B 0%, #D6A84F 55%, #C5973F 100%)',
-        'vip-sheen':     'linear-gradient(135deg, rgba(154,123,255,0.16) 0%, rgba(154,123,255,0) 60%)',
+        /* Champagne, lit from above: pale at the top, the true metal in the middle, bronze at the foot. */
+        'gold-sheen':    'linear-gradient(180deg, #E6D0A2 0%, #D6BA83 55%, #C4A76F 100%)',
+        'vip-sheen':     'linear-gradient(135deg, rgba(142,123,224,0.16) 0%, rgba(142,123,224,0) 60%)',
       },
       minHeight:  { touch: '44px', control: '40px', pos: '56px' },
       minWidth:   { touch: '44px' },
       spacing:    { 4.5: '1.125rem', 18: '4.5rem', 'safe-b': 'env(safe-area-inset-bottom)' },
       screens:    { xs: '420px', kds: '1280px' },
       zIndex:     { nav: '30', sticky: '35', drawer: '40', modal: '50', toast: '60' },
-      /* MOTION — controls 120–180ms, overlays 180–240ms, page entry ≤250ms. Nothing loops. */
-      transitionDuration: { DEFAULT: '150ms', fast: '120ms', control: '160ms', overlay: '220ms', page: '240ms' },
+      /* MOTION — controls 100–160ms, navigation 180–240ms, drawers and dialogs 200–280ms,
+         a one-time success mark 350–600ms. Nothing loops. */
+      transitionDuration: { DEFAULT: '140ms', fast: '110ms', control: '150ms', overlay: '240ms', page: '210ms' },
       transitionTimingFunction: { 'out-soft': 'cubic-bezier(0.16, 1, 0.3, 1)' },
       keyframes: {
         'fade-in':  { from: { opacity: '0' }, to: { opacity: '1' } },

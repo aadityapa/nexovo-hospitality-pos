@@ -7,7 +7,8 @@ import { Plus, Pencil, Trash2, Layers, LayoutGrid, ChevronRight, CheckCircle2, C
 import { useFloors, useTables, useTableMutations } from './hooks';
 import { useWorkspace } from '@/hooks/useSurface';
 import { PageHeader, Button, IconButton, Modal, ConfirmDialog, Input, Switch, Badge, LoadingState, ErrorState, EmptyState, Card } from '@/components/ui';
-import { VenueArt } from '@/components/graphics';
+import { VenueArt, Photo } from '@/components/graphics';
+import { floorImage } from '@/config/imagery';
 import { Reveal, staggerDelay } from '@/components/motion';
 import { ApiError } from '@/services/api/client';
 import { cn } from '@/utils/cn';
@@ -173,7 +174,7 @@ export default function FloorsPage() {
                   <Reveal as="li" key={f.id} delay={staggerDelay(i)} className="min-w-0">
                     <Card padded={false} className={cn('h-full flex flex-col overflow-hidden', !f.isActive && 'bg-neutral-50')}>
                       <div className="relative aspect-[16/9] overflow-hidden border-b border-neutral-200">
-                        <VenueArt name={f.name} />
+                        <Photo src={floorImage(f.code)} fallback={<VenueArt name={f.name} />} className="absolute inset-0" />
                         {/* `neutral-950` is the scrim rung — dark in BOTH themes. */}
                         {/*
                           A SOLID caption band, not a fade.
@@ -273,12 +274,13 @@ export default function FloorsPage() {
                       the card drops below the page instead of lighting up. */}
                   <Card padded={false} className={cn('h-full flex flex-col overflow-hidden', !f.isActive && 'bg-neutral-50')}>
                     {/*
-                      A DRAWN interior, keyed off the area's own name so the same room is the same
-                      picture on every load. The reference leads each card with a photograph; this
-                      venue has none and none was invented.
+                      The area's photograph — a local file keyed off the floor CODE (Main Dining,
+                      Bar Area, VIP Lounge each have one; see config/imagery.ts) — over the drawn
+                      interior as its understudy, keyed off the area's own name so an area without
+                      a photo is the same drawn room on every load.
                     */}
                     <div className="relative aspect-[16/9] overflow-hidden border-b border-neutral-200">
-                      <VenueArt name={f.name} />
+                      <Photo src={floorImage(f.code)} fallback={<VenueArt name={f.name} />} className="absolute inset-0" />
                       {/* `neutral-950` is the scrim rung — dark in BOTH themes — so the name laid
                           over it stays white-on-dark whichever theme is painted. */}
                       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-neutral-950/90 via-neutral-950/55 to-transparent px-4 pt-8 pb-3">

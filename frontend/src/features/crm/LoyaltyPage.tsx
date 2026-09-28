@@ -55,6 +55,10 @@ export default function LoyaltyPage() {
    * shows. The server asserts the same permission, so this only decides what is drawn.
    */
   const canConfigure = usePermission('loyalty:configure');
+  /* The OTHER loyalty grant. Member operations — adjusting a guest's points — are made on the
+     guest's own profile and need `loyalty:manage`; this page performs none of them, it only says
+     where they live and who may make them, so the two gates stay visibly separate. */
+  const canManageMembers = usePermission('loyalty:manage');
   const [tab, setTab] = useState<Tab>('overview');
   const { register, handleSubmit, watch, setValue, formState: { errors, isDirty } } = useForm<Form>({ resolver: zodResolver(schema), values: q.data ? { name: q.data.name, pointsPer100: q.data.pointsPer100, pointValue: q.data.pointValue, minRedeemPoints: q.data.minRedeemPoints, maxRedeemPercent: q.data.maxRedeemPercent, expiryDays: q.data.expiryDays, isActive: q.data.isActive } : undefined });
 
@@ -146,7 +150,8 @@ export default function LoyaltyPage() {
              * accounts are actually on. The product stores no membership number, so none is drawn.
              */}
             <Reveal className="min-w-0">
-              <div className="chrome-dark rounded-xl overflow-hidden shadow-panel">
+              {/* The bronze hairline is the membership card's alone: it is the hero of the page. */}
+              <div className="chrome-dark rounded-xl overflow-hidden shadow-panel border border-bronze/40">
                 <div className="relative bg-surface-sunken p-5 sm:p-7 min-h-[15rem] flex flex-col justify-between gap-6">
                   <span className="pointer-events-none absolute inset-0 text-primary-500/40" aria-hidden><CardFiligree /></span>
 
@@ -167,7 +172,7 @@ export default function LoyaltyPage() {
                       </span>
                     )}
                     <span className="mt-3 block text-caption text-neutral-500 tabular-nums">
-                      {p.pointsPer100} points per ₹100 · 1 point = {money(p.pointValue, { decimals: true })}
+                      {p.pointsPer100} points per {money(100)} · 1 point = {money(p.pointValue, { decimals: true })}
                     </span>
                   </div>
                 </div>
@@ -185,7 +190,7 @@ export default function LoyaltyPage() {
               <Card>
                 <CardHeader title="Earning and redemption rules" subtitle="What a guest earns, what a point is worth, and how long it lives" />
                 <ul className="space-y-4">
-                  <Rule icon={<Coins className="h-4 w-4" />} label="Earn rate" value={`${p.pointsPer100} points per ₹100 spent`} />
+                  <Rule icon={<Coins className="h-4 w-4" />} label="Earn rate" value={`${p.pointsPer100} points per ${money(100)} spent`} />
                   <Rule icon={<IndianRupee className="h-4 w-4" />} label="Point value" value={`1 point = ${money(p.pointValue, { decimals: true })}`} />
                   <Rule icon={<Hourglass className="h-4 w-4" />} label="Expiry" value={p.expiryDays === 0 ? 'Points never expire' : `${p.expiryDays} days after they are earned`} />
                 </ul>
@@ -206,7 +211,7 @@ export default function LoyaltyPage() {
               <Card>
                 <CardHeader title="Points & rules" subtitle="Earn and redeem rules the programme is running today" />
                 <ul className="space-y-4">
-                  <Rule icon={<Coins className="h-4 w-4" />} label="Earn rate" value={`${p.pointsPer100} points per ₹100 spent`} />
+                  <Rule icon={<Coins className="h-4 w-4" />} label="Earn rate" value={`${p.pointsPer100} points per ${money(100)} spent`} />
                   <Rule icon={<IndianRupee className="h-4 w-4" />} label="Point value" value={`1 point = ${money(p.pointValue, { decimals: true })}`} />
                   <Rule icon={<Ticket className="h-4 w-4" />} label="Minimum redemption" value={`${p.minRedeemPoints} points`} />
                   <Rule icon={<Percent className="h-4 w-4" />} label="Maximum per bill" value={`${p.maxRedeemPercent}% of the bill payable by points`} />
@@ -245,7 +250,7 @@ export default function LoyaltyPage() {
             <StatCard label="Members" value={p.memberCount} tone="primary" icon={<Users className="h-5 w-5" />} />
             <StatCard label="Outstanding points" value={p.outstandingPoints} tone="warning" icon={<Star className="h-5 w-5" />} />
             <StatCard label="Points liability" value={money(p.outstandingValue)} tone="danger" icon={<IndianRupee className="h-5 w-5" />} />
-            <StatCard label="Earn rate" value={`${p.pointsPer100} / ₹100`} tone="success" icon={<Coins className="h-5 w-5" />} hint={`1 pt = ${money(p.pointValue, { decimals: true })}`} />
+            <StatCard label="Earn rate" value={`${p.pointsPer100} / ${money(100)}`} tone="success" icon={<Coins className="h-5 w-5" />} hint={`1 pt = ${money(p.pointValue, { decimals: true })}`} />
           </div>
           )}
         </>
@@ -286,7 +291,7 @@ export default function LoyaltyPage() {
             <Card>
               <CardHeader title="What these rules are worth" subtitle="Recalculated as you edit — not saved until you save" />
               <p className="text-metric text-neutral-900 tabular-nums">{(ppc * pv).toFixed(1)}%</p>
-              <p className="text-caption text-neutral-500 mt-1 tabular-nums">back to the guest · {ppc} pts per ₹100 · 1 pt = {money(pv, { decimals: true })}</p>
+              <p className="text-caption text-neutral-500 mt-1 tabular-nums">back to the guest · {ppc} pts per {money(100)} · 1 pt = {money(pv, { decimals: true })}</p>
             </Card>
             <Card>
               <CardHeader title="How it works" subtitle="Where each rule above takes effect in service" />
@@ -314,11 +319,26 @@ export default function LoyaltyPage() {
               pageSize={25}
               initialSort={{ key: 'points', dir: 'desc' }}
               caption="Loyalty members with tier, points balance and spend"
+              toolbar={
+                <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                  <p className="text-sm text-neutral-600 min-w-0">
+                    <span className="font-semibold text-neutral-900 tabular-nums">{members.length}</span> member{members.length === 1 ? '' : 's'} · open a row for the balance and ledger
+                  </p>
+                  {/* Member operations are a different grant from programme configuration, and the
+                      table says which one it is standing next to. */}
+                  <Badge size="sm" tone={canManageMembers ? 'primary' : 'neutral'}>
+                    {canManageMembers ? 'You can adjust points on a profile' : 'Point adjustments need loyalty:manage'}
+                  </Badge>
+                </div>
+              }
               emptyTitle="No members yet"
               emptyDescription="A guest becomes a member the first time points are earned on a closed bill."
             />
           )}
-          <p className="text-caption text-neutral-500 mt-3">Individual balances and ledgers live on each customer profile.</p>
+          <p className="text-caption text-neutral-500 mt-3">
+            Individual balances and ledgers live on each customer profile, where points are adjusted (a member operation, <code className="text-neutral-700">loyalty:manage</code>).
+            The programme rules on the Points &amp; rules tab are a separate grant (<code className="text-neutral-700">loyalty:configure</code>).
+          </p>
         </>
       )}
     </div>

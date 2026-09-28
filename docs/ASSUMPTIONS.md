@@ -7,7 +7,7 @@
 5. **Manager approval in the mock backend** uses the manager's 4-digit approval PIN (seeded `1234`). In ORDS the same field is validated against `USERS.APPROVAL_PIN_HASH`.
 6. **Real-time** in mock mode = `BroadcastChannel` (works across tabs of the same browser). ORDS mode = polling `/events` every 5 s; SSE/WebSocket can be plugged in later.
 7. **QR codes** are generated client-side (`qrcode` npm package) from `PUBLIC_APP_URL + /menu/{branchCode}/{publicCode}`; `publicCode` is a random 12-char token, regenerable.
-8. **Images**: item images are URLs (seed uses Unsplash). Upload in mock mode converts file → data URL; ORDS mode expects an object-storage URL (upload endpoint left as integration point `POST /uploads`).
+8. **Images**: item images are URLs. The seed points at **local files** (`/img/menu/<code>.jpg`, fetched once from licensed sources by `scripts/fetch-assets.mjs` — see `docs/IMAGERY.md`); nothing is hot-linked at runtime. Upload in mock mode converts file → data URL; ORDS mode expects an object-storage URL (upload endpoint left as integration point `POST /uploads`).
 9. **Printing** is browser `window.print()` with an 80 mm thermal stylesheet; `PrinterAdapter` interface allows ESC/POS integration later.
 10. **One active order per table** (`BRANCHES.ALLOW_MULTIPLE_ORDERS_PER_TABLE = 'N'`).
 11. **Timezone**: Asia/Kolkata; all API timestamps ISO-8601 UTC.

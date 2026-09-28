@@ -142,10 +142,11 @@ export default function BillsListPage({ mode }: { mode: 'unpaid' | 'paid' }) {
       key: 'actions',
       header: <span className="sr-only">Action</span>,
       align: 'right',
+      /* Gold is the act of taking money; a bill that is still open takes the outline. */
       render: (b) => (
         <Button
           size="sm"
-          variant={b.status === 'OPEN' ? 'outline' : 'success'}
+          variant={b.status === 'OPEN' ? 'outline' : 'primary'}
           className="min-h-touch"
           leftIcon={b.status === 'OPEN' ? <FileText className="h-4 w-4" /> : <Wallet className="h-4 w-4" />}
           onClick={(e) => { e.stopPropagation(); navigate(goPay(b)); }}
@@ -242,7 +243,7 @@ export default function BillsListPage({ mode }: { mode: 'unpaid' | 'paid' }) {
       </div>
       <Button
         block
-        variant={b.status === 'OPEN' ? 'outline' : 'success'}
+        variant={b.status === 'OPEN' ? 'outline' : 'primary'}
         className="min-h-touch"
         leftIcon={b.status === 'OPEN' ? <FileText className="h-4 w-4" /> : <Wallet className="h-4 w-4" />}
         onClick={(e) => { e.stopPropagation(); navigate(goPay(b)); }}

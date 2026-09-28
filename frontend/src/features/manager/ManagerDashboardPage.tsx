@@ -11,7 +11,8 @@ import { useNow } from '@/hooks/useRealtime';
 import { useDateRange, DateRangeFilter } from '@/features/shared/DateRangeFilter';
 import { DashboardHero, RecentPanels, RecentOrdersTable, FactGrid, FactDelta, greetingFor, useComparison, type Fact } from '@/features/dashboard/DashboardPage';
 import { StatCard, Card, CardHeader, LoadingState, ErrorState, EmptyState, StatusBadge, Badge, Button } from '@/components/ui';
-import { CountUp, staggerDelay } from '@/components/motion';
+import { useBranch } from '@/components/layout/Shell';
+import { staggerDelay } from '@/components/motion';
 import { money } from '@/utils/money';
 import { elapsedMinutes, fmtTime } from '@/utils/date';
 import { DELAY_THRESHOLDS } from '@/config/statuses';
@@ -55,13 +56,13 @@ function TodaysSalesCard({ d, compare }: { d: DashboardSummary; compare?: Fact['
         subtitle={byDay ? 'Paid bills across the selected period' : 'Paid bills by hour of trading'}
       />
       {/*
-       * THE ONE COUNT-UP ON THIS SCREEN, and the only one permitted anywhere on it. It rolls the
-       * FIRST finite value it is handed and passes every later one straight through, so the
-       * 20-second live poll, a window-focus refetch and a realtime invalidate all leave it alone.
-       * Nothing below it rolls — those are figures to reconcile against.
+       * NO COUNT-UP. This figure used to roll from zero on first paint; it is a monetary total,
+       * and the luxury brief bars animating money through intermediate values — a manager who
+       * glances at ₹1,20,000 mid-roll has read a number that was never true. The card's own
+       * entrance (`anim-enter-soft`) is the only motion here, and the value is printed final.
        */}
       <p className="text-metric text-neutral-900 tnum leading-none">
-        <CountUp value={d.sales.totalSales} format={(n) => money(n)} />
+        {money(d.sales.totalSales)}
       </p>
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
         {/* The delta arrives only once the previous period has genuinely been fetched, and says
@@ -217,6 +218,8 @@ export default function ManagerDashboardPage() {
   const { user } = useAuth();
   const canCreateOrder = usePermission('orders:create');
   const now = useNow(15_000);
+  /* The same cached branch query the rail's venue card reads — one fetch, one name. */
+  const { data: branch } = useBranch();
   const dash = useQuery({ queryKey: ['dashboard', dr.range], queryFn: () => reportsApi.dashboard(dr.range) });
   const cmp = useComparison(dr);
   const live = useOrders({ active: true }, { refetchInterval: 20_000 });
@@ -330,7 +333,8 @@ export default function ManagerDashboardPage() {
        */}
       <DashboardHero
         title={firstName ? `${greetingFor(now)}, ${firstName}` : 'Manager dashboard'}
-        subtitle="What needs attention now, and how the shift is tracking"
+        subtitle={branch ? `${branch.businessName} — what needs attention now, and how the shift is tracking` : 'What needs attention now, and how the shift is tracking'}
+        venue={branch?.businessName}
         range={dr.range}
         actions={
           <div className="flex flex-wrap items-center gap-2 max-w-[13rem] sm:max-w-none">

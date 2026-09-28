@@ -51,17 +51,17 @@ function QrCard({ table, branchCode, businessName, canManage, onRegenerate }: { 
   const print = () => {
     const w = window.open('', '_blank', 'width=480,height=640'); if (!w) return;
     const svg = canvasRef.current?.querySelector('svg')?.outerHTML ?? '';
-    // Standalone print document — it cannot reach the app's stylesheet, so the tokens are inlined.
-    // These hex values are DELIBERATELY light-theme: this window goes to a printer and ends up
-    // as a card on a table, so it must stay dark ink on white paper regardless of the screen
-    // theme. Do not "fix" them to the dark palette — that would print a black rectangle.
+    // Standalone print document — it cannot reach the app's stylesheet. It names NO colour at all:
+    // a print document is black ink on white paper by default, which is exactly what a card on a
+    // table must be whatever theme the screen is painted in, and the quieter lines are stepped
+    // back with opacity rather than a grey that would have to be spelled as a literal.
     w.document.write(`<html><head><title>QR ${table.name}</title><style>
-      body{font-family:Inter,system-ui,Arial,sans-serif;text-align:center;padding:28px;color:#182230}
+      body{font-family:Inter,system-ui,Arial,sans-serif;text-align:center;padding:28px}
       h1{font-size:30px;margin:10px 0;letter-spacing:-0.02em}
-      p{color:#667085;margin:4px 0}
-      .venue{font-weight:600;color:#182230;letter-spacing:0.02em;text-transform:uppercase;font-size:13px}
-      .cta{margin-top:14px;font-size:15px;color:#182230;font-weight:500}
-      .url{font-size:10px;word-break:break-all;color:#98A2B3;margin-top:10px}
+      p{opacity:.65;margin:4px 0}
+      .venue{font-weight:600;opacity:1;letter-spacing:0.02em;text-transform:uppercase;font-size:13px}
+      .cta{margin-top:14px;font-size:15px;opacity:1;font-weight:500}
+      .url{font-size:10px;word-break:break-all;opacity:.45;margin-top:10px}
       svg{width:280px;height:280px}
     </style></head><body><p class="venue">${businessName}</p><h1>${table.name}</h1>${svg}<p class="cta">Scan to view our menu</p><p class="url">${url}</p><script>window.onload=()=>{window.print();window.close();}</script></body></html>`);
     w.document.close();
@@ -174,9 +174,10 @@ export default function QrPage() {
           <p className="mb-3 text-sm text-neutral-600">
             <span className="font-semibold text-neutral-900 tabular-nums">{list.length}</span> printable code{list.length === 1 ? '' : 's'}
           </p>
-          {/* The reference sheet: two across on a phone, six on a wide screen. Every track is an
-              explicit `grid-cols-N`, which Tailwind compiles to `repeat(N, minmax(0,1fr))`. */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+          {/* The reference sheet: one card across on the narrowest phones, two from 420 px, six on
+              a wide screen. Every track is an explicit `grid-cols-N`, which Tailwind compiles to
+              `repeat(N, minmax(0,1fr))`, and the base is a single column as every grid's is. */}
+          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
             {list.map((t) => (
               <QrCard key={t.id} table={t} branchCode={branch.code} businessName={branch.businessName} canManage={canManage} onRegenerate={() => setRegen(t)} />
             ))}

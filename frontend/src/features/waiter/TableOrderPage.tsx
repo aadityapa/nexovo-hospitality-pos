@@ -128,11 +128,11 @@ export default function TableOrderPage() {
         13 px supporting line under it, and the actions right-aligned on the same row — the one
         page-head language the product uses everywhere. What IS a card is the order summary
         below it, because that is a block of facts about the order rather than the head of a page.
+        Exactly one primary action, and only when it is genuinely the next step.
       */}
       <PageHeader
         title={<span className="flex items-center gap-3 flex-wrap">{t.name}{o ? <StatusBadge kind="order" status={o.status} /> : <StatusBadge kind="table" status={t.status} />}</span>}
         subtitle={`${t.floorName}${o ? ` · ${o.orderNumber} · ${o.waiterName}` : ` · ${t.capacity} seats · new order`}`}
-        /* Exactly one primary action, and only when it is genuinely the next step. */
         actions={<>
           {o && (
             <Button size="sm" variant="ghost" leftIcon={<ClipboardList className="h-4 w-4" />} className="min-h-touch" onClick={() => navigate(`/waiter/orders/${o.id}`)}>
@@ -166,6 +166,7 @@ export default function TableOrderPage() {
         tableId={tid}
         tableName={t.name}
         orderNumber={o?.orderNumber}
+        guestCount={o?.guestCount}
         mode={mode}
         existingItems={o?.items}
         onSend={onSend}

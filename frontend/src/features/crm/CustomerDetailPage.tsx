@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Pencil, Gift, Star, ShieldCheck, Cake, Heart, Phone, Mail, Utensils, NotebookPen } from 'lucide-react';
 import { useCustomerHistory, useCrmMutations } from '@/features/p2/hooks';
-import { CustomerForm } from './CustomersPage';
+import { CustomerForm, TagBadge, tagsOf, isVipGuest, isVipTag } from './CustomersPage';
 import { usePermission } from '@/hooks/useAuth';
 import { useWorkspace } from '@/hooks/useSurface';
 import { PageHeader, Button, Card, CardHeader, StatCard, KeyValue, Badge, Avatar, SegmentedControl, DataTable, ItemImage, Modal, Input, Textarea, LoadingState, ErrorState, EmptyState, type Column } from '@/components/ui';
@@ -35,7 +35,11 @@ export default function CustomerDetailPage() {
   if (q.isError || !q.data) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
   const { customer: c, visits, favouriteItems, loyalty, loyaltyTransactions } = q.data;
   const shortBy = Math.max(0, loyalty.minRedeemPoints - loyalty.pointsBalance);
-  const tags = (c.tags ?? '').split(',').map((t) => t.trim()).filter(Boolean);
+  const tags = tagsOf(c);
+  /* VIP is read off the record's own "vip" tag (see CustomersPage). It is the one thing on this
+     page allowed to be violet, and it is drawn beside the name — once — rather than repeated in
+     the tag row beneath. */
+  const vip = isVipGuest(c);
 
   /**
    * RECENT VISITS. The reference panel shows an outlet column beside each visit; a visit record
@@ -70,15 +74,19 @@ export default function CustomerDetailPage() {
         REPLACE the ambient `shadow-card` that lifts it off the page. The outer element carries
         the shadow at the card's own radius (and the margin, so the spacing below is unchanged);
         the card itself carries the bevel and the gloss. The outer element adds no semantics.
+        The bronze hairline is this card's alone — it is the hero of the page.
       */}
       <div className="rounded-lg shadow-card mb-4">
-      <Card className="material-gloss material-edge">
+      <Card className="material-gloss material-edge border-bronze/30">
         <div className="flex flex-col sm:flex-row sm:items-start gap-4">
           {/* `record`, not `brand`: the gold disc belongs to whoever is signed in. A guest is a
               record in the book, and a page of gold discs makes none of them mean anything. */}
           <Avatar name={c.fullName} size="lg" variant="record" />
           <div className="min-w-0 flex-1">
-            <h2 className="text-subheading text-neutral-900">{c.fullName}</h2>
+            <h2 className="text-subheading text-neutral-900 flex flex-wrap items-center gap-2">
+              <span className="break-words">{c.fullName}</span>
+              {vip && <TagBadge tag="vip" />}
+            </h2>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-sm">
               <a href={`tel:${c.phone}`} className="inline-flex items-center gap-1.5 min-h-touch text-primary-700 hover:underline underline-offset-2 font-medium">
                 <Phone className="h-4 w-4" aria-hidden />{c.phone}
@@ -94,7 +102,7 @@ export default function CustomerDetailPage() {
               {c.consentMarketing
                 ? <Badge tone="success" size="sm" icon={<ShieldCheck className="h-3 w-3" aria-hidden />}>Marketing opt-in{c.consentAt ? ` · ${fmtDate(c.consentAt)}` : ''}</Badge>
                 : <Badge size="sm">No marketing consent</Badge>}
-              {tags.map((t) => <Badge key={t} size="sm">{t}</Badge>)}
+              {tags.filter((t) => !isVipTag(t)).map((t) => <TagBadge key={t} tag={t} />)}
             </div>
           </div>
 
@@ -281,7 +289,7 @@ export default function CustomerDetailPage() {
                 {
                   label: 'Tags',
                   value: tags.length
-                    ? <span className="flex flex-wrap gap-1 justify-end">{tags.map((t) => <Badge key={t} size="sm">{t}</Badge>)}</span>
+                    ? <span className="flex flex-wrap gap-1 justify-end">{tags.map((t) => <TagBadge key={t} tag={t} />)}</span>
                     : <span className="text-neutral-400">None</span>,
                 },
                 {

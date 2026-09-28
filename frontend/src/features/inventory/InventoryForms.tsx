@@ -191,31 +191,32 @@ export function MovementForm({ onClose, item, defaultType = 'WASTAGE' }: { onClo
 
         {!item && <Select label="Item" required placeholder="Select inventory item" value={invItemId} onChange={(e) => setInvItemId(e.target.value ? Number(e.target.value) : '')} options={(items.data ?? []).map((i) => ({ value: i.id, label: `${i.name} — ${i.currentQty} ${i.unitCode}` }))} />}
 
-        <div className="grid grid-cols-2 gap-4">
+        {/* Base `grid-cols-1`: on a phone the quantity and the cost stack, each at full width. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input label={`Quantity${sel ? ` (${sel.unitCode})` : ''}${signed ? ' — negative to reduce' : ''}`} required type="number" step="any" value={qty} onChange={(e) => setQty(e.target.value)} autoFocus />
           {(type === 'OPENING_STOCK' || type === 'RETURN' || type === 'ADJUSTMENT' || type === 'TRANSFER') && <Input label="Unit cost (optional)" type="number" step="0.01" min={0} value={unitCost} onChange={(e) => setUnitCost(e.target.value)} hint="Updates moving average on inbound stock" />}
         </div>
 
         {/* Before → after, so the effect on the shelf is visible before the movement is saved. */}
         {sel && (
-          <div className="well p-3">
+          <div className="well p-3 min-w-0">
             <div className="flex items-center justify-between gap-3 flex-wrap text-sm">
               <span className="text-neutral-600">Stock on hand</span>
-              <span className="tabular-nums font-semibold text-neutral-900">{sel.currentQty} {sel.unitCode}</span>
+              <span className="tnum font-semibold text-neutral-900">{sel.currentQty} {sel.unitCode}</span>
             </div>
             {after !== null && (
               <div className="flex items-center justify-between gap-3 flex-wrap text-sm mt-2 pt-2 border-t border-neutral-200">
-                <span className="text-neutral-600 inline-flex items-center gap-1.5">
-                  {effectiveQty > 0 ? <ArrowDownLeft className="h-4 w-4 text-success-700" aria-hidden /> : <ArrowUpRight className="h-4 w-4 text-danger-700" aria-hidden />}
+                <span className="text-neutral-600 inline-flex items-center gap-1.5 min-w-0 tnum">
+                  {effectiveQty > 0 ? <ArrowDownLeft className="h-4 w-4 text-success-700 shrink-0" aria-hidden /> : <ArrowUpRight className="h-4 w-4 text-danger-700 shrink-0" aria-hidden />}
                   {effectiveQty > 0 ? 'Adds' : 'Removes'} {Math.abs(effectiveQty)} {sel.unitCode} — balance after
                 </span>
-                <span className={cn('tabular-nums font-semibold', after < 0 ? 'text-danger-700' : after <= sel.minQty ? 'text-warning-700' : 'text-neutral-900')}>
+                <span className={cn('tnum font-semibold', after < 0 ? 'text-danger-700' : after <= sel.minQty ? 'text-warning-700' : 'text-neutral-900')}>
                   {after} {sel.unitCode}
                   {after >= 0 && after <= sel.minQty && <span className="ml-1.5 text-caption font-normal">below min {sel.minQty}</span>}
                 </span>
               </div>
             )}
-            <p className="text-caption text-neutral-500 mt-2">Average cost {money(sel.avgCost, { decimals: true })} / {sel.unitCode}</p>
+            <p className="text-caption text-neutral-500 mt-2 tnum">Average cost {money(sel.avgCost, { decimals: true })} / {sel.unitCode}</p>
           </div>
         )}
         {wouldGoNegative && (

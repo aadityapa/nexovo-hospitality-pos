@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Plus, Pencil, KeyRound, UserX, UserCheck, ShieldCheck, ShieldOff, Clock, Building2, X } from 'lucide-react';
+import { Plus, Pencil, KeyRound, UserX, UserCheck, Clock, Building2, X } from 'lucide-react';
 import { usersApi } from '@/services/api/endpoints';
 import { useBranches, useBranchMutations } from '@/features/p2/hooks';
 import { usePermission } from '@/hooks/useAuth';
@@ -11,7 +11,7 @@ import { useDebounce } from '@/hooks/useRealtime';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from '@/store/uiStore';
 import { HeaderSearch } from '@/components/layout/Shell';
-import { PageHeader, Button, IconButton, Modal, ConfirmDialog, Input, PasswordInput, Switch, Badge, LoadingState, ErrorState, DataTable, SearchInput, SegmentedControl, FilterChips, Avatar, Alert, type Column } from '@/components/ui';
+import { PageHeader, Button, IconButton, Modal, ConfirmDialog, Input, PasswordInput, Switch, Badge, StatusDot, LoadingState, ErrorState, DataTable, SearchInput, SegmentedControl, FilterChips, Avatar, Alert, type Column } from '@/components/ui';
 import { ApiError } from '@/services/api/client';
 import { ROLE_LABELS, type RoleCodeKey } from '@/config/permissions';
 import { fmtDateTime, fmtRelative } from '@/utils/date';
@@ -56,9 +56,22 @@ function LastSignIn({ user, className }: { user: User; className?: string }) {
     );
   }
   return (
-    <span className={cn('text-neutral-700', className)} title={fmtDateTime(user.lastLoginAt)}>
+    <span className={cn('text-neutral-700 tnum', className)} title={fmtDateTime(user.lastLoginAt)}>
       {fmtRelative(user.lastLoginAt)}
-      <span className="block text-caption text-neutral-500">{fmtDateTime(user.lastLoginAt)}</span>
+      <span className="block text-caption text-neutral-500 tnum">{fmtDateTime(user.lastLoginAt)}</span>
+    </span>
+  );
+}
+
+/**
+ * Account state as a dot AND the word. The dot carries the tone (emerald live, neutral off);
+ * the word carries the meaning, so the column reads the same to anyone who cannot see colour.
+ */
+function AccountStatus({ active }: { active: boolean }) {
+  return (
+    <span className={cn('inline-flex items-center gap-1.5 text-sm whitespace-nowrap', active ? 'text-neutral-900' : 'text-neutral-500')}>
+      <StatusDot tone={active ? 'success' : 'neutral'} />
+      {active ? 'Active' : 'Inactive'}
     </span>
   );
 }
@@ -107,9 +120,11 @@ function UserForm({ onClose, editing }: { onClose: () => void; editing: User | n
         <Input label="Approval PIN" inputMode="numeric" maxLength={4} hint="4 digits — used to approve cancellations & discounts (managers/admins)" error={errors.approvalPin?.message} {...register('approvalPin')} />
         <div className="sm:col-span-2">
           <p className="text-label text-neutral-700 mb-1.5">Roles <span className="text-danger-700">*</span></p>
+          {/* Native boxes with the champagne `accent-color` the shared Checkbox uses — without it the
+              browser paints its own blue tick, the one colour this palette does not have. */}
           <Controller control={control} name="roles" render={({ field }) => (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-              {ROLES.map((r) => { const on = field.value.includes(r); return <label key={r} className={cn('flex items-center gap-2 rounded-sm border px-2 min-h-touch text-sm cursor-pointer transition-colors duration-control', on ? 'bg-primary-50 border-primary-200 text-primary-800' : 'border-neutral-300 text-neutral-800 hover:border-neutral-400')}><input type="checkbox" className="h-4 w-4 rounded-sm shrink-0" checked={on} onChange={() => field.onChange(on ? field.value.filter((x) => x !== r) : [...field.value, r])} /><span className="min-w-0 truncate">{ROLE_LABELS[r]}</span></label>; })}
+            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-4 gap-1.5">
+              {ROLES.map((r) => { const on = field.value.includes(r); return <label key={r} className={cn('flex items-center gap-2 rounded-sm border px-2 min-h-touch text-sm cursor-pointer transition-colors duration-control', on ? 'bg-primary-50 border-primary-200 text-primary-800' : 'border-neutral-300 text-neutral-800 hover:border-neutral-400')}><input type="checkbox" className="h-4 w-4 rounded-sm shrink-0 accent-primary-500" checked={on} onChange={() => field.onChange(on ? field.value.filter((x) => x !== r) : [...field.value, r])} /><span className="min-w-0 truncate">{ROLE_LABELS[r]}</span></label>; })}
             </div>
           )} />
           <p className="text-caption text-neutral-500 mt-1">Roles carry the permissions; the matrix behind each role is on the Roles page.</p>
@@ -119,8 +134,8 @@ function UserForm({ onClose, editing }: { onClose: () => void; editing: User | n
           <div className="sm:col-span-2">
             <p className="text-label text-neutral-700 mb-1.5">Branch access</p>
             <Controller control={control} name="branchIds" render={({ field }) => (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                {(branches.data ?? []).map((b) => { const on = field.value.includes(Number(b.id)); return <label key={b.id} className={cn('flex items-center gap-2 rounded-sm border px-2 min-h-touch text-sm cursor-pointer transition-colors duration-control', on ? 'bg-primary-50 border-primary-200 text-primary-800' : 'border-neutral-300 text-neutral-800 hover:border-neutral-400')}><input type="checkbox" className="h-4 w-4 rounded-sm shrink-0" checked={on} onChange={() => field.onChange(on ? field.value.filter((x) => x !== Number(b.id)) : [...field.value, Number(b.id)])} /><span className="min-w-0 truncate">{b.name}</span></label>; })}
+              <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 gap-1.5">
+                {(branches.data ?? []).map((b) => { const on = field.value.includes(Number(b.id)); return <label key={b.id} className={cn('flex items-center gap-2 rounded-sm border px-2 min-h-touch text-sm cursor-pointer transition-colors duration-control', on ? 'bg-primary-50 border-primary-200 text-primary-800' : 'border-neutral-300 text-neutral-800 hover:border-neutral-400')}><input type="checkbox" className="h-4 w-4 rounded-sm shrink-0 accent-primary-500" checked={on} onChange={() => field.onChange(on ? field.value.filter((x) => x !== Number(b.id)) : [...field.value, Number(b.id)])} /><span className="min-w-0 truncate">{b.name}</span></label>; })}
               </div>
             )} />
             <p className="text-caption text-neutral-500 mt-1">The user can switch between the selected branches from the header; all data stays scoped to the active one.</p>
@@ -250,14 +265,7 @@ export default function UsersPage() {
     },
     { key: 'disc', header: 'Max discount', hideBelow: 'lg', align: 'right', sortValue: (u) => u.maxDiscountPercent, render: (u) => <span className="tabular-nums">{u.maxDiscountPercent}%</span> },
     { key: 'login', header: 'Last active', hideBelow: 'md', sortValue: (u) => u.lastLoginAt ?? '', render: (u) => <LastSignIn user={u} className="text-sm" /> },
-    {
-      key: 'status', header: 'Status', sortValue: (u) => (u.isActive ? 'A' : 'Z'),
-      render: (u) => (
-        <Badge tone={u.isActive ? 'success' : 'neutral'} size="sm" icon={u.isActive ? <ShieldCheck className="h-3 w-3" aria-hidden /> : <ShieldOff className="h-3 w-3" aria-hidden />}>
-          {u.isActive ? 'Active' : 'Inactive'}
-        </Badge>
-      ),
-    },
+    { key: 'status', header: 'Status', sortValue: (u) => (u.isActive ? 'A' : 'Z'), render: (u) => <AccountStatus active={u.isActive} /> },
     ...(canManage ? [{
       key: 'actions', header: <span className="sr-only">Actions</span>, align: 'right' as const,
       render: (u: User) => (
@@ -356,9 +364,7 @@ export default function UsersPage() {
                     </p>
                     <p className="text-caption text-neutral-500 truncate">@{u.username}{u.email ? ` · ${u.email}` : ''}</p>
                   </div>
-                  <Badge tone={u.isActive ? 'success' : 'neutral'} size="sm" icon={u.isActive ? <ShieldCheck className="h-3 w-3" aria-hidden /> : <ShieldOff className="h-3 w-3" aria-hidden />}>
-                    {u.isActive ? 'Active' : 'Inactive'}
-                  </Badge>
+                  <AccountStatus active={u.isActive} />
                 </div>
                 <div className="flex flex-wrap gap-1">{u.roles.map((r) => <Badge key={r} tone="primary" size="sm">{ROLE_LABELS[r]}</Badge>)}</div>
                 <p className="text-caption"><LastSignIn user={u} /></p>

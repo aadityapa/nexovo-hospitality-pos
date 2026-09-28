@@ -4,6 +4,7 @@
  * club check-ins, a VIP booking and a second branch for the multi-branch demo.
  */
 import type { Ctx } from './context';
+import { bottleImage } from '@/config/imagery';
 import * as menu from './menu';
 import * as inventory from './p2/inventory';
 import * as purchasing from './p2/purchasing';
@@ -34,9 +35,11 @@ export function seedPhase2Transactions(ctx: Ctx): void {
     inventory.saveRecipe(ctx, menuItem('IN01'), { yieldQty: 1, ingredients: [ln(17, 250, 1, 5), ln(16, 30, 1)] });
     inventory.saveRecipe(ctx, menuItem('SP02'), { yieldQty: 1, ingredients: [ln(13, 30, 3)] });
     // ---- bottle service menu items
-    const jd = menu.saveItem(ctx, null, { code: 'BS-JD', name: "Jack Daniel's 750ml — Bottle Service", description: 'Full bottle with ice, 4 mixers, glasses and a dedicated waiter', categoryId: 13, price: 8000, prepLocation: 'BAR', taxGroupId: 3, isVeg: true, isPopular: false, isAvailable: true, isActive: true });
+    /* Bottle photographs are local files (see config/imagery.ts); each is a picture of the named
+       bottle, checked against the record in assets.manifest.json. */
+    const jd = menu.saveItem(ctx, null, { code: 'BS-JD', name: "Jack Daniel's 750ml — Bottle Service", description: 'Full bottle with ice, 4 mixers, glasses and a dedicated waiter', imageUrl: bottleImage('BS-JD'), categoryId: 13, price: 8000, prepLocation: 'BAR', taxGroupId: 3, isVeg: true, isPopular: false, isAvailable: true, isActive: true });
     guests.bottleSave(ctx, jd.id, { bottleSizeMl: 750, invItemId: 12, includes: 'Ice, 4 mixers, glasses, dedicated waiter' });
-    const gg = menu.saveItem(ctx, null, { code: 'BS-GG', name: 'Grey Goose 750ml — Bottle Service', description: 'Full bottle with ice, mixers and glasses', categoryId: 13, price: 11000, prepLocation: 'BAR', taxGroupId: 3, isVeg: true, isPopular: false, isAvailable: true, isActive: true });
+    const gg = menu.saveItem(ctx, null, { code: 'BS-GG', name: 'Grey Goose 750ml — Bottle Service', description: 'Full bottle with ice, mixers and glasses', imageUrl: bottleImage('BS-GG'), categoryId: 13, price: 11000, prepLocation: 'BAR', taxGroupId: 3, isVeg: true, isPopular: false, isAvailable: true, isActive: true });
     guests.bottleSave(ctx, gg.id, { bottleSizeMl: 750, invItemId: 13, includes: 'Ice, 4 mixers, glasses' });
     // ---- purchase order awaiting approval
     as(3);

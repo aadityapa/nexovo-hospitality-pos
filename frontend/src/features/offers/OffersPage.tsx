@@ -146,7 +146,27 @@ export default function OffersPage() {
   const canManage = usePermission('offers:manage');
   const offers = useOffers(true);
   const cats = useCategories(true);
+  /* The same cached menu query the offer form reads. */
+  const menuItems = useMenuItems({ includeInactive: false });
   const { remove, save } = useOfferMutations();
+
+  /**
+   * An offer's picture is the photograph of something it actually discounts: its first item, or
+   * failing that its first category's own cover (which is itself one of that category's dishes).
+   * An offer with neither falls back to the drawn tile. Never a stock photo of a dish the offer
+   * does not cover.
+   */
+  const offerImage = (o: Offer): string | null => {
+    const items = menuItems.data ?? [];
+    for (const id of o.itemIds) { const it = items.find((x) => x.id === id); if (it?.imageUrl) return it.imageUrl; }
+    for (const id of o.categoryIds) {
+      const c = (cats.data ?? []).find((x) => x.id === id);
+      if (c?.imageUrl) return c.imageUrl;
+      const it = items.find((x) => x.categoryId === id && x.imageUrl);
+      if (it?.imageUrl) return it.imageUrl;
+    }
+    return null;
+  };
   const [editing, setEditing] = useState<Offer | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [toDelete, setToDelete] = useState<Offer | null>(null);
@@ -219,21 +239,20 @@ export default function OffersPage() {
     const meta = PHASE_META[phase];
     const schedule = (
       <>
-        <span className="flex items-center gap-1.5">
+        <span className="flex items-center gap-1.5 tnum">
           <CalendarDays className="h-3.5 w-3.5 shrink-0" aria-hidden /><span className="sr-only">Dates: </span>
           {fmtDay(o.startDate)} → {fmtDay(o.endDate)}
         </span>
-        <span className="flex items-center gap-1.5">
+        <span className="flex items-center gap-1.5 tnum">
           <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden /><span className="sr-only">Hours: </span>
           {hoursLabel(o)} · {daysLabel(o)}
         </span>
       </>
     );
     return (
-      <li key={o.id} className={cn('flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3', phase === 'FINISHED' && 'bg-neutral-50')}>
-        {/* The venue has no offer photography, so the tile is this offer's own drawing — the same
-            picture wherever the offer appears, and unmistakably an illustration. */}
-        <ItemImage src={null} alt={o.name} className="h-14 w-14 shrink-0" rounded="rounded-md" />
+      <li key={o.id} className={cn('flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 transition-colors duration-control hover:bg-neutral-50', phase === 'FINISHED' && 'bg-neutral-50')}>
+        {/* A photograph of something this offer discounts (see `offerImage`), or the drawn tile. */}
+        <ItemImage src={offerImage(o)} alt={o.name} className="h-14 w-14 shrink-0" rounded="rounded-md" />
 
         <div className="min-w-0 flex-1 basis-44">
           <p className="text-sm font-semibold text-neutral-900 truncate">{o.name}</p>
@@ -294,10 +313,10 @@ export default function OffersPage() {
     ];
     return (
       <Reveal as="li" key={o.id} delay={staggerDelay(i)} className="min-w-0">
-        <Card padded={false} className={cn('h-full flex flex-col overflow-hidden', phase === 'FINISHED' && 'bg-neutral-50')}>
+        <Card padded={false} className={cn('h-full flex flex-col overflow-hidden transition-[border-color,box-shadow] duration-control hover:border-neutral-300 hover:shadow-panel', phase === 'FINISHED' ? 'bg-neutral-50' : 'material-gloss')}>
           <div className="flex gap-4 p-4 min-w-0">
             {/* Photo left, exactly as the board lays the card out. */}
-            <ItemImage src={null} alt={o.name} className="h-24 w-24 sm:h-28 sm:w-28 shrink-0" rounded="rounded-md" />
+            <ItemImage src={offerImage(o)} alt={o.name} className="h-24 w-24 sm:h-28 sm:w-28 shrink-0" rounded="rounded-md" />
 
             <div className="min-w-0 flex-1 flex flex-col">
               <div className="flex items-start justify-between gap-2">
@@ -311,7 +330,7 @@ export default function OffersPage() {
                 {o.maxDiscountAmount ? ` · capped at ${money(o.maxDiscountAmount)} per line` : ''}
               </p>
 
-              <p className="mt-2 flex items-center gap-1.5 text-caption text-neutral-700 tabular-nums">
+              <p className="mt-2 flex items-center gap-1.5 text-caption text-neutral-700 tnum">
                 <CalendarDays className="h-3.5 w-3.5 shrink-0 text-neutral-400" aria-hidden />
                 <span className="sr-only">Runs from </span>{fmtDay(o.startDate)}
                 <span aria-hidden>→</span><span className="sr-only"> to </span>{fmtDay(o.endDate)}

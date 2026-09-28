@@ -125,21 +125,73 @@ const shoot = async (p, dir, slug, route) => {
 
 let shots = 0, overflows = 0;
 
+/** Sign in as admin, open the QR screen, and return the first real guest-menu link it prints. */
+let cachedMenuUrl;
+async function resolveGuestMenuUrl(b, theme) {
+  if (cachedMenuUrl !== undefined) return cachedMenuUrl;
+  const c = await b.newContext({ viewport: { width: 1440, height: 900 } });
+  await c.addInitScript((t) => { try { localStorage.setItem('nexovo.theme', t); } catch { /* private mode */ } }, theme);
+  const p = await c.newPage();
+  try {
+    await p.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' }); await settle(p);
+    await p.locator('input:not([type="password"]):not([type="checkbox"])').first().fill('admin');
+    await p.locator('input[type="password"]').first().fill(PW.admin);
+    await p.locator('button[type="submit"]').first().click();
+    await p.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 25000 });
+    await p.goto(`${BASE}/admin/qr`, { waitUntil: 'domcontentloaded' }); await settle(p);
+    /*
+     * Only a PUBLIC table link — a path that STARTS with `/menu/<branch>/<code>`. The first
+     * revision matched `a[href*="/menu/"]`, which the rail's own `/admin/menu/items` link also
+     * satisfies; a signed-out browser sent there is redirected to /login, so every "guest menu"
+     * capture was really a second picture of the login screen.
+     */
+    await p.locator('a[href*="/menu/"]').first().waitFor({ timeout: 8000 }).catch(() => {});
+    const href = await p.evaluate(() => {
+      for (const a of document.querySelectorAll('a[href]')) {
+        const path = new URL(a.getAttribute('href'), location.href).pathname;
+        if (/^\/menu\/[^/]+\/[^/]+/.test(path)) return path;
+      }
+      return null;
+    });
+    // The QR page prints the public app URL; rebase it onto the server being captured.
+    cachedMenuUrl = href ? `${BASE}${href}` : null;
+  } catch {
+    cachedMenuUrl = null;
+  } finally {
+    await c.close();
+  }
+  return cachedMenuUrl;
+}
+
 for (const theme of THEMES) {
   for (const [w, h, tag] of WIDTHS) {
     const label = `${theme}-${tag}`;
     console.log(`\n=== ${label} ===`);
 
-    // 1. Signed out: the login, and the guest QR menu. Neither needs an account.
+    // 1. Signed out: the login, and the guest QR menu.
     {
       const c = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2 });
       await c.addInitScript((t) => { try { localStorage.setItem('nexovo.theme', t); } catch { /* private mode */ } }, theme);
       const p = await c.newPage();
       await p.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' }); await settle(p);
       overflows += await shoot(p, path.join(OUT, label, '00-public'), '01-login', '/login'); shots += 1;
-      // The seeded demo table. Change the codes if your seed differs.
-      await p.goto(`${BASE}/menu/MAIN/T1`, { waitUntil: 'domcontentloaded' }); await settle(p);
-      overflows += await shoot(p, path.join(OUT, label, '00-public'), '02-guest-qr-menu', '/menu/MAIN/T1'); shots += 1;
+
+      /*
+       * THE GUEST MENU URL IS READ, NOT GUESSED.
+       *
+       * A table's public code is an opaque hash (`stableCode('MAIN|<id>|<number>')`), not its
+       * display number — so `/menu/MAIN/T1` matches nothing, and the app correctly answers
+       * "Menu unavailable" rather than serving a menu to a QR that was never issued. An earlier
+       * capture hard-coded that URL and recorded the refusal as if it were a defect in the app.
+       * The real link is printed on the QR screen, so it is taken from there, once, as an admin.
+       */
+      const menuUrl = await resolveGuestMenuUrl(browser, theme);
+      if (menuUrl) {
+        await p.goto(menuUrl, { waitUntil: 'domcontentloaded' }); await settle(p);
+        overflows += await shoot(p, path.join(OUT, label, '00-public'), '02-guest-qr-menu', new URL(menuUrl).pathname); shots += 1;
+      } else {
+        console.log('  02-guest-qr-menu          (skipped: no /menu/ link found on /admin/qr)');
+      }
       await c.close();
     }
 

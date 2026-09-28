@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { UserPlus, LogOut, X, Ticket, Users, Wallet, Crown, Settings2, Plus, Pencil, Armchair } from 'lucide-react';
+import { UserPlus, LogOut, X, Ticket, Users, Wallet, Settings2, Plus, Pencil, Armchair } from 'lucide-react';
 import { useClubDashboard, useClubEntries, useCoverTypes, useClubMutations, useCustomers, useVipTables, useStaff } from '@/features/p2/hooks';
 import { useTables } from '@/features/tables/hooks';
-import { MinimumSpendMeter, showMinimumSpend } from '@/features/club/VipTablesPage';
+import { MinimumSpendMeter, showMinimumSpend, VipChip } from '@/features/club/VipTablesPage';
 import { DashboardHero } from '@/features/dashboard/DashboardPage';
+import { useBranch } from '@/components/layout/Shell';
 import { usePermission } from '@/hooks/useAuth';
 import { useRealtimeInvalidate } from '@/hooks/useRealtime';
 import { useWorkspace } from '@/hooks/useSurface';
@@ -109,6 +110,9 @@ function CoverTypesModal({ onClose }: { onClose: () => void }) {
 /** The `--d` beat of a staged reveal — a function of position, never of the door count on it. */
 const beat = (i: number) => ({ '--d': `${staggerDelay(i)}ms` }) as CSSProperties;
 
+/** A VIP entry is a VIP CLASSIFICATION, so it takes the violet chip — never the gold. */
+const entryTypeBadge = (t: EntryType) => (t === 'VIP' ? <VipChip /> : <Badge size="sm" tone="neutral">{ENTRY_TYPE_LABELS[t]}</Badge>);
+
 /**
  * The door.
  *
@@ -124,6 +128,8 @@ const beat = (i: number) => ({ '--d': `${staggerDelay(i)}ms` }) as CSSProperties
 export default function ClubDashboardPage() {
   const ws = useWorkspace();
   const navigate = useNavigate();
+  /* The venue behind the banner — the same cached read the shell's rail footer makes. */
+  const { data: branch } = useBranch();
   const canManage = usePermission('club:manage');
   const dash = useClubDashboard();
   const [status, setStatus] = useState<'ALL' | EntryStatus>('CHECKED_IN');
@@ -181,8 +187,7 @@ export default function ClubDashboardPage() {
     },
     {
       key: 'type', header: 'Type', sortValue: (e) => e.entryType,
-      /* A VIP entry is a VIP CLASSIFICATION, so it takes the violet — never the gold. */
-      render: (e) => <Badge size="sm" tone={e.entryType === 'VIP' ? 'accent' : 'neutral'} icon={e.entryType === 'VIP' ? <Crown className="h-3 w-3" aria-hidden /> : undefined}>{ENTRY_TYPE_LABELS[e.entryType]}</Badge>,
+      render: (e) => entryTypeBadge(e.entryType),
     },
     { key: 'party', header: 'Party', align: 'right', sortValue: (e) => e.guests, render: (e) => <span className="tabular-nums">{e.guests}</span> },
     {
@@ -248,8 +253,7 @@ export default function ClubDashboardPage() {
     },
     {
       key: 'type', header: 'Type', sortValue: (e) => e.entryType,
-      /* A VIP entry is a VIP CLASSIFICATION, so it takes the violet — never the gold. */
-      render: (e) => <Badge size="sm" tone={e.entryType === 'VIP' ? 'accent' : 'neutral'} icon={e.entryType === 'VIP' ? <Crown className="h-3 w-3" aria-hidden /> : undefined}>{ENTRY_TYPE_LABELS[e.entryType]}</Badge>,
+      render: (e) => entryTypeBadge(e.entryType),
     },
     {
       key: 'table', header: 'Table / area', hideBelow: 'md', sortValue: (e) => e.tableName ?? '',
@@ -269,11 +273,13 @@ export default function ClubDashboardPage() {
 
   return (
     <div>
-      {/* The same band as the dashboards: venue and branch identity, the page, and the business
-          day every figure on it is counted against. */}
+      {/* The same band as the dashboards — and the ONE hero card on this screen: the room drawn
+          behind a scrim, the page, and the business day every figure on it is counted against.
+          Every other surface below is a tile or a plain card. */}
       <DashboardHero
         title="Club"
-        subtitle="Door, cover charges and guests inside — the business day rolls at 06:00"
+        subtitle={branch ? `${branch.businessName} — door, cover charges and guests inside; the business day rolls at 06:00` : 'Door, cover charges and guests inside — the business day rolls at 06:00'}
+        venue={branch?.businessName}
         range={period}
         actions={canManage && <><Button variant="outline" leftIcon={<Settings2 className="h-4 w-4" />} onClick={() => setCoversOpen(true)}>Cover types</Button><Button size="lg" leftIcon={<UserPlus className="h-5 w-5" />} onClick={() => setCheckInOpen(true)}>Check in</Button></>}
       />
@@ -360,7 +366,7 @@ export default function ClubDashboardPage() {
                           <span className="tabular-nums font-semibold shrink-0 text-neutral-900">{e.coverAmount ? money(e.coverAmount) : 'No cover'}</span>
                         </div>
                         <span className="flex items-center gap-2 flex-wrap">
-                          <Badge size="sm" tone={e.entryType === 'VIP' ? 'accent' : 'neutral'} icon={e.entryType === 'VIP' ? <Crown className="h-3 w-3" aria-hidden /> : undefined}>{ENTRY_TYPE_LABELS[e.entryType]}</Badge>
+                          {entryTypeBadge(e.entryType)}
                           <StatusBadge kind="entry" status={e.status} size="sm" />
                         </span>
                         <p className="text-caption text-neutral-500 tabular-nums">in at {fmtTime(e.enteredAt)} · {e.exitedAt ? `out ${fmtTime(e.exitedAt)}` : `inside ${fmtRelative(e.enteredAt)}`}{e.tableName ? ` · ${e.tableName}` : ''}{e.hostName ? ` · host ${e.hostName}` : ''}</p>
@@ -379,7 +385,7 @@ export default function ClubDashboardPage() {
               )}
         </Card>
         <div className="space-y-4">
-          <Card padded={false} className="fill-vip anim-reveal" style={beat(5)}>
+          <Card padded={false} className="fill-vip material-gloss anim-reveal" style={beat(5)}>
             <CardHeader className="p-5 pb-0" title="VIP table status" subtitle="Two separate facts per table: what is happening at it now, and the booking for the date" action={<Button size="sm" variant="ghost" onClick={() => navigate('/admin/vip')}>Manage</Button>} />
             {vip.isLoading ? <div className="p-5"><LoadingState rows={2} /></div> : vipTables.length === 0 ? <EmptyState compact title="No VIP tables" description="Mark tables as VIP in Tables settings." /> : (
               /* A table can be occupied without a booking and booked without being occupied,
@@ -389,10 +395,12 @@ export default function ClubDashboardPage() {
                 const svc = statusMeta('table', t.status);
                 const b = t.booking;
                 return (
-                  <li key={t.tableId} className="px-5 py-3.5 text-sm flex items-start gap-2.5">
-                    <Crown className="h-4 w-4 text-accent-500 shrink-0 mt-0.5" aria-label="VIP table" />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate text-neutral-900">{t.tableName}</p>
+                  <li key={t.tableId} className="px-5 py-3.5 text-sm">
+                    <div className="min-w-0">
+                      <p className="flex items-center gap-2 min-w-0">
+                        <span className="font-medium truncate text-neutral-900">{t.tableName}</span>
+                        <VipChip className="shrink-0" />
+                      </p>
                       <p className="text-caption text-neutral-500 tabular-nums">{t.floorName} · {t.capacity} seats</p>
 
                       {/* -------------------------------------------- axis 1: right now */}

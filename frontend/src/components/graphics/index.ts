@@ -22,4 +22,6 @@ export { DishArt, BottleArt, VenueArt, LoungeScene, CardFiligree, dishKindFor, s
 export type { DishKind } from './Artwork';
 
 export { CategoryGlyph, glyphFor } from './CategoryGlyph';
+
+export { Photo } from './Photo';
 export type { GlyphName } from './CategoryGlyph';

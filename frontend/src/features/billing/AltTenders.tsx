@@ -5,6 +5,10 @@
  * Design rule for this file: a non-cash tender is only as good as the check behind it, so every
  * panel states **what is being checked**, **what the check returned**, and never reports a
  * settlement until the server has answered. Nothing here is shown optimistically.
+ *
+ * Each panel is rendered INSTEAD of the keypad card, so its one committing button is the single
+ * primary action on the payment screen while it is open — it takes the gold, and every other
+ * control in the panel (Max, Verify) stays an outline.
  */
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -176,7 +180,7 @@ export function LoyaltyPanel({ bill, onDone }: { bill: Bill; onDone: (b: Bill) =
         <Button
           size="pos"
           block
-          variant="success"
+          variant="primary"
           leftIcon={<Star className="h-5 w-5" />}
           disabled={pts <= 0 || !!problem}
           loading={redeem.isPending}
@@ -290,7 +294,7 @@ export function CoverCreditPanel({ bill, onDone }: { bill: Bill; onDone: (b: Bil
         <Button
           size="pos"
           block
-          variant="success"
+          variant="primary"
           leftIcon={<Ticket className="h-5 w-5" />}
           disabled={!entry || !!bad}
           loading={redeemCover.isPending}
@@ -447,7 +451,7 @@ export function RoomChargePanel({ bill, onDone }: { bill: Bill; onDone: (b: Bill
         <Button
           size="pos"
           block
-          variant="success"
+          variant="primary"
           leftIcon={<BedDouble className="h-5 w-5" />}
           disabled={!canPost}
           loading={post.isPending}

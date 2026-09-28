@@ -4,9 +4,10 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { addDays, format, startOfWeek } from 'date-fns';
-import { Plus, ChevronLeft, ChevronRight, CalendarDays, Armchair, Check, X, UserX, Phone, Users, AlertTriangle, ArrowDown, Crown, Clock } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, CalendarDays, Armchair, Check, X, UserX, Phone, AlertTriangle, ArrowDown, Clock } from 'lucide-react';
 import { useReservations, useAvailability, useReservationMutations, useCustomers } from '@/features/p2/hooks';
 import { useTables } from '@/features/tables/hooks';
+import { VipChip } from '@/features/club/VipTablesPage';
 import { usePermission } from '@/hooks/useAuth';
 import { useRealtimeInvalidate } from '@/hooks/useRealtime';
 import { useWorkspace } from '@/hooks/useSurface';
@@ -114,6 +115,16 @@ export default function ReservationsPage() {
   const timeOptions = useMemo(() => [...new Set(sorted.map((r) => r.time))].sort().map((t) => ({ value: t, label: t })), [sorted]);
   const partyOptions = useMemo(() => [...new Set(sorted.map((r) => r.guests))].sort((a, b) => a - b).map((g) => ({ value: String(g), label: `${g} guest${g === 1 ? '' : 's'}` })), [sorted]);
   const rows = useMemo(() => sorted.filter((r) => (!slot || r.time === slot) && (!party || r.guests === Number(party))), [sorted, slot, party]);
+  /**
+   * What the availability payload knows about each TABLE — whether it is a VIP table and which
+   * area it is in. Both are properties of the table, not of the day, so a booking on any date
+   * can be marked VIP and placed in its area from the same read the day panel is drawn from.
+   * A booking with no table, or a table this read has not returned, simply carries neither.
+   */
+  const tableInfo = useMemo(
+    () => new Map((avail.data?.tables ?? []).map((t) => [t.tableId, { isVip: t.isVip, floorName: t.floorName }] as const)),
+    [avail.data],
+  );
 
   /* A slot or a party size chosen on one day means nothing on the next, and leaving it on would
      hand the host an empty list they did not ask for. */
@@ -184,9 +195,37 @@ export default function ReservationsPage() {
     </div>
   );
 
-  const ResRow = ({ r }: { r: Reservation }) => {
+  /*
+   * A render FUNCTION, not a component. Declared inside the page it closes over `minutesLate`,
+   * `nextUp`, `tableInfo`, `ws` and the action handlers — and if it were a component its identity
+   * would change on every render, so React would unmount and remount every row on the 60-second
+   * clock tick and on every keystroke in the search box, dropping keyboard focus from a row's
+   * Seat / No-show button once a minute. Called as `renderRow(r)`, it is plain JSX in the list.
+   */
+  const renderRow = (r: Reservation) => {
     const late = minutesLate(r);
     const isNext = nextUp?.id === r.id;
+    const info = r.tableId != null ? tableInfo.get(r.tableId) : undefined;
+    /**
+     * THE GUEST HEADER — the name, then the VIP chip when the booked table is a VIP table (the
+     * one violet, and it says so in words), the late badge and the occasion. Both workspaces'
+     * rows share it; the manager board only adds the record avatar beside it.
+     */
+    const header = (
+      <span className="min-w-0">
+        <span className="flex items-center gap-1.5 flex-wrap min-w-0">
+          <span className="font-semibold text-neutral-900 truncate">{r.guestName}</span>
+          {info?.isVip && <VipChip />}
+          {late > 0 && <Badge size="sm" tone="danger" icon={<AlertTriangle className="h-3.5 w-3.5" aria-hidden />}>{lateLabel(late)} late</Badge>}
+          {r.occasion && <Badge size="sm" tone="info">{r.occasion}</Badge>}
+        </span>
+        <span className="block text-caption text-neutral-500 mt-0.5 tnum">
+          <Phone className="inline h-3 w-3 mr-0.5" aria-hidden />{r.phone} · {r.resNumber}
+          {/* On the columnar layout the notes ride the contact line; below `xl` they get a block. */}
+          {r.notes && <span className="hidden xl:inline"> · {r.notes}</span>}
+        </span>
+      </span>
+    );
     return (
       <li className={cn(
         'py-3 pr-4 border-l-4 transition-colors duration-control',
@@ -203,41 +242,38 @@ export default function ReservationsPage() {
           {ws === 'manager' ? (
           <span className="min-w-0 flex items-start gap-2.5">
             <Avatar name={r.guestName} variant="record" size="sm" className="mt-0.5" />
-            <span className="min-w-0">
-              <span className="flex items-center gap-1.5 flex-wrap">
-                <span className="font-semibold text-neutral-900">{r.guestName}</span>
-                {late > 0 && <Badge size="sm" tone="danger" icon={<AlertTriangle className="h-3.5 w-3.5" aria-hidden />}>{lateLabel(late)} late</Badge>}
-                {r.occasion && <Badge size="sm" tone="info">{r.occasion}</Badge>}
-              </span>
-              <span className="block text-caption text-neutral-500 mt-0.5">
-                <Phone className="inline h-3 w-3 mr-0.5" aria-hidden />{r.phone} · {r.resNumber}{r.notes ? ` · ${r.notes}` : ''}
-              </span>
-              {/* Party and table repeat here below `xl`, where their own columns are folded away. */}
-              <span className="block xl:hidden text-caption text-neutral-500 mt-0.5">
-                <Users className="inline h-3 w-3 mr-0.5" aria-hidden />{r.guests} · {r.tableName ?? r.tablePref ?? 'no table'}
-              </span>
-            </span>
+            {header}
           </span>
-          ) : (
-          <span className="min-w-0">
-            <span className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-semibold text-neutral-900">{r.guestName}</span>
-              {late > 0 && <Badge size="sm" tone="danger" icon={<AlertTriangle className="h-3.5 w-3.5" aria-hidden />}>{lateLabel(late)} late</Badge>}
-              {r.occasion && <Badge size="sm" tone="info">{r.occasion}</Badge>}
-            </span>
-            <span className="block text-caption text-neutral-500 mt-0.5">
-              <Phone className="inline h-3 w-3 mr-0.5" aria-hidden />{r.phone} · {r.resNumber}{r.notes ? ` · ${r.notes}` : ''}
-            </span>
-            {/* Party and table repeat here below `xl`, where their own columns are folded away. */}
-            <span className="block xl:hidden text-caption text-neutral-500 mt-0.5">
-              <Users className="inline h-3 w-3 mr-0.5" aria-hidden />{r.guests} · {r.tableName ?? r.tablePref ?? 'no table'}
-            </span>
-          </span>
-          )}
+          ) : header}
 
           <span className="hidden xl:block tabular-nums text-sm text-neutral-700">{r.guests}</span>
           <span className="hidden xl:block text-sm text-neutral-700 truncate">{r.tableName ?? r.tablePref ?? <span className="text-neutral-400">No table</span>}</span>
           <span><StatusBadge kind="reservation" status={r.status} size="sm" /></span>
+
+          {/* Below `xl` the row is the concept's reservation card: the key facts in a labelled
+              grid — party, table, and the table's area where the availability read names it —
+              then the notes as their own block. From `xl` these fold back into the columns. */}
+          <dl className="xl:hidden well px-3 py-2.5 grid grid-cols-[repeat(3,minmax(0,1fr))] gap-x-3 gap-y-2 min-w-0">
+            <div className="min-w-0">
+              <dt className="text-label uppercase text-neutral-500">Party</dt>
+              <dd className="text-sm font-semibold tnum text-neutral-900">{r.guests}</dd>
+            </div>
+            <div className="min-w-0">
+              <dt className="text-label uppercase text-neutral-500">Table</dt>
+              <dd className="text-sm font-semibold text-neutral-900 truncate">{r.tableName ?? r.tablePref ?? 'TBD'}</dd>
+            </div>
+            <div className="min-w-0">
+              <dt className="text-label uppercase text-neutral-500">Duration</dt>
+              <dd className="text-sm font-semibold tnum text-neutral-900">{r.durationMin} min</dd>
+            </div>
+            {info?.floorName && (
+              <div className="col-span-3 min-w-0">
+                <dt className="text-label uppercase text-neutral-500">Area</dt>
+                <dd className="text-sm text-neutral-900 truncate">{info.floorName}</dd>
+              </div>
+            )}
+          </dl>
+          {r.notes && <p className="xl:hidden well px-3 py-2 text-caption text-neutral-700 break-words">{r.notes}</p>}
 
           {actions(r)}
         </div>
@@ -365,10 +401,10 @@ export default function ReservationsPage() {
                   <p className="text-caption text-neutral-500">{avail.data ? `${freeTables} of ${avail.data.tableCount} free now · ${avail.data.bookedSlots} booking${avail.data.bookedSlots === 1 ? '' : 's'} today` : 'Loading…'}</p>
                 </div>
                 {avail.isLoading ? <div className="p-4"><LoadingState rows={3} /></div> : <ul className="divide-y divide-neutral-200 max-h-[30rem] overflow-y-auto">{(avail.data?.tables ?? []).map((t) => (
-                  <li key={t.tableId} className={cn('px-4 py-2.5 text-sm', t.isVip && 'bg-vip-sheen')}>
+                  <li key={t.tableId} className={cn('px-4 py-2.5 text-sm', t.isVip && 'fill-vip')}>
                     {/* VIP is a classification, so it wears the violet here exactly as it does on
-                        the floor plan and the VIP screens. */}
-                    <div className="flex flex-wrap items-center gap-2"><span className="font-medium text-neutral-900">{t.tableName}</span><span className="text-caption text-neutral-500">{t.capacity} seats · {t.floorName}</span>{t.isVip && <Badge size="sm" tone="accent" icon={<Crown className="h-3 w-3" aria-hidden />}>VIP</Badge>}<span className="ml-auto"><StatusBadge kind="table" status={t.currentStatus} size="sm" hideIcon /></span></div>
+                        the floor plan and the VIP screens — the token wash and the chip. */}
+                    <div className="flex flex-wrap items-center gap-2 min-w-0"><span className="font-medium text-neutral-900">{t.tableName}</span><span className="text-caption text-neutral-500">{t.capacity} seats · {t.floorName}</span>{t.isVip && <VipChip />}<span className="ml-auto"><StatusBadge kind="table" status={t.currentStatus} size="sm" hideIcon /></span></div>
                     {t.reservations.length > 0 && <div className="mt-1 flex flex-wrap gap-1">{t.reservations.map((s) => <Badge key={s.resId} size="sm" tone={s.status === 'SEATED' ? 'primary' : 'info'}>{s.time} {s.guestName} ({s.guests})</Badge>)}</div>}
                   </li>))}</ul>}
               </Card>
@@ -406,7 +442,7 @@ export default function ReservationsPage() {
               <ul className="divide-y divide-neutral-200">{rows.map((r, i) => (
                 <Fragment key={r.id}>
                   {view !== 'day' && (i === 0 || rows[i - 1].date !== r.date) && <li className="px-4 py-2 text-label uppercase text-neutral-500 bg-surface border-y border-neutral-200">{format(new Date(r.date), 'EEEE, d MMM')}</li>}
-                  <ResRow r={r} />
+                  {renderRow(r)}
                 </Fragment>
               ))}</ul>
             )}

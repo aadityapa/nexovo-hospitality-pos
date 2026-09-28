@@ -146,7 +146,8 @@ export interface VipReservationInput { tableId: ID; customerId?: ID | null; gues
 export interface VipTable { tableId: ID; tableName: string; floorName: string; capacity: number; status: TableStatus; minSpendDefault: number; depositDefault: number; booking: VipReservation | null }
 
 // ---------------------------------------------------------------- bottle service
-export interface BottleServiceItem { id: ID; menuItemId: ID; menuItemName: string; price: number; isAvailable: boolean; bottleSizeMl: number; invItemId?: ID | null; invItemName?: string | null; bottlesInStock?: number | null; includes?: string | null; isActive: boolean }
+/** `imageUrl` is the linked menu item's picture, echoed here so a bottle card needs no second fetch. Optional and additive: an ORDS response without it still parses. */
+export interface BottleServiceItem { id: ID; menuItemId: ID; menuItemName: string; imageUrl?: string | null; price: number; isAvailable: boolean; bottleSizeMl: number; invItemId?: ID | null; invItemName?: string | null; bottlesInStock?: number | null; includes?: string | null; isActive: boolean }
 export interface BottleServiceInput { bottleSizeMl: number; invItemId?: ID | null; includes?: string; isActive?: boolean }
 
 // ---------------------------------------------------------------- room charges

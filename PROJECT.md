@@ -74,6 +74,15 @@ credentials and grant nothing outside this demo.
 | `kitchen` | `Kitchen@123` | Kitchen |
 | `host` | `Host@123` | Host / Door |
 
+### One-click scripts (double-click in this folder)
+
+| Script | Does |
+|---|---|
+| `start.bat` | Install if needed, write `.env`, start the dev server |
+| `verify.bat` | `npm install` → `tsc --noEmit` → `vitest run` → `vite build` → theme audit; every result to `frontend/verify-log.txt` |
+| `capture-screenshots.bat` | Build, serve, capture every screen for every role in both themes → `frontend/screenshots/` |
+| `package.bat` | Write `nexovo-hospitality-pos.zip` (no `node_modules`, `dist`, `.git`) with Windows' built-in `tar` |
+
 ### Commands
 
 | | |
@@ -193,9 +202,25 @@ permission model does not grant them: *Add item* and *Add category* (`menu:manag
 
 ## 5. The design system
 
-Charcoal-and-gold, in **two complete themes**. Token *names* live in `tailwind.config.ts`; token
-*values* are CSS custom properties in `styles/index.css`, one block per theme. Full detail:
-`docs/DESIGN_SYSTEM.md`.
+**"The Night Collection"** — obsidian `#0B0E11`, smoked charcoal `#171C21`, champagne gold
+`#D6BA83`, warm ivory `#F3EFE6`, bronze hairlines, violet for VIP only — in **two complete themes**.
+Token *names* live in `tailwind.config.ts`; token *values* are CSS custom properties in
+`styles/index.css`, one block per theme. The specification as implemented, with every colour,
+type, imagery and motion rule: **`docs/DESIGN_SPEC.md`**. The rules every screen was held to:
+`docs/LUXURY_HOUSE_RULES.md`. The older Phase-N record: `docs/DESIGN_SYSTEM.md`.
+
+- **The editorial serif** (Cormorant Garamond → Georgia) is set in exactly two components —
+  `PageHeader` and `DashboardHero` — plus the login's "Welcome back" and one hospitality line per
+  screen at most. Tables, forms, navigation, tickets, bills and figures stay in the sans.
+- **Photographs are licensed and local.** 57 pictures (the room, three floors, the Hyderabad
+  branch, 36 dishes and drinks, two bottle-service bottles, 14 stock items; categories, offers and
+  recipes reuse their own dishes' photos) from Pexels and Unsplash, fetched once into
+  `frontend/public/img/` by a script Vite runs at the start of `dev`/`build`; the app never
+  loads an image from the internet. Each was opened and checked against its record — nine of
+  the seed's original hot-linked pictures were the wrong dish or dead links (`docs/IMAGERY.md`).
+  Every slot keeps a drawn understudy (`LoungeScene`, `VenueArt`, `DishArt`, `BottleArt`) for
+  loading, absence and error. Nothing behind a table, a bill or a ticket.
+- **Monetary totals never animate.** `CountUp` was removed from both dashboards' sales figure.
 
 - **The neutral ramp keeps its meaning, not its lightness.** `neutral-200` is a hairline border in
   both themes; `neutral-900` is primary text in both. That is why ~90 files contain no
@@ -219,11 +244,15 @@ Charcoal-and-gold, in **two complete themes**. Token *names* live in `tailwind.c
 
 ## 6. Screens
 
-41 admin panels and 41 manager panels are mapped route-by-route with their surface treatment in:
+**Every route, every role, what the luxury pass changed on it, what the concept drew that the code
+cannot back, and its verification state: `docs/ROUTE_CHECKLIST.md`.** The older panel maps:
 
 - `docs/REFERENCE_BOARDS.md` — the admin set
 - `docs/MANAGER_BOARDS.md` — the manager set, plus the fourteen deliberate differences and the
   controls a manager must not be shown
+
+One-click on Windows: **`capture-screenshots.bat`** builds, serves and captures every screen for
+every role in both themes at 1440 and 390 (edit one line for other widths).
 
 ### Regenerating the screenshots
 
@@ -256,6 +285,29 @@ dropped rather than filled with an approximation.
 
 Full record with commands: `docs/VERIFICATION.md`.
 
+### The luxury pass (this cycle) — measured 25-09-2026
+
+On the final code, both on the owner's Windows machine (`verify.bat`) and in a clean Linux
+checkout:
+
+| Check | Result |
+|---|---|
+| `tsc --noEmit` | **0 errors** |
+| `vitest run` | **156 / 156**, 11 files |
+| `vite build` | **clean** |
+| Audit: 81 routes × 2 themes × 5 widths = 810 checks | **0 overflow · 0 contrast failures · 0 unnamed controls** |
+| Screenshots | **388 before + 388 after + 388 side-by-side** in `screenshots/` |
+| End-to-end flows (`scripts/e2e-flows.mjs`) | **7 / 7**: sign-in (7 roles), permission denied, order entry, kitchen preparation, billing + cash payment, reservation, purchase order approve → receive. Each step is checked against the database the app wrote |
+
+The review of the rendered screens found four defects, all fixed and re-measured: serif titles
+colliding with subtitles, a see-through cart bar on the waiter's phone, a bottle photo of the
+wrong product, and the capture script photographing the login page as the guest menu. Details:
+`docs/VERIFICATION.md` §0. All of this ran against the **in-browser demo backend** (see §8).
+
+Treat the figures in the next table as the state of the commit *before* this pass.
+
+### The previous cycle (`05c99c3`) — measured
+
 | Check | Result |
 |---|---|
 | `tsc --noEmit` | **0 errors** |
@@ -264,11 +316,11 @@ Full record with commands: `docs/VERIFICATION.md`.
 | Browser sweep | **810 route inspections** — 6 roles × 81 routes × 5 widths × 2 themes |
 | Contrast | **0 failures** in all ten combinations |
 | Controls without an accessible name | **0** in all ten combinations |
-| Page overflow | **0** at 768 / 1024 / 1440; **1 route** at 360 / 390 (§9) |
+| Page overflow | **0** at 768 / 1024 / 1440; **1 route** at 360 / 390 — cause now found, see §9 |
 
-The delivered ZIP was not assumed to work — it is a `git archive` of the commit, extracted to a
-clean directory and built from scratch: `npm ci` → 238 packages → typecheck 0 → 156/156 → build
-clean.
+That ZIP was not assumed to work — it was a `git archive` of the commit, extracted to a clean
+directory and built from scratch: `npm ci` → 238 packages → typecheck 0 → 156/156 → build clean.
+The new ZIP (`package.bat`) has had no such proof yet.
 
 ### Defects found and fixed this cycle
 
@@ -308,22 +360,26 @@ Read this before describing the product to anyone.
 | PMS / room-charge posting | **NOT VERIFIED** — no PMS |
 | Real-device browsers (iOS, Android) | **NOT VERIFIED** — all measurement was headless Chromium at emulated widths |
 | Load, concurrency, long-run stability | **NOT TESTED** |
+| Motion by eye (login light-reveal, add-to-order, ticket change, payment confirmation) | **NOT JUDGED BY EYE** — the timings and the `prefers-reduced-motion` collapse are in code, but screenshots are still frames; no one has watched them on a device |
+| Photograph licences | Pexels and Unsplash licences as published on 25-09-2026. Brand bottles (Jack Daniel's, Grey Goose, Glenfiddich, Kingfisher) appear as the products the venue sells; **confirm with your own counsel before using them in marketing** |
+| Serif font | Cormorant Garamond loads from Google Fonts. Offline, the Georgia fallback is used; it has not been bundled locally |
+| npm advisories | `react-router-dom` raised 6.26.2 → **6.30.6** (same major), which closes the two open-redirect/XSS advisories in the shipped app. Shipped dependencies now show **2 moderate** advisories, which need React Router v7, a breaking upgrade left for you to decide. The critical and high findings that remain are in test/build tooling only (vitest, happy-dom, vite, esbuild, postcss) and do not ship |
 
-**Release decision: PRODUCTION CANDIDATE — Oracle/ORDS and all hardware integration unverified.**
-Ready for demo now against the mock backend. Not production-ready until the rows above are
-actually run.
+**Release decision: DEMO-READY against the in-browser mock backend. NOT production-ready.**
+Everything in §7 was measured against the mock backend. Oracle/ORDS, hardware, payments, PMS and
+real devices are unverified, and nothing above should be read as saying otherwise.
 
 ---
 
 ## 9. Open items, and decisions you still owe
 
-### One open defect
+### The three screenshot issues — causes found
 
-`/admin/roles` reports a 436 px document in a 390 px viewport at 360 and 390 px. Every candidate
-element is inside a genuine scroll region and **nothing is visibly outside the viewport** — the
-46 px belongs to a scroll container that is growing instead of scrolling. Three fixes were tried
-and measured; none moved it. Not reproduced at 768 px and above, and no content is unreachable.
-Left open and measured rather than hidden with `overflow-x: hidden`.
+| Reported | Cause | Fixed in |
+|---|---|---|
+| Guest QR page "Menu unavailable" in the archive | The capture script opened `/menu/MAIN/T1`; a table's public code is an opaque hash, so the app correctly refused an invented one. **Screenshot-process bug.** | `scripts/capture-screens.mjs` now reads a real link off `/admin/qr` |
+| Dark-mobile captures with light surfaces | A deliberate "phones are ivory" rule painted the management shell paper below `lg` in the dark theme. **App bug.** | Rule removed (`config/surfaces.ts`, `hooks/useSurface.ts`); the theme holds at every width |
+| `/admin/roles` 436 px document at ≤ 390 px, nothing visible past the edge | Tailwind's `sr-only` is `position: absolute`; the table's scroll wrapper was unpositioned, so the sr-only spans inside the 760 px matrix escaped its clip and sat at their static x-offset in the unscrolled table. Explains the constant 436 at both widths, the invisible 1×1 boxes and why three `min-w-0` fixes did nothing. **App layout bug, product-wide.** | `position: relative` on `.table-scroll` (`styles/index.css`) and the roles chip row. Diagnosed by static analysis; confirm with `document.scrollWidth` at 360/390 on the next browser run |
 
 ### Decisions only you can make
 

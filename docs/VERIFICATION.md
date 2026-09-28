@@ -3,6 +3,87 @@
 Everything below was executed. Where something was **not** run, it says so and why — an
 unverified claim is worse than an absent one.
 
+---
+
+## 0. The luxury redesign cycle
+
+### 0-final. The delivered state (25-09-2026, after the screenshot review)
+
+Run in a clean Linux checkout (Node 22.23.2, `npm ci`, headless Chromium 1134) on the final
+code, after the four corrections in 0c below.
+
+| Check | Result |
+|---|---|
+| `tsc --noEmit` | **0 errors** |
+| `vitest run` | **156 / 156**, 11 files |
+| `vite build` | **clean** |
+| Theme audit: 81 routes × {dark, light} × {360, 390, 768, 1024, 1440} = **810 route checks** | overflow **0** · contrast failures **0** · controls without a name **0** · unmeasurable **0**, in all ten combinations |
+| Screenshot capture, 4 theme × width sets × 97 screens | **388 captured**, "no route overflowed its viewport" on every run |
+| End-to-end flows, `scripts/e2e-flows.mjs` | **7 / 7 pass** (below) |
+
+End-to-end flows, all in one browser context so every role shares the demo database. Each step
+is asserted against the database the app wrote, not only against text on the screen:
+
+| Flow | Result |
+|---|---|
+| Sign-in | all 7 demo roles land on their own home (`/admin`, `/manager`, `/waiter`, `/cashier`, `/kitchen`, `/bar`, `/host`) |
+| Permission denied | `waiter1` opening `/admin/users` gets "Access denied" and no Users controls |
+| Order entry | waiter adds Paneer Tikka, Butter Chicken and Mojito to Table 2 and sends it; the order is CONFIRMED with 3 lines |
+| Preparation | kitchen starts and readies the ticket; both kitchen lines are READY, order PARTIALLY_READY (the Mojito is the bar's) |
+| Billing | cashier generates and finalises the bill and takes full payment in cash (₹1,443). The success state was **not** on screen before submit; the bill is PAID in the database; the app moves on to the receipt |
+| Reservation | host creates a reservation for tonight at 20:00 for a party of 3; it is in the database as PENDING |
+| Purchasing | admin approves the SENT purchase order and receives it in full: SENT → APPROVED → RECEIVED |
+
+Pictures of every step: `screenshots/e2e-flows/`. Re-run with
+`node scripts/e2e-flows.mjs` against `npx vite preview --port 4173`.
+
+### 0c. Defects found in the screenshot review and fixed
+
+| Defect | Cause | Fix |
+|---|---|---|
+| Serif page titles collided with their subtitles on the dashboards, Inventory and the host desk | `DashboardHero` builds its classes with tailwind-merge, which treats a later `text-[34px]` as overriding an earlier `leading-tight` and drops it, so the title inherited a tight parent line-height | line-height placed after the font size (`leading-[1.15]`) |
+| Guest QR menu captures showed the login page | the capture script picked the first link containing `/menu/`, which was the sidebar's `/admin/menu/items`; a signed-out browser sent there is redirected to /login | the script now accepts only links whose path starts with `/menu/<branch>/<code>` |
+| Waiter phone layout: a see-through "0 items · ₹0 · Review" bar lay over dish names and prices | the launcher rendered when the order was empty, disabled at 60% opacity | launcher appears only once something is added, fully opaque |
+| "Jack Daniel's 750ml" bottle photo was **Tennessee Honey**, a different product | a photo reused from the old seed | replaced with a Jack Daniel's Old No. 7 photo (Pexels 27393241); all 42 photos then checked by eye |
+
+### 0a. Executed on the owner's Windows machine — `verify.bat`, 25-09-2026 10:45
+
+Node v24.16.0, npm 11.13.0. Full log: `frontend/verify-log.txt`.
+
+| Step | Result |
+|---|---|
+| `npm install` | PASS — 240 packages (npm audit reports 9 advisories in dev tooling; not addressed in this pass) |
+| Photographs (`fetch-assets.mjs`) | PASS — 42 declared, 26 already present, 16 fetched, 0 failed |
+| `tsc --noEmit` | **PASS — 0 errors** |
+| `vitest run` | **PASS — 156 / 156**, 11 files |
+| `vite build` | **PASS** — 2 898 modules, built in 4.15 s |
+| Theme audit, dark @ 1440, 81 routes | overflow **0**, unnamed controls **0**, unmeasurable **0**, contrast **25** |
+
+The 25 contrast findings were one defect seen on every ivory-island route: the header's unread
+badge set the fixed near-black `on-primary` on the light-theme `danger-500` (3.93:1). Fixed at
+the cause — the badge and the `danger` button variant now use `danger-700` + `neutral-50`, a
+pair that inverts with the theme (≈ 8.4:1 light, ≈ 7.1:1 dark). The second `verify.bat` run
+(10:51) measured all ten theme × width combinations at 0 contrast failures, confirming it.
+
+### 0b. Before that run
+
+The build sandbox was unavailable for the whole of the luxury pass, so the code was first
+checked by static review only. The figures in §1–§4 below describe commit `05c99c3`, the state
+before the pass; 0a supersedes them for typecheck, tests and build.
+
+What was done instead, and what it is worth:
+
+| Check | Method | Outcome |
+|---|---|---|
+| Type and runtime correctness of every edited file | Three independent static reviewers, each opening the real definitions (`components/ui/*`, `graphics/*`, `motion`, `hooks`, `config`, `types`, lucide 0.446 `.d.ts`, Tailwind 3.4.13 stub config, TS 5.6 rules) and checking imports, exports, prop signatures, `Record<Union>` completeness, hook order, JSX balance, opacity modifiers, screen prefixes | 3 defects found → fixed: `/12` opacity (not on the 3.4 scale, emitted no CSS) in `Misc.tsx` `FilterChips`, `ReadOnly.tsx` ×2, `ConnectionStatus.tsx` ×2 → `/[.12]`; `ResRow` component declared inside `ReservationsPage`'s render (remounted every row on the 60 s tick) → render function; unused `useNavigate` in `RecipeEditorPage`. **0 compile-breaking defects found.** A static review is not a compiler. |
+| `tsc --noEmit`, `vitest run`, `vite build` | — | **NOT RUN.** `verify.bat` records all three to `frontend/verify-log.txt`. |
+| Browser sweep (6 roles × 81 routes × 5 widths × 2 themes), contrast, accessible names, overflow | — | **NOT RUN.** `capture-screenshots.bat` + `node scripts/verify-themes.mjs`. |
+| E2E flows: sign-in → order entry → preparation → billing → payment; reservation → seat; PO → approve → receive; permission-denied wall | — | **NOT RUN.** The engine tests (156) cover the calculations and transitions; the UI flows need the browser. |
+| The roles-page overflow cause (`sr-only` escaping an unpositioned `.table-scroll`) | Static layout analysis | **Plausible and consistent with every recorded symptom; not measured.** Confirm with `document.scrollWidth` at 360/390. |
+
+**Do not describe the luxury build as verified, demo-ready or production-ready until `verify.bat`
+has been run and its log read.** When it has, replace this section with the results.
+
 Environment: Node 22.23.2, a clean `npm ci` from the committed `frontend/package-lock.json`,
 headless Chromium (Playwright, installed ad hoc — it is deliberately **not** a project
 dependency).

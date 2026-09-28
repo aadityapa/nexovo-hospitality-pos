@@ -9,7 +9,8 @@ import { useWorkspace } from '@/hooks/useSurface';
 import { useBranch } from '@/components/layout/Shell';
 import { useAuthStore } from '@/store/authStore';
 import { PageHeader, Button, Card, CardHeader, Modal, Input, Select, Switch, Badge, IconButton, LoadingState, ErrorState, EmptyState, StatCard, SearchInput, Skeleton, Tabs, useReadOnly, ReadOnlyBanner, ReadOnlyPill } from '@/components/ui';
-import { VenueArt } from '@/components/graphics';
+import { VenueArt, Photo } from '@/components/graphics';
+import { branchImage } from '@/config/imagery';
 import { ApiError } from '@/services/api/client';
 import { cn } from '@/utils/cn';
 import type { BranchSummary, BranchCreateInput, Outlet, OutletInput, OutletType } from '@/types';
@@ -111,11 +112,14 @@ function ManagerBranchesView({ branches, outlets, all, current, canManage, readO
 
   return (
     <>
-      {/* --------------------------------------------------- the branch you are standing in */}
-      <Card padded={false} className="mb-4 overflow-hidden" aria-current="true">
+      {/* --------------------------------------------------- the branch you are standing in
+          The one hero card on this composition, so it takes the bronze hairline; the list
+          panels below keep the ordinary `neutral-200` edge. */}
+      <Card padded={false} className="mb-4 overflow-hidden border-bronze/40" aria-current="true">
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
           <div className="relative aspect-[16/9] lg:aspect-auto lg:min-h-[210px] border-b border-neutral-200 lg:border-b-0 lg:border-r">
-            <VenueArt name={current?.name ?? profile.data?.name ?? 'Branch'} />
+            {/* The branch's photograph (keyed by code in config/imagery.ts) over its drawn room. */}
+            <Photo src={branchImage(current?.code ?? profile.data?.code)} fallback={<VenueArt name={current?.name ?? profile.data?.name ?? 'Branch'} />} className="absolute inset-0" />
             <span className="absolute top-3 left-3">
               <Badge size="sm" tone="primary" icon={<Check className="h-3 w-3" aria-hidden />}>Your current branch</Badge>
             </span>
@@ -396,9 +400,10 @@ export default function BranchesPage() {
         `.material-edge` is a `box-shadow` and would replace that shadow, flattening the one
         surface on the screen that is meant to sit above the two list panels below it. The gold
         tile carries the `.fill-gold` ramp with its own gloss — the same construction as the
-        product's brand mark, which is the right relationship: this is the venue's mark.
+        product's brand mark, which is the right relationship: this is the venue's mark. The edge
+        is the bronze hairline reserved for a hero card; nothing else on the page carries it.
       */}
-      <Card className="mb-4 border-primary-200 bg-primary-50/40 material-gloss">
+      <Card className="mb-4 border-bronze/40 bg-primary-50/40 material-gloss">
         <div className="flex flex-col sm:flex-row sm:items-start gap-4 min-w-0">
           <span className="h-12 w-12 rounded-md fill-gold material-gloss bg-primary-500 text-on-primary font-bold text-sm flex items-center justify-center shrink-0" aria-hidden>
             {current?.code ?? '—'}
@@ -491,15 +496,14 @@ export default function BranchesPage() {
                         className={cn('h-full flex flex-col overflow-hidden', here ? 'border-primary-200' : undefined, !b.isActive && !here && 'bg-surface')}
                       >
                         {/*
-                          A DRAWN interior, keyed off the branch's own name, so the same venue is
-                          the same picture on every load. The reference leads each card with a
-                          photograph of the room; this installation has none and invents none.
+                          The branch's photograph, keyed by its code (config/imagery.ts), over the
+                          drawn interior keyed off its name, which a branch without a photo shows.
                         */}
                         <div className="relative aspect-[16/9] overflow-hidden border-b border-neutral-200">
-                          <VenueArt name={b.name} />
+                          <Photo src={branchImage(b.code)} fallback={<VenueArt name={b.name} />} className="absolute inset-0" />
                           {/* `neutral-950` is the scrim rung — dark in BOTH themes — so the name
                               laid over it stays white-on-dark whichever theme is painted. */}
-                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-neutral-950/90 via-neutral-950/55 to-transparent px-4 pt-8 pb-3">
+                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-neutral-950/90 via-neutral-950/60 to-transparent px-4 pt-8 pb-3">
                             <h3 className="text-paper font-semibold text-lg leading-tight break-words">{b.name}</h3>
                             <p className="text-paper/75 text-caption truncate">{b.businessName}</p>
                           </div>

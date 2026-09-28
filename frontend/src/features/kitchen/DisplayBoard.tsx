@@ -5,8 +5,8 @@ import { kitchenApi, barApi } from '@/services/api/endpoints';
 import { useRealtimeInvalidate, useNow, useMediaQuery } from '@/hooks/useRealtime';
 import { useWorkspace } from '@/hooks/useSurface';
 import { cn } from '@/utils/cn';
-import { elapsedClock, elapsedMinutes } from '@/utils/date';
-import { DELAY_THRESHOLDS, TICKET_STATUS, type Tone } from '@/config/statuses';
+import { elapsedMinutes } from '@/utils/date';
+import { DELAY_THRESHOLDS } from '@/config/statuses';
 import { Button, StatusBadge, LoadingState, ErrorState, SegmentedControl } from '@/components/ui';
 import { toast } from '@/store/uiStore';
 import type { Ticket, TicketItem, TicketStatus, OrderItemStatus, PrepLocation } from '@/types';
@@ -17,39 +17,148 @@ const COLUMNS: { status: TicketStatus; title: string; icon: typeof Play }[] = [
   { status: 'READY', title: 'Ready', icon: Check },
 ];
 
+/**
+ * COLUMN ACCENT — the tone each column of the board wears, and that every ticket inside it
+ * carries as its left rule. NEW is the muted red of "nobody has touched this yet", PREPARING is
+ * amber for pending, READY is emerald for done. The per-line badges inside a ticket keep their
+ * own `ORDER_ITEM_STATUS` tones (a NEW line is info-blue), because those describe a LINE's
+ * state, while the column describes where the whole ticket stands on the pass.
+ *
+ * Built the way every tinted surface in the system is: `-500` for a rule, `-50` fill, `-200`
+ * hairline and the legible `-700` rung for text — all present on both themes, though this board
+ * is obsidian in both.
+ */
+interface ColumnAccent { top: string; left: string; text: string; badge: string; tint: string }
+
+/* A served or cancelled ticket has already left the board; the neutral accent is typed for
+   completeness so the record covers every `TicketStatus`, and `neutral-400` keeps the rule a
+   visible mark rather than a hairline. */
+const NEUTRAL_ACCENT: ColumnAccent = {
+  top: 'border-t-neutral-400', left: 'border-l-neutral-400', text: 'text-neutral-500',
+  badge: 'bg-neutral-100 text-neutral-700 border-neutral-300', tint: 'bg-neutral-100 border-neutral-300 text-neutral-700',
+};
+
+const COLUMN_ACCENT: Record<TicketStatus, ColumnAccent> = {
+  NEW:       { top: 'border-t-danger-500',  left: 'border-l-danger-500',  text: 'text-danger-700',  badge: 'bg-danger-50 text-danger-700 border-danger-200',    tint: 'bg-danger-50 border-danger-200 text-danger-700' },
+  PREPARING: { top: 'border-t-warning-500', left: 'border-l-warning-500', text: 'text-warning-700', badge: 'bg-warning-50 text-warning-700 border-warning-200', tint: 'bg-warning-50 border-warning-200 text-warning-700' },
+  READY:     { top: 'border-t-success-500', left: 'border-l-success-500', text: 'text-success-700', badge: 'bg-success-50 text-success-700 border-success-200', tint: 'bg-success-50 border-success-200 text-success-700' },
+  SERVED:    NEUTRAL_ACCENT,
+  CANCELLED: NEUTRAL_ACCENT,
+};
+
 function delayTone(mins: number): 'ok' | 'warn' | 'late' {
   return mins >= DELAY_THRESHOLDS.late ? 'late' : mins >= DELAY_THRESHOLDS.warn ? 'warn' : 'ok';
 }
 
 /**
- * Waiting-time state. Colour is never the only signal — every state also carries its own
- * icon and its own word, which is what keeps the stacked phone queue readable at arm's
- * length without the size advantage of a wall screen.
+ * Waiting-time state, printed as ONE chip on the ticket head. Colour is never the only signal —
+ * every state also carries its own icon and its own word, which is what keeps the stacked phone
+ * queue readable at arm's length without the size advantage of a wall screen.
  *
- * On the dark board the palette is deliberately narrow: GOLD is the "ready" emphasis and
- * nothing else on this screen, delay runs warning → danger, and an on-time ticket is plain
- * charcoal so a full board of healthy tickets carries no colour at all. `edge` uses the `-500`
- * fill rung (and `neutral-400` for the on-time mark, since `neutral-300` is a border value and
- * would vanish); `head` uses the `-50` tint; text uses the legible `-700` rung.
+ * On time is a plain neutral chip; past `DELAY_THRESHOLDS.warn` it turns amber, past `.late`
+ * muted red. A READY ticket's chip is emerald and keeps counting, so the pass can see how long a
+ * finished plate has been standing.
  */
 type AgeState = 'ok' | 'warn' | 'late' | 'ready';
 
-const AGE_META: Record<AgeState, { Icon: typeof Clock; word: string; text: string; edge: string; head: string }> = {
-  ok:    { Icon: Clock,         word: 'On time',      text: 'text-neutral-800',  edge: 'bg-neutral-400',  head: 'bg-neutral-100' },
-  warn:  { Icon: Hourglass,     word: 'Running late', text: 'text-warning-700',  edge: 'bg-warning-500',  head: 'bg-warning-50' },
-  late:  { Icon: AlertTriangle, word: 'Delayed',      text: 'text-danger-700',   edge: 'bg-danger-500',   head: 'bg-danger-50' },
-  ready: { Icon: Bell,          word: 'Ready',        text: 'text-primary-700',  edge: 'bg-primary-500',  head: 'bg-primary-50' },
+const AGE_META: Record<AgeState, { Icon: typeof Clock; word: string; chip: string }> = {
+  ok:    { Icon: Clock,         word: 'On time',      chip: 'bg-neutral-100 text-neutral-700 border-neutral-300' },
+  warn:  { Icon: Hourglass,     word: 'Running late', chip: 'bg-warning-50 text-warning-700 border-warning-200' },
+  late:  { Icon: AlertTriangle, word: 'Delayed',      chip: 'bg-danger-50 text-danger-700 border-danger-200' },
+  ready: { Icon: Bell,          word: 'Ready',        chip: 'bg-success-50 text-success-700 border-success-200' },
 };
 
+function ElapsedChip({ state, mins }: { state: AgeState; mins: number }) {
+  const age = AGE_META[state];
+  const AgeIcon = age.Icon;
+  return (
+    <span className={cn('shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold whitespace-nowrap', age.chip)}>
+      <AgeIcon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      {state !== 'ok' && <span>{age.word} ·</span>}
+      <output className="tnum">{mins} min</output>
+    </span>
+  );
+}
+
+/**
+ * The ticket's lines — quantity, name, the note exactly as the waiter typed it, and the line's
+ * own state badge, which is also the per-line advance control. Identical on the station card and
+ * the manager card, so nothing a station can do is ever lost to the arrangement.
+ */
+function TicketLines({ t, onItem, busy }: { t: Ticket; onItem: (it: TicketItem, s: OrderItemStatus) => void; busy: boolean }) {
+  return (
+    <ul className="divide-y divide-neutral-200 flex-1">
+      {t.items.map((it) => {
+        const cancelled = it.status === 'CANCELLED';
+        const advanceable = !cancelled && it.status !== 'SERVED';
+        const next: OrderItemStatus = it.status === 'NEW' ? 'PREPARING' : it.status === 'PREPARING' ? 'READY' : 'SERVED';
+        return (
+          <li key={it.id} className={cn('px-3 py-2.5 sm:px-4 sm:py-3', cancelled && 'bg-neutral-50')}>
+            <div className="flex items-start gap-2.5 sm:gap-3">
+              <span className={cn('text-base font-semibold sm:text-kds tnum w-8 sm:w-11 shrink-0 text-neutral-900', cancelled && 'line-through text-neutral-400')}>
+                ×{it.quantity}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className={cn('text-base leading-snug sm:text-kds sm:leading-tight text-neutral-900 break-words', cancelled && 'line-through text-neutral-400')}>{it.itemName}</p>
+                {it.notes && <p className="mt-1 text-sm sm:text-base font-bold text-warning-700 uppercase tracking-wide leading-snug sm:leading-snug break-words">{it.notes}</p>}
+                {cancelled && (
+                  <p className="text-caption text-danger-700 flex items-center gap-1 mt-1">
+                    <XCircle className="h-3 w-3" aria-hidden />Cancelled{it.cancelReason ? ` — ${it.cancelReason}` : ''}
+                  </p>
+                )}
+              </div>
+              {advanceable ? (
+                /* A 44 px hit area at every width — a wall board is touched as often as a phone. */
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => onItem(it, next)}
+                  className="shrink-0 -my-1 -mr-1 px-1 min-h-touch min-w-touch inline-flex items-center justify-end rounded-full press disabled:opacity-50"
+                  aria-label={`${it.itemName}: move to ${next.toLowerCase()}`}
+                >
+                  <span className="inline-flex items-center gap-0.5">
+                    <span className="sm:hidden"><StatusBadge kind="item" status={it.status} size="sm" /></span>
+                    <span className="hidden sm:inline-flex"><StatusBadge kind="item" status={it.status} size="lg" /></span>
+                    <ChevronRight className="h-4 w-4 text-neutral-400" aria-hidden />
+                  </span>
+                </button>
+              ) : (
+                <>
+                  <span className="sm:hidden"><StatusBadge kind="item" status={it.status} size="sm" /></span>
+                  <span className="hidden sm:inline-flex"><StatusBadge kind="item" status={it.status} size="md" /></span>
+                </>
+              )}
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/**
+ * ONE TICKET — STATION BOARD.
+ *
+ * A dark card with the column's tone as a left rule, the table name large, the elapsed-minutes
+ * chip, the lines, and the state change as one full-width action. Gold "Start preparing" on a
+ * NEW ticket, emerald "Mark ready" on a PREPARING one, and a quiet neutral clear once it is
+ * READY — the delay palette is never borrowed for an action.
+ *
+ * MOTION. `anim-enter-soft` plays once, when the ticket arrives in a column. It is keyed on the
+ * ticket's id by the board, never on its status or its clock, so the 15-second poll and the
+ * one-second timer never replay it; only a ticket that has genuinely changed column fades in.
+ *
+ * COVERS. The reference prints a cover count on the ticket and `Ticket` carries none: a ticket
+ * deliberately holds no pricing and no guest information (`types/order.ts`). None is printed
+ * rather than derived, because a cover count is a number the pass would plate against.
+ */
 function TicketCard({ t, now, onItem, onBulk, busy }: {
   t: Ticket; now: Date; onItem: (it: TicketItem, s: OrderItemStatus) => void; onBulk: (t: Ticket, s: OrderItemStatus) => void; busy: boolean;
 }) {
   const mins = elapsedMinutes(t.createdAt, now);
   const state: AgeState = t.status === 'READY' ? 'ready' : delayTone(mins);
   const age = AGE_META[state];
-  const AgeIcon = age.Icon;
-  /* Colour + icon + word, in that order of redundancy. */
-  const ageLabel = state === 'ready' ? 'Ready' : state === 'ok' ? `${mins} min` : `${age.word} · ${mins}m`;
+  const accent = COLUMN_ACCENT[t.status];
 
   const active = t.items.filter((i) => i.status !== 'CANCELLED');
   const canStart = active.some((i) => i.status === 'NEW');
@@ -59,106 +168,44 @@ function TicketCard({ t, now, onItem, onBulk, busy }: {
   return (
     <article
       aria-label={`${t.tableName}, ticket ${t.ticketNumber}, ${age.word.toLowerCase()}, waiting ${mins} minutes`}
-      /* The board floors on `surface-board`, so the ticket is the brightest object on it:
-         `surface-raised` plus a hairline and the deep panel drop. */
-      className="rounded-md bg-surface-raised border border-neutral-200 shadow-panel flex flex-col overflow-hidden"
+      className={cn('anim-enter-soft rounded-md bg-surface-raised border border-neutral-200 border-l-4 shadow-panel flex flex-col overflow-hidden min-w-0', accent.left)}
     >
-      {/* Delay state as a thick edge: readable from across the pass, and the first thing
-          the eye lands on when the tickets are stacked one per row on a phone. */}
-      <span className={cn('h-2 sm:h-1.5 w-full shrink-0', age.edge)} aria-hidden />
-
-      <header className={cn('px-3 py-2.5 sm:px-4 sm:py-3 flex items-start justify-between gap-2 sm:gap-3 border-b border-neutral-200', age.head)}>
+      <header className="px-3 py-2.5 sm:px-4 sm:py-3 flex items-start justify-between gap-2 sm:gap-3 border-b border-neutral-200">
         <div className="min-w-0">
-          <p className="text-lg sm:text-kds-lg font-bold leading-none sm:leading-none tracking-tight sm:tracking-tight text-neutral-900 truncate">{t.tableName.toUpperCase()}</p>
-          <p className="text-caption text-neutral-600 mt-1.5 truncate">
+          <p className="text-lg sm:text-kds-lg font-bold leading-tight text-neutral-900 truncate">{t.tableName}</p>
+          <p className="text-caption text-neutral-500 mt-1 truncate">
             {t.orderNumber} · {t.ticketNumber}{t.batchNo > 1 ? ` · batch ${t.batchNo}` : ''} · {t.waiterName}
           </p>
         </div>
-        <div className="text-right shrink-0">
-          <p className={cn('text-lg sm:text-xl font-bold tabular-nums leading-none sm:leading-none inline-flex items-center gap-1.5', age.text)}>
-            <AgeIcon className="h-4 w-4 shrink-0" aria-hidden />
-            {elapsedClock(t.createdAt, now)}
-          </p>
-          <p className={cn('text-[11px] font-semibold uppercase mt-1.5 tracking-wide leading-tight', age.text)}>
-            {ageLabel}
-          </p>
-        </div>
+        <ElapsedChip state={state} mins={mins} />
       </header>
 
-      <ul className="divide-y divide-neutral-200 flex-1">
-        {t.items.map((it) => {
-          const cancelled = it.status === 'CANCELLED';
-          const advanceable = !cancelled && it.status !== 'SERVED';
-          const next: OrderItemStatus = it.status === 'NEW' ? 'PREPARING' : it.status === 'PREPARING' ? 'READY' : 'SERVED';
-          return (
-            <li key={it.id} className={cn('px-3 py-2.5 sm:px-4 sm:py-3', cancelled && 'bg-neutral-50')}>
-              <div className="flex items-start gap-2.5 sm:gap-3">
-                <span className={cn('text-base font-semibold sm:text-kds tabular-nums w-8 sm:w-11 shrink-0 text-neutral-900', cancelled && 'line-through text-neutral-400')}>
-                  ×{it.quantity}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className={cn('text-base leading-snug sm:text-kds sm:leading-tight text-neutral-900', cancelled && 'line-through text-neutral-400')}>{it.itemName}</p>
-                  {it.notes && <p className="mt-1 text-sm sm:text-base font-bold text-warning-700 uppercase tracking-wide leading-snug sm:leading-snug">{it.notes}</p>}
-                  {cancelled && (
-                    <p className="text-caption text-danger-700 flex items-center gap-1 mt-1">
-                      <XCircle className="h-3 w-3" aria-hidden />Cancelled{it.cancelReason ? ` — ${it.cancelReason}` : ''}
-                    </p>
-                  )}
-                </div>
-                {advanceable ? (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => onItem(it, next)}
-                    /* 44px hit area on a phone; the compact wall-board target from `sm` up. */
-                    className="shrink-0 -my-1 -mr-1 px-1 min-h-touch min-w-touch sm:min-h-0 sm:min-w-0 sm:m-0 sm:p-0 inline-flex items-center justify-end rounded-full transition-transform press disabled:opacity-50"
-                    aria-label={`${it.itemName}: move to ${next.toLowerCase()}`}
-                  >
-                    <span className="inline-flex items-center gap-0.5">
-                      <span className="sm:hidden"><StatusBadge kind="item" status={it.status} size="sm" /></span>
-                      <span className="hidden sm:inline-flex"><StatusBadge kind="item" status={it.status} size="lg" /></span>
-                      <ChevronRight className="h-4 w-4 text-neutral-400" aria-hidden />
-                    </span>
-                  </button>
-                ) : (
-                  <>
-                    <span className="sm:hidden"><StatusBadge kind="item" status={it.status} size="sm" /></span>
-                    <span className="hidden sm:inline-flex"><StatusBadge kind="item" status={it.status} size="md" /></span>
-                  </>
-                )}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+      <TicketLines t={t} onItem={onItem} busy={busy} />
 
       {t.orderNotes && (
-        <p className="px-3 sm:px-4 py-2.5 text-sm text-warning-700 border-t border-neutral-200 bg-warning-50">
+        <p className="px-3 sm:px-4 py-2.5 text-sm text-warning-700 border-t border-neutral-200 bg-warning-50 break-words">
           <span className="font-semibold">Order note:</span> {t.orderNotes}
         </p>
       )}
 
-      {/*
-        One full-width action per row on a phone; the two-up wall-board grid from `sm` up.
-        Gold is the "ready" emphasis on this board, so only the READY ticket's action carries it.
-        Starting prep is a neutral solid, and the delay palette is never borrowed for an action.
-      */}
-      <footer className="p-3 border-t border-neutral-200 grid grid-cols-1 sm:grid-cols-2 gap-2">
+      {/* The state change, full width. A PREPARING ticket with untouched lines keeps its quiet
+          "Start rest" above the emerald action, so nothing a station could do is lost. */}
+      <footer className="p-3 border-t border-neutral-200 grid grid-cols-1 gap-2">
         {t.status === 'NEW' && (
-          <Button size="pos" variant="secondary" block className="sm:col-span-2" leftIcon={<Play className="h-5 w-5" />} loading={busy} onClick={() => onBulk(t, 'PREPARING')}>
+          <Button size="pos" variant="primary" block leftIcon={<Play className="h-5 w-5" />} loading={busy} onClick={() => onBulk(t, 'PREPARING')}>
             Start preparing
           </Button>
         )}
         {t.status === 'PREPARING' && (
           <>
-            {canStart && <Button size="pos" variant="outline" block loading={busy} onClick={() => onBulk(t, 'PREPARING')}>Start rest</Button>}
-            <Button size="pos" variant="success" block className={canStart ? '' : 'sm:col-span-2'} leftIcon={<Bell className="h-5 w-5" />} loading={busy} disabled={!canReady} onClick={() => onBulk(t, 'READY')}>
+            {canStart && <Button size="pos" variant="outline" onDark block loading={busy} onClick={() => onBulk(t, 'PREPARING')}>Start rest</Button>}
+            <Button size="pos" variant="success" block leftIcon={<Bell className="h-5 w-5" />} loading={busy} disabled={!canReady} onClick={() => onBulk(t, 'READY')}>
               Mark ready
             </Button>
           </>
         )}
         {t.status === 'READY' && (
-          <Button size="pos" variant="primary" block className="sm:col-span-2" leftIcon={<Check className="h-5 w-5" />} loading={busy} disabled={!canServe} onClick={() => onBulk(t, 'SERVED')}>
+          <Button size="pos" variant="secondary" onDark block leftIcon={<Check className="h-5 w-5" />} loading={busy} disabled={!canServe} onClick={() => onBulk(t, 'SERVED')}>
             Served · clear
           </Button>
         )}
@@ -168,37 +215,17 @@ function TicketCard({ t, now, onItem, onBulk, busy }: {
 }
 
 /**
- * COLUMN HEAD TINT PER TONE — the same construction the shared `Badge` uses: a `-50` fill, a
- * `-200` hairline and the legible `-700` label rung. The tone itself is read from `TICKET_STATUS`
- * rather than chosen here, so a coloured column head can never disagree with the status badges
- * printed on the tickets inside it.
- */
-const COLUMN_TINT: Record<Tone, string> = {
-  neutral: 'bg-neutral-100 border-neutral-300 text-neutral-700',
-  primary: 'bg-primary-50 border-primary-200 text-primary-700',
-  success: 'bg-success-50 border-success-200 text-success-700',
-  warning: 'bg-warning-50 border-warning-200 text-warning-700',
-  danger: 'bg-danger-50 border-danger-200 text-danger-700',
-  info: 'bg-info-50 border-info-200 text-info-700',
-  accent: 'bg-accent-50 border-accent-200 text-accent-700',
-};
-
-/**
  * ONE TICKET — MANAGER WORKSPACE (board 02 panels 09 and 10).
  *
  * The manager board leads a ticket with the ORDER identifier rather than the table, and gives it
  * exactly ONE state-transition action — *Start preparing*, then *Mark ready*, then the clear.
- * The per-line control stays exactly as it is on the shared card, so nothing a station can do
+ * The per-line control stays exactly as it is on the station card, so nothing a station can do
  * from this board is lost; only the arrangement changes.
  *
- * CALM, and the rule is load-bearing here. This board re-reads every 15 seconds: there is no
- * entrance, no width or transform transition, and no height change when a ticket moves column —
- * the footer carries one action in every state — so a poll never moves a ticket under the hands
- * of whoever is reading it.
- *
- * COVERS. The board prints a cover count beside the table and `Ticket` carries none: a ticket
- * deliberately holds no pricing and no guest information (`types/order.ts`). None is printed
- * rather than derived, because a cover count is a number the pass would plate against.
+ * CALM, and the rule is load-bearing here. This board re-reads every 15 seconds: no width or
+ * transform transition, and no height change when a ticket moves column — the footer carries one
+ * action in every state — so a poll never moves a ticket under the hands of whoever is reading it.
+ * The one entrance it takes is keyed on the ticket id, so a poll cannot replay it.
  */
 function ManagerTicketCard({ t, now, onItem, onBulk, busy }: {
   t: Ticket; now: Date; onItem: (it: TicketItem, s: OrderItemStatus) => void; onBulk: (t: Ticket, s: OrderItemStatus) => void; busy: boolean;
@@ -206,10 +233,9 @@ function ManagerTicketCard({ t, now, onItem, onBulk, busy }: {
   const mins = elapsedMinutes(t.createdAt, now);
   const state: AgeState = t.status === 'READY' ? 'ready' : delayTone(mins);
   const age = AGE_META[state];
-  const AgeIcon = age.Icon;
-  const ageLabel = state === 'ready' ? 'Ready' : state === 'ok' ? `${mins} min` : `${age.word} · ${mins}m`;
+  const accent = COLUMN_ACCENT[t.status];
 
-  /* The same transition rules as the shared card — read once, never re-derived differently. */
+  /* The same transition rules as the station card — read once, never re-derived differently. */
   const active = t.items.filter((i) => i.status !== 'CANCELLED');
   const canStart = active.some((i) => i.status === 'NEW');
   const canReady = active.some((i) => i.status === 'PREPARING') || (canStart && !active.some((i) => i.status === 'PREPARING'));
@@ -218,76 +244,23 @@ function ManagerTicketCard({ t, now, onItem, onBulk, busy }: {
   return (
     <article
       aria-label={`Order ${t.orderNumber}, ${t.tableName}, ${age.word.toLowerCase()}, waiting ${mins} minutes`}
-      className="rounded-md bg-surface-raised border border-neutral-200 shadow-panel flex flex-col overflow-hidden"
+      className={cn('anim-enter-soft rounded-md bg-surface-raised border border-neutral-200 border-l-4 shadow-panel flex flex-col overflow-hidden min-w-0', accent.left)}
     >
-      <span className={cn('h-2 sm:h-1.5 w-full shrink-0', age.edge)} aria-hidden />
-
-      <header className={cn('px-3 py-2.5 sm:px-4 sm:py-3 flex items-start justify-between gap-2 sm:gap-3 border-b border-neutral-200', age.head)}>
+      <header className="px-3 py-2.5 sm:px-4 sm:py-3 flex items-start justify-between gap-2 sm:gap-3 border-b border-neutral-200">
         <div className="min-w-0">
           {/* The order identifier is the biggest thing on the ticket, as the board draws it. */}
-          <p className="text-lg sm:text-kds-lg font-bold leading-none sm:leading-none tracking-tight sm:tracking-tight text-neutral-900 truncate">{t.orderNumber}</p>
-          <p className="text-caption text-neutral-600 mt-1.5 truncate">
+          <p className="text-lg sm:text-kds-lg font-bold leading-tight text-neutral-900 truncate">{t.orderNumber}</p>
+          <p className="text-caption text-neutral-500 mt-1 truncate">
             {t.tableName} · {t.ticketNumber}{t.batchNo > 1 ? ` · batch ${t.batchNo}` : ''} · {t.waiterName}
           </p>
         </div>
-        <div className="text-right shrink-0">
-          <p className={cn('text-lg sm:text-xl font-bold tabular-nums leading-none sm:leading-none inline-flex items-center gap-1.5', age.text)}>
-            <AgeIcon className="h-4 w-4 shrink-0" aria-hidden />
-            {elapsedClock(t.createdAt, now)}
-          </p>
-          <p className={cn('text-[11px] font-semibold uppercase mt-1.5 tracking-wide leading-tight', age.text)}>{ageLabel}</p>
-        </div>
+        <ElapsedChip state={state} mins={mins} />
       </header>
 
-      <ul className="divide-y divide-neutral-200 flex-1">
-        {t.items.map((it) => {
-          const cancelled = it.status === 'CANCELLED';
-          const advanceable = !cancelled && it.status !== 'SERVED';
-          const next: OrderItemStatus = it.status === 'NEW' ? 'PREPARING' : it.status === 'PREPARING' ? 'READY' : 'SERVED';
-          return (
-            <li key={it.id} className={cn('px-3 py-2.5 sm:px-4 sm:py-3', cancelled && 'bg-neutral-50')}>
-              <div className="flex items-start gap-2.5 sm:gap-3">
-                <span className={cn('text-base font-semibold sm:text-kds tabular-nums w-8 sm:w-11 shrink-0 text-neutral-900', cancelled && 'line-through text-neutral-400')}>
-                  ×{it.quantity}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className={cn('text-base leading-snug sm:text-kds sm:leading-tight text-neutral-900', cancelled && 'line-through text-neutral-400')}>{it.itemName}</p>
-                  {/* The line's real modifiers, exactly as the waiter typed them. */}
-                  {it.notes && <p className="mt-1 text-sm sm:text-base font-bold text-warning-700 uppercase tracking-wide leading-snug sm:leading-snug">{it.notes}</p>}
-                  {cancelled && (
-                    <p className="text-caption text-danger-700 flex items-center gap-1 mt-1">
-                      <XCircle className="h-3 w-3" aria-hidden />Cancelled{it.cancelReason ? ` — ${it.cancelReason}` : ''}
-                    </p>
-                  )}
-                </div>
-                {advanceable ? (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => onItem(it, next)}
-                    className="shrink-0 -my-1 -mr-1 px-1 min-h-touch min-w-touch sm:min-h-0 sm:min-w-0 sm:m-0 sm:p-0 inline-flex items-center justify-end rounded-full press disabled:opacity-50"
-                    aria-label={`${it.itemName}: move to ${next.toLowerCase()}`}
-                  >
-                    <span className="inline-flex items-center gap-0.5">
-                      <span className="sm:hidden"><StatusBadge kind="item" status={it.status} size="sm" /></span>
-                      <span className="hidden sm:inline-flex"><StatusBadge kind="item" status={it.status} size="lg" /></span>
-                      <ChevronRight className="h-4 w-4 text-neutral-400" aria-hidden />
-                    </span>
-                  </button>
-                ) : (
-                  <>
-                    <span className="sm:hidden"><StatusBadge kind="item" status={it.status} size="sm" /></span>
-                    <span className="hidden sm:inline-flex"><StatusBadge kind="item" status={it.status} size="md" /></span>
-                  </>
-                )}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+      <TicketLines t={t} onItem={onItem} busy={busy} />
 
       {t.orderNotes && (
-        <p className="px-3 sm:px-4 py-2.5 text-sm text-warning-700 border-t border-neutral-200 bg-warning-50">
+        <p className="px-3 sm:px-4 py-2.5 text-sm text-warning-700 border-t border-neutral-200 bg-warning-50 break-words">
           <span className="font-semibold">Order note:</span> {t.orderNotes}
         </p>
       )}
@@ -295,7 +268,7 @@ function ManagerTicketCard({ t, now, onItem, onBulk, busy }: {
       {/* ONE action, whatever the state — so a ticket is exactly as tall in every column. */}
       <footer className="p-3 border-t border-neutral-200">
         {t.status === 'NEW' && (
-          <Button size="pos" variant="secondary" block leftIcon={<Play className="h-5 w-5" />} loading={busy} onClick={() => onBulk(t, 'PREPARING')}>
+          <Button size="pos" variant="primary" block leftIcon={<Play className="h-5 w-5" />} loading={busy} onClick={() => onBulk(t, 'PREPARING')}>
             Start preparing
           </Button>
         )}
@@ -305,7 +278,7 @@ function ManagerTicketCard({ t, now, onItem, onBulk, busy }: {
           </Button>
         )}
         {t.status === 'READY' && (
-          <Button size="pos" variant="primary" block leftIcon={<Check className="h-5 w-5" />} loading={busy} disabled={!canServe} onClick={() => onBulk(t, 'SERVED')}>
+          <Button size="pos" variant="secondary" onDark block leftIcon={<Check className="h-5 w-5" />} loading={busy} disabled={!canServe} onClick={() => onBulk(t, 'SERVED')}>
             Served · clear
           </Button>
         )}
@@ -391,12 +364,15 @@ export function DisplayBoard({ location }: { location: PrepLocation }) {
           {' · '}<span className="tnum">{sorted.length}</span> open ticket{sorted.length === 1 ? '' : 's'}
         </p>
       )}
-      {/* Counts scroll sideways on a phone rather than wrapping into three ragged rows. */}
+      {/* Counted state chips, each wearing its column's tone on the icon so the row reads the
+          same as the board below it. They scroll sideways on a phone rather than wrapping into
+          three ragged rows. This board is fed by ONE station, so there is no kitchen/bar facet
+          here — the station is the screen. */}
       <div className="shrink-0 mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 sm:flex-wrap">
         <div className="flex gap-2 overflow-x-auto no-scrollbar sm:flex-wrap sm:overflow-visible">
           {grouped.map((g) => (
             <span key={g.status} className="shrink-0 inline-flex items-center gap-2 rounded-full bg-surface-raised border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-700">
-              <g.icon className="h-4 w-4 text-neutral-500" aria-hidden />
+              <g.icon className={cn('h-4 w-4', COLUMN_ACCENT[g.status].text)} aria-hidden />
               {g.title}
               <span className="rounded-full bg-neutral-200 text-neutral-900 text-xs px-2 py-0.5 tnum font-semibold">{g.tickets.length}</span>
             </span>
@@ -440,32 +416,37 @@ export function DisplayBoard({ location }: { location: PrepLocation }) {
           </div>
         </div>
       ) : useColumns ? (
-        <div className="grid grid-cols-3 gap-4 flex-1 min-h-0">
-          {grouped.map((g) => (
-            <section key={g.status} aria-label={g.title} className="min-h-0 flex flex-col">
-              {/* The manager board gives each column a tinted head carrying its real count; every
-                  other workspace keeps the quiet label the stations already read. */}
-              {ws === 'manager' ? (
-                <h2 className={cn('mb-2.5 shrink-0 flex items-center gap-2 rounded-md border px-3 py-2 text-label uppercase', COLUMN_TINT[TICKET_STATUS[g.status].tone])}>
-                  <g.icon className="h-4 w-4 shrink-0" aria-hidden />
-                  <span className="truncate">{g.title}</span>
-                  <span className="ml-auto rounded-full bg-surface-raised px-2 py-0.5 tnum text-sm font-semibold">{g.tickets.length}</span>
-                </h2>
-              ) : (
-              <h2 className="text-label uppercase text-neutral-500 mb-2.5 flex items-center gap-2 shrink-0">
-                <g.icon className="h-4 w-4" aria-hidden />{g.title}
-                <span className="tnum text-neutral-600">({g.tickets.length})</span>
-              </h2>
-              )}
-              <div className="flex-1 overflow-y-auto overscroll-contain space-y-3 pr-1">
-                {g.tickets.length === 0 ? (
-                  <p className="text-caption text-neutral-500 py-8 text-center border border-dashed border-neutral-200 rounded-md">Empty</p>
-                ) : g.tickets.map((t) => (ws === 'manager'
-                  ? <ManagerTicketCard key={t.id} t={t} now={now} onItem={onItem} onBulk={onBulk} busy={busyTicket === t.id} />
-                  : <TicketCard key={t.id} t={t} now={now} onItem={onItem} onBulk={onBulk} busy={busyTicket === t.id} />))}
-              </div>
-            </section>
-          ))}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0">
+          {grouped.map((g) => {
+            const accent = COLUMN_ACCENT[g.status];
+            return (
+              <section key={g.status} aria-label={g.title} className="min-h-0 min-w-0 flex flex-col">
+                {/* The column head: a 3 px rule in the column's tone, the label, and a counted badge.
+                    The manager board keeps its tinted-fill head in the same tone; the stations get
+                    the quieter rule so the tickets stay the brightest thing on the wall. */}
+                {ws === 'manager' ? (
+                  <h2 className={cn('mb-2.5 shrink-0 flex items-center gap-2 rounded-md border px-3 py-2 text-label uppercase', accent.tint)}>
+                    <g.icon className="h-4 w-4 shrink-0" aria-hidden />
+                    <span className="truncate">{g.title}</span>
+                    <span className="ml-auto rounded-full bg-surface-raised px-2 py-0.5 tnum text-sm font-semibold">{g.tickets.length}</span>
+                  </h2>
+                ) : (
+                  <h2 className={cn('mb-2.5 shrink-0 flex items-center gap-2 rounded-md border border-neutral-200 border-t-[3px] bg-surface-raised px-3 py-2 text-label uppercase text-neutral-900', accent.top)}>
+                    <g.icon className={cn('h-4 w-4 shrink-0', accent.text)} aria-hidden />
+                    <span className="truncate">{g.title}</span>
+                    <span className={cn('ml-auto rounded-full border px-2 py-0.5 tnum text-xs font-semibold', accent.badge)}>{g.tickets.length}</span>
+                  </h2>
+                )}
+                <div className="flex-1 overflow-y-auto overscroll-contain space-y-3 pr-1">
+                  {g.tickets.length === 0 ? (
+                    <p className="text-caption text-neutral-500 py-8 text-center border border-dashed border-neutral-200 rounded-md">Empty</p>
+                  ) : g.tickets.map((t) => (ws === 'manager'
+                    ? <ManagerTicketCard key={t.id} t={t} now={now} onItem={onItem} onBulk={onBulk} busy={busyTicket === t.id} />
+                    : <TicketCard key={t.id} t={t} now={now} onItem={onItem} onBulk={onBulk} busy={busyTicket === t.id} />))}
+                </div>
+              </section>
+            );
+          })}
         </div>
       ) : (
         <div className="flex-1 min-h-0 flex flex-col">

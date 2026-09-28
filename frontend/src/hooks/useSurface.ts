@@ -2,8 +2,7 @@ import { useLocation } from 'react-router-dom';
 import { useUiStore } from '@/store/uiStore';
 import { useAuthStore } from '@/store/authStore';
 import { workspaceForRoles, type Workspace } from '@/config/workspace';
-import { PHONE_SURFACE, routeSurface, surfaceClass, type RouteSurface, type Surface } from '@/config/surfaces';
-import { useIsDesktop } from './useMediaQuery';
+import { routeSurface, surfaceClass, type RouteSurface, type Surface } from '@/config/surfaces';
 
 /**
  * Which audience is looking at this screen. Derived from the signed-in role, never from the URL —
@@ -32,12 +31,17 @@ export interface ResolvedSurface {
 export function useRouteSurface(): ResolvedSurface {
   const { pathname } = useLocation();
   const theme = useUiStore((s) => s.resolvedTheme) as Surface;
-  const desktop = useIsDesktop();
   const workspace = useWorkspace();
 
-  // Below lg the whole management shell is the phone application, which every board — admin and
-  // manager alike — draws as ivory.
-  const surface = desktop ? routeSurface(pathname, workspace) : PHONE_SURFACE;
+  /*
+   * The route's surface holds at EVERY width. There used to be a "phones are ivory" rule here —
+   * below `lg` the whole management shell was painted paper because the earlier reference boards
+   * drew their phone mock-ups that way. It produced exactly the defect a later audit reported:
+   * "dark-mobile captures displaying light surfaces". A theme the operator chose is a theme; it
+   * does not switch itself off because the window got narrow. The rule is gone, and the phone
+   * shows whatever the route and the theme say.
+   */
+  const surface = routeSurface(pathname, workspace);
 
   return {
     surface,

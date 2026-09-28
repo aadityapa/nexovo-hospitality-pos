@@ -1,6 +1,6 @@
 import { useMemo, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutGrid, Bell, Receipt, ClipboardList, Plus, ChevronRight, CheckCircle2, Send } from 'lucide-react';
+import { LayoutGrid, Bell, Receipt, ClipboardList, Plus, ChevronRight, CheckCircle2, Send, Clock } from 'lucide-react';
 import { useTables } from '@/features/tables/hooks';
 import { useOrders } from '@/features/orders/hooks';
 import { useAuth } from '@/hooks/useAuth';
@@ -9,6 +9,8 @@ import { StatCard, Button, Card, CardHeader, StatusBadge, LoadingState, ErrorSta
 import { EmptyPlate } from '@/components/graphics';
 import { DashboardHero } from '@/components/layout/DashboardHero';
 import { staggerDelay } from '@/components/motion';
+import { DELAY_THRESHOLDS } from '@/config/statuses';
+import { cn } from '@/utils/cn';
 import { money } from '@/utils/money';
 import { fmtRelative, elapsedMinutes } from '@/utils/date';
 import { format } from 'date-fns';
@@ -37,6 +39,17 @@ function greeting(d: Date) { const h = d.getHours(); return h < 12 ? 'Good morni
 
 /** The `--d` beat of a staged reveal — a function of position, never of the figure on the tile. */
 const beat = (i: number) => ({ '--d': `${staggerDelay(i)}ms` }) as CSSProperties;
+
+/**
+ * The waiting chip on a pass row — the same `-50` / `-200` / `-700` construction the pass queue
+ * and the kitchen board use, so a plate going cold looks the same on every waiter screen.
+ */
+const waitChip = (mins: number) =>
+  mins >= DELAY_THRESHOLDS.late
+    ? 'bg-danger-50 text-danger-700 border-danger-200'
+    : mins >= DELAY_THRESHOLDS.warn
+      ? 'bg-warning-50 text-warning-700 border-warning-200'
+      : 'bg-success-50 text-success-700 border-success-200';
 
 export default function WaiterHomePage() {
   const { user } = useAuth();
@@ -159,8 +172,15 @@ export default function WaiterHomePage() {
                   <span className="flex-1 min-w-0 text-sm">
                     <span className="block line-clamp-2 text-neutral-800">{items.map((i) => `${i.itemName} ×${i.quantity}`).join(', ')}</span>
                     <span className="block text-caption text-neutral-500 tnum">
-                      {o.orderNumber} · {items.length} ready{since ? ` · waiting ${elapsedMinutes(since, now)} min` : ''}
+                      {o.orderNumber} · {items.length} ready
                     </span>
+                    {since && (
+                      /* The wait, as the same tone chip the pass queue wears — word beside colour. */
+                      <span className={cn('mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold tnum', waitChip(elapsedMinutes(since, now)))}>
+                        <Clock className="h-3 w-3 shrink-0" aria-hidden />
+                        waiting {elapsedMinutes(since, now)} min
+                      </span>
+                    )}
                   </span>
                   <ChevronRight className="h-4 w-4 text-neutral-400 shrink-0 mt-1" aria-hidden />
                 </button>

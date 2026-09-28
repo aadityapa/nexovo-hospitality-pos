@@ -1,0 +1,498 @@
+{
+  "$comment": "Every photograph the application ships. `node scripts/fetch-assets.mjs` downloads each `source` into `public/img/<file>` once; the running app only ever references the local file. Sources are Pexels (https://www.pexels.com/license/) and Unsplash (https://unsplash.com/license): both free for commercial use without attribution. Each entry was opened and checked against the record it illustrates — see docs/IMAGERY.md for the audit.",
+  "licences": {
+    "pexels": "Pexels License — free to use, no attribution required, https://www.pexels.com/license/",
+    "unsplash": "Unsplash License — free to use, no attribution required, https://unsplash.com/license"
+  },
+  "images": [
+    {
+      "file": "venue/hero.jpg",
+      "use": "Login backdrop, venue card, branch",
+      "depicts": "Dark bar with brass pendant globes over navy banquettes",
+      "source": "https://images.pexels.com/photos/10195185/pexels-photo-10195185.jpeg?auto=compress&cs=tinysrgb&w=1600",
+      "page": "https://www.pexels.com/photo/10195185/",
+      "licence": "pexels",
+      "width": 1600
+    },
+    {
+      "file": "venue/main-dining.jpg",
+      "use": "Floor: Main Dining",
+      "depicts": "Moody restaurant dining room, set tables, candlelight",
+      "source": "https://images.pexels.com/photos/941861/pexels-photo-941861.jpeg?auto=compress&cs=tinysrgb&w=1200",
+      "page": "https://www.pexels.com/photo/941861/",
+      "licence": "pexels",
+      "width": 1200
+    },
+    {
+      "file": "venue/bar-area.jpg",
+      "use": "Floor: Bar Area",
+      "depicts": "Backlit bar counter with stools and bottle shelves",
+      "source": "https://images.pexels.com/photos/26626726/pexels-photo-26626726.jpeg?auto=compress&cs=tinysrgb&w=1200",
+      "page": "https://www.pexels.com/photo/26626726/",
+      "licence": "pexels",
+      "width": 1200
+    },
+    {
+      "file": "venue/vip-lounge.jpg",
+      "use": "Floor: VIP Lounge",
+      "depicts": "Green velvet booths under warm pendant lights",
+      "source": "https://images.pexels.com/photos/18408870/pexels-photo-18408870.jpeg?auto=compress&cs=tinysrgb&w=1200",
+      "page": "https://www.pexels.com/photo/18408870/",
+      "licence": "pexels",
+      "width": 1200
+    },
+    {
+      "file": "menu/st01.jpg",
+      "use": "Paneer Tikka",
+      "depicts": "Sizzling paneer tikka platter",
+      "source": "https://images.unsplash.com/photo-1567188040759-fb8a883dc6d8?w=900&q=75&fm=jpg",
+      "licence": "unsplash",
+      "width": 900
+    },
+    {
+      "file": "menu/st02.jpg",
+      "use": "Chicken Wings",
+      "depicts": "Glazed wings with dip",
+      "source": "https://images.unsplash.com/photo-1608039755401-742074f0548d?w=900&q=75&fm=jpg",
+      "licence": "unsplash",
+      "width": 900
+    },
+    {
+      "file": "menu/st03.jpg",
+      "use": "French Fries",
+      "depicts": "Fries in a paper-lined basket",
+      "source": "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=900&q=75&fm=jpg",
+      "licence": "unsplash",
+      "width": 900
+    },
+    {
+      "file": "menu/st04.jpg",
+      "use": "Nachos Grande",
+      "depicts": "Loaded nachos",
+      "source": "https://images.unsplash.com/photo-1513456852971-30c0b8199d4d?w=900&q=75&fm=jpg",
+      "licence": "unsplash",
+      "width": 900
+    },
+    {
+      "file": "menu/mc01.jpg",
+      "use": "Grilled Salmon",
+      "depicts": "Plated salmon fillet with greens",
+      "source": "https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=900&q=75&fm=jpg",
+      "licence": "unsplash",
+      "width": 900
+    },
+    {
+      "file": "menu/mc02.jpg",
+      "use": "Pasta Alfredo",
+      "depicts": "Creamy pasta on a plate",
+      "source": "https://images.unsplash.com/photo-1645112411341-6c4fd023714a?w=900&q=75&fm=jpg",
+      "licence": "unsplash",
+      "width": 900
+    },
+    {
+      "file": "menu/mc03.jpg",
+      "use": "Mushroom Risotto",
+      "depicts": "Risotto on a white plate",
+      "source": "https://images.unsplash.com/photo-1476124369491-e7addf5db371?w=900&q=75&fm=jpg",
+      "licence": "unsplash",
+      "width": 900
+    },
+    {
+      "file": "menu/ch01.jpg",
+      "use": "Hakka Noodles",
+      "depicts": "Wok-tossed noodles with chopsticks",
+      "source": "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=900&q=75&fm=jpg",
+      "licence": "unsplash",
+      "width": 900
+    },
+    {
+      "file": "menu/ch02.jpg",
+      "use": "Chilli Chicken",
+      "depicts": "Dry chilli chicken with spring onion (replaces a fried-rice photo)",
+      "source": "https://images.unsplash.com/photo-1603496987351-f84a3ba5ec85?w=900&q=75&fm=jpg",
+      "page": "https://unsplash.com/photos/hEMOwugpjJk",
+      "licence": "unsplash",
+      "width": 900
+    },
+    {
+      "file": "menu/ch03.jpg",
+      "use": "Veg Manchurian",
+      "depicts": "Vegetarian manchurian balls in dark sauce (replaces an unrelated noodle photo)",
+      "source": "https://images.pexels.com/photos/28674530/pexels-photo-28674530.jpeg?auto=compress&cs=tinysrgb&w=900",
+      "page": "https://www.pexels.com/photo/28674530/",
+      "licence": "pexels",
+      "width": 900
+    },
+    {
+      "file": "menu/in01.jpg",
+      "use": "Butter Chicken",
+      "depicts": "Butter chicken in a bowl",
+      "source": "https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?w=900&q=75&fm=jpg",
+      "licence": "unsplash",
+      "width": 900
+    },
+    {
+      "file": "menu/in02.jpg",
+      "use": "Dal Makhani",
+      "depicts": "Dal makhani in a brass pan (replaces a whole-thali photo)",
+      "source": "https://images.pexels.com/photos/28674557/pexels-photo-28674557.jpeg?auto=compress&cs=tinysrgb&w=900",
+      "page": "https://www.pexels.com/photo/28674557/",
+      "licence": "pexels",
+      "width": 900
+    },
+    {
+      "file": "menu/in03.jpg",
+      "use": "Garlic Naan",
+      "depicts": "Garlic naan with herbs (replaces a samosa photo)",
+      "source": "https://images.pexels.com/photos/16851842/pexels-photo-16851842.jpeg?auto=compress&cs=tinysrgb&w=900",
+      "page": "https://www.pexels.com/photo/16851842/",
+      "licence": "pexels",
+      "width": 900
+    },
+    {
+      "file": "menu/in04.jpg",
+      "use": "Chicken Biryani",
+      "depicts": "Biryani in bowls",
+      "source": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=900&q=75&fm=jpg",
+      "licence": "unsplash",
+      "width": 900
+    },
+    {
+      "file": "menu/pz01.jpg",
+      "use": "Margherita Pizza",
+      "depicts": "Margherita with basil",
+      "source": "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=900&q=75&fm=jpg",
+      "licence": "unsplash",
+      "width": 900
+    },
+    {
+      "file": "menu/pz02.jpg",
+      "use": "Pepperoni Pizza",
+      "depicts": "Pepperoni pizza",
+      "source": "https://images.unsplash.com/photo-1628840042765-356cda07504e?w=900&q=75&fm=jpg",
+      "licence": "unsplash",
+      "width": 900
+    },
+    {
+      "file": "menu/bg01.jpg",
+      "use": "Chicken Burger",
+      "depicts": "Crispy chicken burger on a black plate (replaces a beef-looking burger)",
+      "source": "https://images.pexels.com/photos/11354487/pexels-photo-11354487.jpeg?auto=compress&cs=tinysrgb&w=900",
+      "page": "https://www.pexels.com/photo/11354487/",
+      "licence": "pexels",
+      "width": 900
+    },
+    {
+      "file": "menu/bg02.jpg",
+      "use": "Classic Beef Burger",
+      "depicts": "Beef burgers on a board",
+      "source": "https://images.unsplash.com/photo-1550547660-d9450f859349?w=900&q=75&fm=jpg",
+      "licence": "unsplash",
+      "width": 900
+    },
+    {
+      "file": "menu/bg03.jpg",
+      "use": "Veggie Burger",
+      "depicts": "Veggie burger with greens",
+      "source": "https://images.unsplash.com/photo-1520072959219-c595dc870360?w=900&q=75&fm=jpg",
+      "licence": "unsplash",
+      "width": 900
+    },
+    {
+      "file": "menu/ds01.jpg",
+      "use": "Chocolate Brownie",
+      "depicts": "Brownie slices with caramel",
+      "source": "https://images.unsplash.com/photo-1607920591413-4ec007e70023?w=900&q=75&fm=jpg",
+      "licence": "unsplash",
+      "width": 900
+    },
+    {
+      "file": "menu/ds02.jpg",
+      "use": "Gulab Jamun",
+      "depicts": "Gulab jamun in a brass dish (the previous source returned 404)",
+      "source": "https://images.pexels.com/photos/38579056/pexels-photo-38579056.jpeg?auto=compress&cs=tinysrgb&w=900",
+      "page": "https://www.pexels.com/photo/38579056/",
+      "licence": "pexels",
+      "width": 900
+    },
+    {
+      "file": "menu/ds03.jpg",
+      "use": "Tiramisu",
+      "depicts": "Tiramisu slice",
+      "source": "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=900&q=75&fm=jpg",
+      "licence": "unsplash",
+      "width": 900
+    },
+    {
+      "file": "menu/bv01.jpg",
+      "use": "Fresh Lime Soda",
+      "depicts": "Lime soda glasses",
+      "source": "https://images.unsplash.com/photo-1523677011781-c91d1bbe2f9e?w=900&q=75&fm=jpg",
+      "licence": "unsplash",
+      "width": 900
+    },
+    {
+      "file": "menu/bv02.jpg",
+      "use": "Cold Coffee",
+      "depicts": "Iced coffee in a tall glass",
+      "source": "https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=900&q=75&fm=jpg",
+      "licence": "unsplash",
+      "width": 900
+    },
+    {
+      "file": "menu/bv03.jpg",
+      "use": "Mineral Water 1L",
+      "depicts": "Unbranded still-water bottles on dark stone (new — previously no image)",
+      "source": "https://images.pexels.com/photos/1540235/pexels-photo-1540235.jpeg?auto=compress&cs=tinysrgb&w=900",
+      "page": "https://www.pexels.com/photo/1540235/",
+      "licence": "pexels",
+      "width": 900
+    },
+    {
+      "file": "menu/mk01.jpg",
+      "use": "Virgin Mojito",
+      "depicts": "Tall mint-and-lime mojito (replaces a three-cocktail row)",
+      "source": "https://images.pexels.com/photos/33129959/pexels-photo-33129959.jpeg?auto=compress&cs=tinysrgb&w=900",
+      "page": "https://www.pexels.com/photo/33129959/",
+      "licence": "pexels",
+      "width": 900
+    },
+    {
+      "file": "menu/mk02.jpg",
+      "use": "Blue Lagoon",
+      "depicts": "Blue cocktail with lemon and lime on black (replaces a red cocktail)",
+      "source": "https://images.pexels.com/photos/10986583/pexels-photo-10986583.jpeg?auto=compress&cs=tinysrgb&w=900",
+      "page": "https://www.pexels.com/photo/10986583/",
+      "licence": "pexels",
+      "width": 900
+    },
+    {
+      "file": "menu/ck01.jpg",
+      "use": "Mojito",
+      "depicts": "Mojito being topped up",
+      "source": "https://images.unsplash.com/photo-1551538827-9c037cb4f32a?w=900&q=75&fm=jpg",
+      "licence": "unsplash",
+      "width": 900
+    },
+    {
+      "file": "menu/ck02.jpg",
+      "use": "Long Island Iced Tea",
+      "depicts": "Tall cola-coloured long drink with lemon on black (replaces a whisky pour)",
+      "source": "https://images.pexels.com/photos/6680479/pexels-photo-6680479.jpeg?auto=compress&cs=tinysrgb&w=900",
+      "page": "https://www.pexels.com/photo/6680479/",
+      "licence": "pexels",
+      "width": 900
+    },
+    {
+      "file": "menu/ck03.jpg",
+      "use": "Whiskey Sour",
+      "depicts": "Amber whiskey cocktail in a rocks glass",
+      "source": "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=900&q=75&fm=jpg",
+      "licence": "unsplash",
+      "width": 900
+    },
+    {
+      "file": "menu/br01.jpg",
+      "use": "Kingfisher Premium 650ml",
+      "depicts": "Kingfisher bottle with a poured glass in a pub (replaces a generic lager mug)",
+      "source": "https://images.pexels.com/photos/34080431/pexels-photo-34080431.jpeg?auto=compress&cs=tinysrgb&w=900",
+      "page": "https://www.pexels.com/photo/34080431/",
+      "licence": "pexels",
+      "width": 900
+    },
+    {
+      "file": "menu/br02.jpg",
+      "use": "Craft IPA 330ml",
+      "depicts": "Beer poured from a tap",
+      "source": "https://images.unsplash.com/photo-1535958636474-b021ee887b13?w=900&q=75&fm=jpg",
+      "licence": "unsplash",
+      "width": 900
+    },
+    {
+      "file": "menu/wn01.jpg",
+      "use": "House Red (glass)",
+      "depicts": "Red wine glasses raised",
+      "source": "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=900&q=75&fm=jpg",
+      "licence": "unsplash",
+      "width": 900
+    },
+    {
+      "file": "menu/wn02.jpg",
+      "use": "House White (glass)",
+      "depicts": "White wine glass, warm blurred room (the previous source returned 404)",
+      "source": "https://images.pexels.com/photos/10403547/pexels-photo-10403547.jpeg?auto=compress&cs=tinysrgb&w=900",
+      "page": "https://www.pexels.com/photo/10403547/",
+      "licence": "pexels",
+      "width": 900
+    },
+    {
+      "file": "menu/sp01.jpg",
+      "use": "Single Malt 30ml (Glenfiddich 12)",
+      "depicts": "Glenfiddich bottle and glass on black (replaces a Jack Daniel's photo)",
+      "source": "https://images.pexels.com/photos/7135971/pexels-photo-7135971.jpeg?auto=compress&cs=tinysrgb&w=900",
+      "page": "https://www.pexels.com/photo/7135971/",
+      "licence": "pexels",
+      "width": 900
+    },
+    {
+      "file": "menu/sp02.jpg",
+      "use": "Premium Vodka 30ml (Grey Goose)",
+      "depicts": "Grey Goose bottle beside a glass (new — previously no image)",
+      "source": "https://images.unsplash.com/photo-1650477021184-6fe8ef5b846e?w=900&q=75&fm=jpg",
+      "licence": "unsplash",
+      "width": 900
+    },
+    {
+      "file": "bottles/bs-jd.jpg",
+      "use": "Jack Daniel's 750ml — Bottle Service",
+      "depicts": "Jack Daniel's Old No. 7 Tennessee Whiskey bottle on black, single side light (replaces a Tennessee Honey photo — a different product — found in the screenshot review)",
+      "source": "https://images.pexels.com/photos/27393241/pexels-photo-27393241.jpeg?auto=compress&cs=tinysrgb&w=1000",
+      "page": "https://www.pexels.com/photo/27393241/",
+      "licence": "pexels",
+      "width": 1000
+    },
+    {
+      "file": "bottles/bs-gg.jpg",
+      "use": "Grey Goose 750ml — Bottle Service",
+      "depicts": "Grey Goose bottle beside a glass",
+      "source": "https://images.unsplash.com/photo-1650477021184-6fe8ef5b846e?w=1000&q=75&fm=jpg",
+      "licence": "unsplash",
+      "width": 1000
+    },
+    {
+      "file": "venue/hyderabad.jpg",
+      "use": "Branch: Hyderabad",
+      "depicts": "Warmly lit restaurant dining room, set tables and glassware",
+      "source": "https://images.pexels.com/photos/29962487/pexels-photo-29962487.jpeg?auto=compress&cs=tinysrgb&w=1400",
+      "page": "https://www.pexels.com/photo/29962487/",
+      "licence": "pexels",
+      "width": 1400
+    },
+    {
+      "file": "stock/chk-brst.jpg",
+      "use": "Stock: Chicken breast",
+      "depicts": "Raw chicken breasts with rosemary on white",
+      "source": "https://images.pexels.com/photos/5769376/pexels-photo-5769376.jpeg?auto=compress&cs=tinysrgb&w=700",
+      "page": "https://www.pexels.com/photo/5769376/",
+      "licence": "pexels",
+      "width": 700
+    },
+    {
+      "file": "stock/bun-brio.jpg",
+      "use": "Stock: Brioche bun",
+      "depicts": "Golden brioche buns with sesame, fresh from the oven",
+      "source": "https://images.pexels.com/photos/38433899/pexels-photo-38433899.jpeg?auto=compress&cs=tinysrgb&w=700",
+      "page": "https://www.pexels.com/photo/38433899/",
+      "licence": "pexels",
+      "width": 700
+    },
+    {
+      "file": "stock/chs-slc.jpg",
+      "use": "Stock: Cheddar slice",
+      "depicts": "Orange cheddar being sliced on a board",
+      "source": "https://images.pexels.com/photos/6004795/pexels-photo-6004795.jpeg?auto=compress&cs=tinysrgb&w=700",
+      "page": "https://www.pexels.com/photo/6004795/",
+      "licence": "pexels",
+      "width": 700
+    },
+    {
+      "file": "stock/onion.jpg",
+      "use": "Stock: Onion",
+      "depicts": "A pile of red onions",
+      "source": "https://images.pexels.com/photos/38121427/pexels-photo-38121427.jpeg?auto=compress&cs=tinysrgb&w=700",
+      "page": "https://www.pexels.com/photo/38121427/",
+      "licence": "pexels",
+      "width": 700
+    },
+    {
+      "file": "stock/lettuce.jpg",
+      "use": "Stock: Iceberg lettuce",
+      "depicts": "Half an iceberg lettuce on a wooden board with a knife",
+      "source": "https://images.pexels.com/photos/16350426/pexels-photo-16350426.jpeg?auto=compress&cs=tinysrgb&w=700",
+      "page": "https://www.pexels.com/photo/16350426/",
+      "licence": "pexels",
+      "width": 700
+    },
+    {
+      "file": "stock/mayo.jpg",
+      "use": "Stock: Mayonnaise",
+      "depicts": "Mayonnaise being whisked in a metal bowl",
+      "source": "https://images.pexels.com/photos/33775646/pexels-photo-33775646.jpeg?auto=compress&cs=tinysrgb&w=700",
+      "page": "https://www.pexels.com/photo/33775646/",
+      "licence": "pexels",
+      "width": 700
+    },
+    {
+      "file": "stock/potato.jpg",
+      "use": "Stock: Potato (fries grade)",
+      "depicts": "Raw unpeeled potatoes on wood",
+      "source": "https://images.pexels.com/photos/7774212/pexels-photo-7774212.jpeg?auto=compress&cs=tinysrgb&w=700",
+      "page": "https://www.pexels.com/photo/7774212/",
+      "licence": "pexels",
+      "width": 700
+    },
+    {
+      "file": "stock/mint.jpg",
+      "use": "Stock: Fresh mint",
+      "depicts": "Fresh mint sprig on a dark ground",
+      "source": "https://images.pexels.com/photos/13632808/pexels-photo-13632808.jpeg?auto=compress&cs=tinysrgb&w=700",
+      "page": "https://www.pexels.com/photo/13632808/",
+      "licence": "pexels",
+      "width": 700
+    },
+    {
+      "file": "stock/lime.jpg",
+      "use": "Stock: Lime",
+      "depicts": "A heap of green limes",
+      "source": "https://images.pexels.com/photos/31056108/pexels-photo-31056108.jpeg?auto=compress&cs=tinysrgb&w=700",
+      "page": "https://www.pexels.com/photo/31056108/",
+      "licence": "pexels",
+      "width": 700
+    },
+    {
+      "file": "stock/soda.jpg",
+      "use": "Stock: Soda water 750ml",
+      "depicts": "Sparkling water in a glass on black (no brand)",
+      "source": "https://images.pexels.com/photos/13723906/pexels-photo-13723906.jpeg?auto=compress&cs=tinysrgb&w=700",
+      "page": "https://www.pexels.com/photo/13723906/",
+      "licence": "pexels",
+      "width": 700
+    },
+    {
+      "file": "stock/ipa-330.jpg",
+      "use": "Stock: Craft IPA 330ml",
+      "depicts": "Unbranded brown beer bottle foaming on a bar counter",
+      "source": "https://images.pexels.com/photos/5055175/pexels-photo-5055175.jpeg?auto=compress&cs=tinysrgb&w=700",
+      "page": "https://www.pexels.com/photo/5055175/",
+      "licence": "pexels",
+      "width": 700
+    },
+    {
+      "file": "stock/butter.jpg",
+      "use": "Stock: Butter",
+      "depicts": "A block of butter on a wooden board",
+      "source": "https://images.pexels.com/photos/7966386/pexels-photo-7966386.jpeg?auto=compress&cs=tinysrgb&w=700",
+      "page": "https://www.pexels.com/photo/7966386/",
+      "licence": "pexels",
+      "width": 700
+    },
+    {
+      "file": "stock/chk-curry.jpg",
+      "use": "Stock: Chicken curry cut",
+      "depicts": "Raw bone-in chicken pieces with seasoning",
+      "source": "https://images.pexels.com/photos/7140318/pexels-photo-7140318.jpeg?auto=compress&cs=tinysrgb&w=700",
+      "page": "https://www.pexels.com/photo/7140318/",
+      "licence": "pexels",
+      "width": 700
+    },
+    {
+      "file": "stock/box-tka.jpg",
+      "use": "Stock: Takeaway box",
+      "depicts": "Clear plastic takeaway container on black",
+      "source": "https://images.pexels.com/photos/37851490/pexels-photo-37851490.jpeg?auto=compress&cs=tinysrgb&w=700",
+      "page": "https://www.pexels.com/photo/37851490/",
+      "licence": "pexels",
+      "width": 700
+    }
+  ]
+}
